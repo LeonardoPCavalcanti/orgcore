@@ -10,6 +10,12 @@ export type TabelaEscopada = {
 
 const registro = new Map<string, TabelaEscopada>();
 
+// As duas checagens abaixo lançam `Error` puro, não `ErroHttp` — de propósito.
+// Nome duplicado ou tabela nunca registrada são erro de programação (módulo
+// que esqueceu de se registrar no boot, nome digitado errado numa chamada),
+// nunca algo que o cliente da API causou ou pode corrigir. Isso deve virar 500
+// quando borbulhar até o topo. Não troque por um `ErroHttp`/4xx depois.
+
 export function registrarTabelaEscopada(nome: string, def: TabelaEscopada): void {
   if (registro.has(nome)) throw new Error(`tabela "${nome}" ja registrada`);
   registro.set(nome, def);
