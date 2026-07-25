@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@4med/contracts": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "pg": "^8.13.0"
   },
