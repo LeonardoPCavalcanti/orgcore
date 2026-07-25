@@ -1,0 +1,8 @@
+{
+  "name": "@4med/contracts",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": { "test": "vitest run" },
+  "dependencies": { "zod": "^3.24.0" }
+}
