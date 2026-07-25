@@ -12,7 +12,11 @@ export const unidades = pgTable('unidades', {
   caminho: text('caminho').notNull().default(''),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index('idx_unidades_caminho').on(t.caminho)]);
+}, (t) => [
+  // text_pattern_ops espelha o índice real criado na migration (0001_organograma.sql),
+  // necessário para o Postgres usar o índice em buscas "LIKE 'prefixo%'" fora do locale C.
+  index('idx_unidades_caminho').on(t.caminho.op('text_pattern_ops')),
+]);
 
 export type Unidade = typeof unidades.$inferSelect;
 export type TipoUnidade = Unidade['tipo'];

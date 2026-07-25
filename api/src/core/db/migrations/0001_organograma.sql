@@ -38,12 +38,13 @@ create trigger trg_caminho_unidade
   before insert or update of pai_id on unidades
   for each row execute function atualizar_caminho_unidade();
 
--- Propaga a troca de caminho para a descendência, uma única vez.
+-- Dispara quando pai_id muda (o trigger BEFORE ja recalculou new.caminho a partir do
+-- novo pai). Reescreve o caminho de toda a descendencia num unico UPDATE, localizando as
+-- linhas pelo prefixo antigo. Esse UPDATE altera somente a coluna caminho, nunca pai_id,
+-- entao ele nao pode reacionar este mesmo trigger (que so ouve "update of pai_id") —
+-- nao ha recursao para proteger aqui.
 create function propagar_caminho_unidade() returns trigger as $$
 begin
-  if pg_trigger_depth() > 1 then
-    return null;
-  end if;
   if new.caminho is distinct from old.caminho then
     update unidades
        set caminho = new.caminho || substring(caminho from length(old.caminho) + 1)
