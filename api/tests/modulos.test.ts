@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import { and, eq } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 import { sincronizarPermissoes, validarManifestos } from '../src/core/modulos/registro';
 import type { ManifestoModulo } from '../src/core/modulos/tipos';
 import { db } from '../src/core/db/client';
-import { permissoes } from '../src/core/db/schema/acesso';
+import { papeis, papelPermissoes, permissoes } from '../src/core/db/schema/acesso';
 
 beforeAll(prepararBanco);
 beforeEach(limparBanco);
@@ -83,9 +85,51 @@ describe('sincronizarPermissoes', () => {
     expect(linhas[0]?.modulo).toBe('pessoas');
   });
 
-  it('remove permissao que deixou de existir no manifesto', async () => {
+  it('desativa (sem apagar) permissao que deixou de existir no manifesto', async () => {
     await sincronizarPermissoes([base()]);
     await sincronizarPermissoes([base({ permissoes: [] })]);
-    expect(await db.select().from(permissoes)).toHaveLength(0);
+    const linhas = await db.select().from(permissoes);
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0]?.ativo).toBe(false);
+  });
+
+  it('preserva a concessao em papel_permissoes quando a permissao e desativada', async () => {
+    await sincronizarPermissoes([base()]);
+
+    const papel = { id: randomUUID(), nome: 'Colaborador', descricao: '' };
+    await db.insert(papeis).values(papel);
+    await db.insert(papelPermissoes).values({
+      papelId: papel.id, permissaoChave: 'pessoas.colaborador.ler', alcance: 'proprio',
+    });
+
+    await sincronizarPermissoes([base({ permissoes: [] })]);
+
+    const concessoes = await db.select().from(papelPermissoes)
+      .where(eq(papelPermissoes.papelId, papel.id));
+    expect(concessoes).toHaveLength(1);
+    expect(concessoes[0]?.permissaoChave).toBe('pessoas.colaborador.ler');
+  });
+
+  it('reativa permissao que volta ao manifesto, preservando a concessao original', async () => {
+    await sincronizarPermissoes([base()]);
+
+    const papel = { id: randomUUID(), nome: 'Colaborador', descricao: '' };
+    await db.insert(papeis).values(papel);
+    await db.insert(papelPermissoes).values({
+      papelId: papel.id, permissaoChave: 'pessoas.colaborador.ler', alcance: 'subarvore',
+    });
+
+    await sincronizarPermissoes([base({ permissoes: [] })]);
+    await sincronizarPermissoes([base()]);
+
+    const linhas = await db.select().from(permissoes);
+    expect(linhas[0]?.ativo).toBe(true);
+
+    const concessoes = await db.select().from(papelPermissoes).where(and(
+      eq(papelPermissoes.papelId, papel.id),
+      eq(papelPermissoes.permissaoChave, 'pessoas.colaborador.ler'),
+    ));
+    expect(concessoes).toHaveLength(1);
+    expect(concessoes[0]?.alcance).toBe('subarvore');
   });
 });

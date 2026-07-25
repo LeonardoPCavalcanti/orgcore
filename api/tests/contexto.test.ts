@@ -154,4 +154,14 @@ describe('resolverContexto', () => {
     expect(aprovar?.alcance).toBe('proprio');
     expect(aprovar?.unidades).toEqual([equipeFinanceiro.id]);
   });
+
+  it('permissao desativada nao concede acesso, mesmo com a concessao intacta', async () => {
+    const c = await criarCenarioAcesso();
+    await db.update(permissoes)
+      .set({ ativo: false })
+      .where(eq(permissoes.chave, 'pessoas.colaborador.ler'));
+
+    const ctx = await resolverContexto(c.analista.id);
+    expect(ctx.permissoes.size).toBe(0);
+  });
 });

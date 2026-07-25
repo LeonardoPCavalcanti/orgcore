@@ -37,6 +37,13 @@ export const permissoes = pgTable('permissoes', {
   modulo: text('modulo').notNull(),
   descricao: text('descricao').notNull().default(''),
   sensivel: boolean('sensivel').notNull().default(false),
+  /**
+   * Uma permissão que sai do manifesto (typo, refatoração de nome, módulo
+   * temporariamente fora da lista) é desativada, nunca apagada — apagar levaria
+   * junto, por cascade, as concessões em `papel_permissoes` que dependem dela.
+   * Ver `sincronizarPermissoes`.
+   */
+  ativo: boolean('ativo').notNull().default(true),
 });
 
 export const papelPermissoes = pgTable('papel_permissoes', {

@@ -1,7 +1,7 @@
 import { alcanceMaisAmplo, type Alcance } from '@4med/contracts';
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { cargoPapeis, papelPermissoes, vinculos } from '../db/schema/acesso';
+import { cargoPapeis, papelPermissoes, permissoes as tabelaPermissoes, vinculos } from '../db/schema/acesso';
 import { unidades } from '../db/schema/organograma';
 import { idsDaSubarvore } from '../organograma/servico';
 
@@ -42,10 +42,15 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
     .innerJoin(unidades, eq(unidades.id, vinculos.unidadeId))
     .innerJoin(cargoPapeis, eq(cargoPapeis.cargoId, vinculos.cargoId))
     .innerJoin(papelPermissoes, eq(papelPermissoes.papelId, cargoPapeis.papelId))
+    // Uma permissão desativada (fora do manifesto atual, ver sincronizarPermissoes)
+    // não pode continuar concedendo acesso só porque a concessão antiga em
+    // papel_permissoes ainda existe no banco.
+    .innerJoin(tabelaPermissoes, eq(tabelaPermissoes.chave, papelPermissoes.permissaoChave))
     .where(and(
       eq(vinculos.usuarioId, usuarioId),
       lte(vinculos.inicio, sql`current_date`),
       or(isNull(vinculos.fim), sql`${vinculos.fim} >= current_date`),
+      eq(tabelaPermissoes.ativo, true),
     ));
 
   const permissoes = new Map<string, EscopoPermissao>();

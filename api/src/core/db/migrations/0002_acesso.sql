@@ -30,12 +30,15 @@ create table cargo_papeis (
   primary key (cargo_id, papel_id)
 );
 
--- Catálogo sincronizado a partir dos manifestos dos módulos no boot.
+-- Catálogo sincronizado a partir dos manifestos dos módulos no boot. Uma permissão
+-- que sai do manifesto é marcada com ativo = false, nunca apagada: apagar levaria
+-- junto, por cascade, as concessões em papel_permissoes que dependem dela.
 create table permissoes (
   chave     text primary key,
   modulo    text not null,
   descricao text not null default '',
-  sensivel  boolean not null default false
+  sensivel  boolean not null default false,
+  ativo     boolean not null default true
 );
 
 create table papel_permissoes (

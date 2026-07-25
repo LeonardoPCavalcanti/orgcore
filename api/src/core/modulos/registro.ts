@@ -1,9 +1,8 @@
 import { chavePermissao } from '@4med/contracts';
 import { notInArray, sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
 import { db } from '../db/client';
 import { permissoes } from '../db/schema/acesso';
-import type { ManifestoModulo, RequisicaoAutenticada } from './tipos';
+import type { ManifestoModulo } from './tipos';
 
 /**
  * Executado no boot. Qualquer inconsistência derruba a aplicação — é a garantia
@@ -59,6 +58,32 @@ export function validarManifestos(manifestos: ManifestoModulo[]): void {
   }
 }
 
+/**
+ * Sincroniza o catálogo de permissões a partir dos manifestos.
+ *
+ * PRÉ-CONDIÇÃO (não verificada aqui): `manifestos` precisa ser o conjunto COMPLETO
+ * de módulos da aplicação, nunca um subconjunto — qualquer módulo ausente desta
+ * lista tem suas permissões desativadas (ver abaixo). Chamar esta função com um
+ * subconjunto desativa, silenciosamente, as permissões dos módulos que ficaram
+ * de fora.
+ *
+ * PRÉ-CONDIÇÃO (não verificada aqui): assume que `validarManifestos` já rodou
+ * sobre este mesmo conjunto de manifestos. Em particular, não detecta chave de
+ * permissão duplicada entre manifestos — duas linhas com a mesma chave no mesmo
+ * lote produzem erro cru do Postgres (violação de chave primária dentro do
+ * próprio INSERT), não uma mensagem em português. Isso só é seguro porque, na
+ * composição real do boot, `validarManifestos` sempre roda antes e barra
+ * duplicidade antes de chegar aqui.
+ *
+ * Nunca apaga uma permissão: `papel_permissoes.permissao_chave` referencia
+ * `permissoes.chave` com `on delete cascade`, e apagar a permissão apagaria
+ * junto, de forma irreversível e silenciosa, toda concessão que dependia dela —
+ * o efeito de um simples typo ou de uma refatoração de nome vira gente perdendo
+ * acesso sem aviso. Em vez disso: a chave presente no manifesto é upsertada com
+ * `ativo = true`; a chave ausente é marcada `ativo = false`, preservando a linha
+ * e as concessões associadas. Se a chave voltar ao manifesto depois, ela reativa
+ * e as concessões antigas voltam a valer exatamente como estavam.
+ */
 export async function sincronizarPermissoes(manifestos: ManifestoModulo[]): Promise<void> {
   const linhas = manifestos.flatMap((m) =>
     m.permissoes.map((p) => ({
@@ -66,6 +91,7 @@ export async function sincronizarPermissoes(manifestos: ManifestoModulo[]): Prom
       modulo: m.nome,
       descricao: p.descricao,
       sensivel: p.sensivel ?? false,
+      ativo: true,
     })),
   );
 
@@ -77,37 +103,14 @@ export async function sincronizarPermissoes(manifestos: ManifestoModulo[]): Prom
           modulo: sql`excluded.modulo`,
           descricao: sql`excluded.descricao`,
           sensivel: sql`excluded.sensivel`,
+          ativo: sql`excluded.ativo`,
         },
       });
-      await tx.delete(permissoes).where(
-        notInArray(permissoes.chave, linhas.map((l) => l.chave)),
-      );
+      await tx.update(permissoes)
+        .set({ ativo: false })
+        .where(notInArray(permissoes.chave, linhas.map((l) => l.chave)));
     } else {
-      await tx.delete(permissoes);
+      await tx.update(permissoes).set({ ativo: false });
     }
   });
-}
-
-/**
- * Registra as rotas de todos os módulos no servidor, depois de validar os
- * manifestos e sincronizar o catálogo de permissões. A injeção de `contexto`
- * na requisição é feita por um hook de autenticação fora deste arquivo
- * (Task 5): aqui apenas repassamos a requisição já enriquecida ao handler.
- */
-export async function registrarModulos(
-  app: FastifyInstance,
-  manifestos: ManifestoModulo[],
-): Promise<void> {
-  validarManifestos(manifestos);
-  await sincronizarPermissoes(manifestos);
-
-  for (const m of manifestos) {
-    for (const r of m.rotas) {
-      app.route({
-        method: r.metodo,
-        url: r.caminho,
-        handler: async (req, resp) => r.handler(req as unknown as RequisicaoAutenticada, resp),
-      });
-    }
-  }
 }
