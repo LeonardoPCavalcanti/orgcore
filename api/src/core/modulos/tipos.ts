@@ -1,10 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ContextoUsuario } from '../rbac/contexto';
+import type { Repositorio } from '../rbac/repositorio';
 
-// O campo `repo` é acrescentado na Task 5, junto com o repositório em si.
-// Declará-lo aqui antes disso criaria import para um módulo inexistente.
 export type RequisicaoAutenticada = FastifyRequest & {
   contexto: ContextoUsuario;
+  repo: Repositorio;
 };
 
 export type HandlerRota = (
