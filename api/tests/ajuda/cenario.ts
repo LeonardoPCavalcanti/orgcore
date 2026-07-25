@@ -37,20 +37,32 @@ export async function criarCenarioAcesso() {
   const diretor = { id: randomUUID(), email: 'diretor@4med.com', nome: 'Dario', status: 'ativo' as const };
   await db.insert(usuarios).values([analista, diretor]);
 
+  const vinculoAnalista = randomUUID();
+  const vinculoDiretor = randomUUID();
   const hoje = new Date().toISOString().slice(0, 10);
   await db.insert(vinculos).values([
-    { id: randomUUID(), usuarioId: analista.id, unidadeId: equipeSocial.id, cargoId: cargoAnalista.id, principal: true, inicio: hoje },
-    { id: randomUUID(), usuarioId: diretor.id, unidadeId: marketing.id, cargoId: cargoDiretor.id, principal: true, inicio: hoje },
+    { id: vinculoAnalista, usuarioId: analista.id, unidadeId: equipeSocial.id, cargoId: cargoAnalista.id, principal: true, inicio: hoje },
+    { id: vinculoDiretor, usuarioId: diretor.id, unidadeId: marketing.id, cargoId: cargoDiretor.id, principal: true, inicio: hoje },
   ]);
 
   return {
     empresa, marketing, vendas, equipeSocial,
     analista, diretor,
     cargoAnalista, cargoDiretor,
-    async encerrarVinculo(usuarioId: string) {
+    vinculoAnalista, vinculoDiretor,
+    /**
+     * Encerra vínculo(s) do usuário (seta `fim` para o passado). Sem `vinculoId`,
+     * encerra TODOS os vínculos do usuário — comportamento útil quando ele só tem
+     * um, mas uma armadilha silenciosa assim que alguém tiver mais de um vínculo
+     * ativo e quiser encerrar só um deles. Passe `vinculoId` nesse caso.
+     */
+    async encerrarVinculo(usuarioId: string, vinculoId?: string) {
+      const condicao = vinculoId
+        ? and(eq(vinculos.usuarioId, usuarioId), eq(vinculos.id, vinculoId))
+        : eq(vinculos.usuarioId, usuarioId);
       await db.update(vinculos)
         .set({ fim: '2020-01-01' })
-        .where(eq(vinculos.usuarioId, usuarioId));
+        .where(condicao);
     },
   };
 }

@@ -5,14 +5,24 @@ import { cargoPapeis, papelPermissoes, vinculos } from '../db/schema/acesso';
 import { unidades } from '../db/schema/organograma';
 import { idsDaSubarvore } from '../organograma/servico';
 
+export type EscopoPermissao = {
+  alcance: Alcance;
+  /** unidades concretas onde esta permissão vale, já expandidas e sem duplicatas */
+  unidades: number[];
+};
+
 export type ContextoUsuario = {
   usuarioId: string;
-  /** chave da permissão -> alcance efetivo (o mais amplo entre todos os vínculos) */
-  permissoes: Map<string, Alcance>;
-  /** unidades visíveis considerando o alcance de subárvore */
-  unidadesDeEscopo: number[];
-  /** unidades dos vínculos ativos, sem expansão */
-  unidadesProprias: number[];
+  /**
+   * chave da permissão -> alcance efetivo e as unidades onde ela vale.
+   *
+   * Cada entrada é isolada por permissão: as unidades de uma chave nunca incluem
+   * unidades concedidas apenas por outra chave, mesmo quando vêm de vínculos
+   * diferentes do mesmo usuário. Um vínculo em Marketing que concede
+   * `x.y.ler:subarvore` e um vínculo em Vendas que concede só `x.y.aprovar` não
+   * fazem `x.y.ler` enxergar Vendas.
+   */
+  permissoes: Map<string, EscopoPermissao>;
   delegacaoId: string | null;
 };
 
@@ -38,33 +48,39 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
       or(isNull(vinculos.fim), sql`${vinculos.fim} >= current_date`),
     ));
 
-  const permissoes = new Map<string, Alcance>();
-  const unidadesProprias = new Set<number>();
-  const caminhosParaExpandir = new Set<string>();
-  let temGlobal = false;
+  const permissoes = new Map<string, EscopoPermissao>();
+  // Uma linha com alcance 'subarvore'/'global' repete a mesma expansão sempre que o
+  // mesmo caminho aparece de novo (outra permissão do mesmo vínculo, por exemplo).
+  const cacheExpansao = new Map<string, Promise<number[]>>();
+
+  const unidadesDaLinha = (alcance: Alcance, unidadeId: number, caminho: string): Promise<number[]> => {
+    if (alcance === 'proprio') return Promise.resolve([unidadeId]);
+    const chaveCache = alcance === 'global' ? '/' : caminho;
+    const existente = cacheExpansao.get(chaveCache);
+    if (existente) return existente;
+    const promessa = idsDaSubarvore(chaveCache);
+    cacheExpansao.set(chaveCache, promessa);
+    return promessa;
+  };
 
   for (const l of linhas) {
-    const anterior = permissoes.get(l.chave);
-    permissoes.set(l.chave, anterior ? alcanceMaisAmplo(anterior, l.alcance) : l.alcance);
-    unidadesProprias.add(l.unidadeId);
-    if (l.alcance === 'subarvore') caminhosParaExpandir.add(l.caminho);
-    if (l.alcance === 'global') temGlobal = true;
-  }
-
-  const escopo = new Set<number>(unidadesProprias);
-  if (temGlobal) {
-    for (const id of await idsDaSubarvore('/')) escopo.add(id);
-  } else {
-    for (const caminho of caminhosParaExpandir) {
-      for (const id of await idsDaSubarvore(caminho)) escopo.add(id);
+    // Cada linha só pode alargar o alcance E as unidades da SUA PRÓPRIA chave de
+    // permissão — nunca as de outra. É o que impede o vazamento entre
+    // departamentos que vínculos diferentes, concedendo permissões diferentes,
+    // causariam se o escopo fosse acumulado por usuário em vez de por permissão.
+    const concedidas = await unidadesDaLinha(l.alcance, l.unidadeId, l.caminho);
+    const atual = permissoes.get(l.chave);
+    if (!atual) {
+      permissoes.set(l.chave, { alcance: l.alcance, unidades: [...concedidas] });
+    } else {
+      atual.alcance = alcanceMaisAmplo(atual.alcance, l.alcance);
+      atual.unidades.push(...concedidas);
     }
   }
 
-  return {
-    usuarioId,
-    permissoes,
-    unidadesDeEscopo: [...escopo].sort((a, b) => a - b),
-    unidadesProprias: [...unidadesProprias].sort((a, b) => a - b),
-    delegacaoId: null,
-  };
+  for (const escopo of permissoes.values()) {
+    escopo.unidades = [...new Set(escopo.unidades)].sort((a, b) => a - b);
+  }
+
+  return { usuarioId, permissoes, delegacaoId: null };
 }
