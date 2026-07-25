@@ -1,0 +1,45 @@
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { ContextoUsuario } from '../rbac/contexto';
+
+// O campo `repo` é acrescentado na Task 5, junto com o repositório em si.
+// Declará-lo aqui antes disso criaria import para um módulo inexistente.
+export type RequisicaoAutenticada = FastifyRequest & {
+  contexto: ContextoUsuario;
+};
+
+export type HandlerRota = (
+  req: RequisicaoAutenticada,
+  resp: FastifyReply,
+) => Promise<unknown>;
+
+export type DefinicaoPermissao = {
+  chave: string;
+  descricao: string;
+  /** Leituras deste recurso entram na trilha de auditoria automaticamente. */
+  sensivel?: boolean;
+};
+
+export type DefinicaoRota = {
+  metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  caminho: string;
+  /** Chave da permissão exigida, ou null quando `publica` ou `autenticada` for true. */
+  permissao: string | null;
+  /** Acessível sem sessão. Ex.: login, aceitar convite. */
+  publica?: boolean;
+  /** Exige sessão válida, mas nenhuma permissão específica. Ex.: /auth/eu, sair. */
+  autenticada?: boolean;
+  handler: HandlerRota;
+};
+
+export type ItemMenu = {
+  rotulo: string;
+  caminho: string;
+  permissao: string;
+};
+
+export type ManifestoModulo = {
+  nome: string;
+  permissoes: DefinicaoPermissao[];
+  rotas: DefinicaoRota[];
+  menu: ItemMenu[];
+};
