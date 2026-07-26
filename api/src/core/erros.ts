@@ -33,6 +33,20 @@ export const csrfInvalido = () =>
   new ErroHttp(403, 'csrf_invalido', 'Token CSRF ausente ou inválido');
 
 /**
+ * Orçamento de tentativas de segundo fator desta sessão esgotado. A sessão já foi
+ * REVOGADA quando este erro é lançado — não é um bloqueio temporário: o caminho de
+ * volta é um login novo com senha, que por sua vez passa pelos limites de
+ * `tentativas_login`. Mesmo código (`muitas_tentativas`) e mesmo status do limite
+ * de login: para o front é a mesma decisão, voltar à tela de entrar.
+ */
+export const muitasTentativasMfa = () =>
+  new ErroHttp(
+    429,
+    'muitas_tentativas',
+    'Muitas tentativas de confirmação do segundo fator. A sessão foi encerrada; entre novamente.',
+  );
+
+/**
  * A trilha de auditoria é append-only: um vazamento gravado nela não tem como
  * ser corrigido ou removido depois. Por isso `registrarAuditoria` recusa, em
  * tempo de execução, qualquer diff que contenha uma chave que pareça segredo

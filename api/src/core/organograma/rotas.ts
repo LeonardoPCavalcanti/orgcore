@@ -5,6 +5,7 @@ import { db } from '../db/client';
 import { unidades } from '../db/schema/organograma';
 import { semPermissao } from '../erros';
 import type { DefinicaoRota } from '../modulos/tipos';
+import { exigirAutenticacao } from '../requisicao';
 import { criarUnidade } from './servico';
 
 const entradaUnidade = z.object({
@@ -17,7 +18,8 @@ export const rotasOrganograma: DefinicaoRota[] = [
   {
     metodo: 'GET', caminho: '/organograma', permissao: 'core.unidade.ler',
     handler: async (req) => {
-      const escopo = req.contexto.permissoes.get('core.unidade.ler');
+      const { contexto } = exigirAutenticacao(req);
+      const escopo = contexto.permissoes.get('core.unidade.ler');
       if (!escopo) throw semPermissao();
       return db.select().from(unidades).where(inArray(unidades.id, escopo.unidades));
     },
@@ -25,13 +27,14 @@ export const rotasOrganograma: DefinicaoRota[] = [
   {
     metodo: 'POST', caminho: '/organograma', permissao: 'core.unidade.administrar',
     handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
       const dados = entradaUnidade.parse(req.body);
       const criada = await criarUnidade(dados);
       await registrarAuditoria({
-        atorId: req.contexto.usuarioId, acao: 'unidade.criada', recursoTipo: 'unidade',
+        atorId: contexto.usuarioId, acao: 'unidade.criada', recursoTipo: 'unidade',
         recursoId: String(criada.id), unidadeId: criada.id, ip: req.ip,
         agente: String(req.headers['user-agent'] ?? ''),
-        delegacaoId: req.contexto.delegacaoId, depois: criada,
+        delegacaoId: contexto.delegacaoId, depois: criada,
       });
       return criada;
     },

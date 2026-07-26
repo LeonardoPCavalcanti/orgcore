@@ -13,11 +13,17 @@ export type EscopoPermissao = {
    * `sensivel`/`modulo` vêm do catálogo (`permissoes`), carregados pelo mesmo
    * `innerJoin` que `resolverContexto` já fazia — evita uma segunda consulta a
    * `permissoes` só para descobrir se a permissão é sensível (ver `criarApp`).
-   * Opcionais para não quebrar código existente que monta `EscopoPermissao`
-   * manualmente (ex.: fixtures de teste) sem precisar declarar os dois campos.
+   *
+   * OBRIGATÓRIOS de propósito, mesmo custando um par de campos a mais em cada
+   * `EscopoPermissao` montado à mão: é `sensivel` que faz `criarApp` gravar na
+   * trilha o acesso a uma leitura sensível. Enquanto era opcional, "o campo não
+   * veio" era indistinguível de `sensivel: false` — um refactor que deixasse de
+   * projetá-lo no `select` faria `GET /auditoria` passar a servir a trilha inteira
+   * SEM registrar o acesso, com `tsc`, `eslint` e a suíte toda verdes. Obrigatório,
+   * a mesma omissão vira erro de compilação, que é onde ela precisa aparecer.
    */
-  sensivel?: boolean;
-  modulo?: string;
+  sensivel: boolean;
+  modulo: string;
 };
 
 export type ContextoUsuario = {

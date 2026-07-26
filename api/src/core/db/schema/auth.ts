@@ -1,4 +1,4 @@
-import { bigint, boolean, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { cargos, usuarios } from './acesso';
 import { unidades } from './organograma';
 
@@ -28,6 +28,8 @@ export const sessoes = pgTable('sessoes', {
   revogadaEm: timestamp('revogada_em', { withTimezone: true }),
   /** Ver comentario na migration 0004_sessoes.sql. */
   mfaPendente: boolean('mfa_pendente').notNull().default(false),
+  /** Ver comentario na migration 0004_sessoes.sql. */
+  tentativasMfa: integer('tentativas_mfa').notNull().default(0),
 });
 
 export const tentativasLogin = pgTable('tentativas_login', {

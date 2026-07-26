@@ -152,7 +152,9 @@ describe('repositorio — filtro real contra tabela registrada', () => {
     await db.insert(registrosTesteRbac).values({ id: randomUUID(), unidadeId: c.marketing.id, donoId: null, nome: 'x' });
 
     const permissoesComEscopoVazio = new Map<string, EscopoPermissao>([
-      ['pessoas.colaborador.ler', { alcance: 'subarvore', unidades: [] }],
+      ['pessoas.colaborador.ler', {
+        alcance: 'subarvore', unidades: [], sensivel: false, modulo: 'pessoas',
+      }],
     ]);
     const ctxEscopoVazio: ContextoUsuario = {
       usuarioId: c.diretor.id,

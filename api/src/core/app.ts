@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
@@ -27,8 +27,47 @@ const ROTAS_PERMITIDAS_COM_MFA_PENDENTE = new Set(['POST /auth/mfa', 'POST /auth
 // checagem so se aplica a rotas nao-publicas, exatamente as que carregam uma sessao.
 const METODOS_MUTANTES = new Set(['POST', 'PATCH', 'DELETE']);
 
+/**
+ * Compara dois tokens sem vazar, pelo tempo gasto, quantos caracteres iniciais
+ * batem. O `!==` de string do JavaScript sai no primeiro byte diferente.
+ *
+ * Aqui não há oráculo prático — para forjar o cabeçalho o atacante já precisaria
+ * conhecer o cookie —, mas o resto do projeto trata canal lateral de tempo com
+ * cuidado (ver `autenticar`, em auth/sessoes.ts), e uma comparação de segredo que
+ * não é de tempo constante é o tipo de detalhe que se copia para o lugar errado.
+ *
+ * Tamanhos diferentes retornam antes: `timingSafeEqual` exige buffers iguais em
+ * tamanho, e o tamanho do token (32 caracteres, 24 bytes em base64url) é fixo e
+ * público — não é o segredo que se está protegendo.
+ */
+function iguaisEmTempoConstante(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a, 'utf8');
+  const bufferB = Buffer.from(b, 'utf8');
+  if (bufferA.length !== bufferB.length) return false;
+  return timingSafeEqual(bufferA, bufferB);
+}
+
 export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyInstance> {
   validarManifestos(manifestos);
+
+  // A allowlist acima é escrita à mão, casada por string contra `metodo caminho`.
+  // Se alguém renomear `/auth/mfa` no manifesto, a aplicação subiria normalmente e
+  // TODA sessão pendente perderia o único caminho para confirmar o segundo fator —
+  // usuário com MFA ativo trancado em 401 `mfa_pendente` até o teto de 7 dias, sem
+  // nenhum teste vermelho fora do arquivo de auth. Mesmo espírito do resto de
+  // `validarManifestos`: inconsistência de manifesto derruba o boot, nunca vira
+  // comportamento estranho em produção.
+  const rotasRegistradas = new Set(
+    manifestos.flatMap((m) => m.rotas.map((r) => `${r.metodo} ${r.caminho}`)),
+  );
+  for (const id of ROTAS_PERMITIDAS_COM_MFA_PENDENTE) {
+    if (!rotasRegistradas.has(id)) {
+      throw new Error(
+        `rota "${id}" e alcancavel por sessao com MFA pendente, mas nao existe em nenhum manifesto`,
+      );
+    }
+  }
+
   await sincronizarPermissoes(manifestos);
 
   const app = Fastify({
@@ -82,13 +121,26 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
           const token = req.cookies[COOKIE_SESSAO];
           if (!token) throw naoAutenticado();
 
-          const { usuarioId, sessaoId, mfaPendente } = await validarSessao(token);
-
+          // CSRF ANTES de `validarSessao`, que escreve (renovacao deslizante e
+          // `ultimo_uso`). Na ordem inversa, um site hostil disparando uma mutacao
+          // cross-site era barrado com 403 — corretamente — mas ja tinha estendido
+          // a validade da sessao da vitima em 12h e sujado `ultimo_uso`, poluindo
+          // exatamente a tela de sessoes ativas que serve para a pessoa reconhecer
+          // o que e dela. Requisicao recusada nao renova nada. A checagem do cookie
+          // de sessao continua vindo primeiro, para que "sem sessao" siga sendo 401
+          // e nao 403.
           if (METODOS_MUTANTES.has(rota.metodo)) {
             const cookieCsrf = req.cookies[COOKIE_CSRF];
             const cabecalhoCsrf = req.headers[CABECALHO_CSRF];
-            if (!cookieCsrf || cabecalhoCsrf !== cookieCsrf) throw csrfInvalido();
+            // Cabecalho repetido chega como array: recusa, em vez de escolher uma
+            // das ocorrencias — fail-closed.
+            if (cookieCsrf === undefined || typeof cabecalhoCsrf !== 'string'
+              || !iguaisEmTempoConstante(cabecalhoCsrf, cookieCsrf)) {
+              throw csrfInvalido();
+            }
           }
+
+          const { usuarioId, sessaoId, mfaPendente } = await validarSessao(token);
 
           if (mfaPendente && !ROTAS_PERMITIDAS_COM_MFA_PENDENTE.has(idRota)) {
             throw mfaPendenteErro();
@@ -108,8 +160,9 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
             // `sensivel`/`modulo` vêm do próprio `contexto`, resolvido acima — nunca
             // uma segunda consulta a `permissoes` só para descobrir isso (ver
             // comentário em `EscopoPermissao`, em rbac/contexto.ts).
+            // `escopo` existe: a checagem de `permissoes.has` acima ja garantiu.
             const escopo = contexto.permissoes.get(rota.permissao);
-            if (escopo?.sensivel) {
+            if (escopo !== undefined && escopo.sensivel) {
               // Decisao: se `registrarAuditoria` lancar aqui, a excecao SOBE e a
               // requisicao inteira falha (500, via setErrorHandler acima) — nao ha
               // try/catch escondendo o erro. Uma leitura sensivel que nao pode ser
@@ -123,7 +176,7 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
               // mesma regra de propagar.
               await registrarAuditoria({
                 atorId: usuarioId, acao: `${rota.permissao}.acessado`,
-                recursoTipo: escopo.modulo ?? '', recursoId: null,
+                recursoTipo: escopo.modulo, recursoId: null,
                 unidadeId: escopo.unidades[0] ?? null,
                 ip: req.ip, agente: String(req.headers['user-agent'] ?? ''),
                 delegacaoId: contexto.delegacaoId,

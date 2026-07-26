@@ -1,14 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { ContextoUsuario } from '../rbac/contexto';
-import type { Repositorio } from '../rbac/repositorio';
 
-export type RequisicaoAutenticada = FastifyRequest & {
-  contexto: ContextoUsuario;
-  repo: Repositorio;
-};
-
+/**
+ * Todo handler recebe a requisição CRUA, sem contexto garantido pelo tipo. Quem
+ * precisa de contexto/repositório/sessão chama `exigirAutenticacao`
+ * (core/requisicao.ts) e trabalha com o resultado. Tipar o parâmetro como uma
+ * requisição já autenticada seria mentira em rota `publica`, onde o preHandler
+ * retorna antes de preencher qualquer coisa.
+ */
 export type HandlerRota = (
-  req: RequisicaoAutenticada,
+  req: FastifyRequest,
   resp: FastifyReply,
 ) => Promise<unknown>;
 

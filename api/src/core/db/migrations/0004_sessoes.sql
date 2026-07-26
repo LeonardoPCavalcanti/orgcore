@@ -12,7 +12,14 @@ create table sessoes (
   -- Sessao nasce pendente quando o usuario tem MFA ativo no momento do login:
   -- so vira false apos POST /auth/mfa confirmar o segundo fator. Quem nao tem
   -- MFA ativo nunca nasce pendente (ver api/src/core/auth/rotas.ts).
-  mfa_pendente boolean not null default false
+  mfa_pendente boolean not null default false,
+  -- Orcamento de tentativas de segundo fator DESTA sessao. Contado por sessao, e
+  -- nao por IP: a sessao pendente e o alvo do ataque (quem ja tem a senha quer
+  -- justamente atravessar o segundo fator DELA), e contar por IP deixaria um
+  -- atacante distribuido martelar a mesma sessao indefinidamente. Incrementado
+  -- atomicamente pelo proprio UPDATE ... RETURNING de `consumirTentativaMfa`
+  -- (api/src/core/auth/sessoes.ts) — nunca por SELECT seguido de UPDATE.
+  tentativas_mfa integer not null default 0
 );
 
 create index idx_sessoes_usuario on sessoes (usuario_id);

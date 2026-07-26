@@ -3,15 +3,18 @@ import {
   entradaAceitarConvite, entradaConvite, entradaLogin, entradaMfa,
 } from '@4med/contracts';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { registrarAuditoria } from '../auditoria/registro';
 import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
-import { ErroHttp } from '../erros';
+import { ErroHttp, muitasTentativasMfa, naoEncontrado } from '../erros';
 import type { DefinicaoRota } from '../modulos/tipos';
+import { exigirAutenticacao } from '../requisicao';
 import { aceitarConvite, criarConvite } from './convites';
 import { conferirMfa, exigeMfa } from './mfa';
 import {
-  autenticar, confirmarMfaDaSessao, criarSessao, listarSessoes, revogarSessao,
+  autenticar, confirmarMfaDaSessao, consumirTentativaMfa, criarSessao, listarSessoes,
+  revogarSessao, revogarSessaoPropria, MAX_TENTATIVAS_MFA,
 } from './sessoes';
 
 const COOKIE_SESSAO = 'sessao';
@@ -48,6 +51,11 @@ const origemDe = (req: { ip: string; headers: Record<string, unknown> }) => ({
   agente: String(req.headers['user-agent'] ?? ''),
 });
 
+// `:id` vem da URL e é interpolado numa coluna `uuid`: um valor malformado faria o
+// Postgres recusar o cast com erro cru, que o setErrorHandler traduziria em 500.
+// Sessão que não é do usuário e sessão que não existe têm a mesma resposta, 404.
+const idDeSessao = z.string().uuid();
+
 export const rotasAuth: DefinicaoRota[] = [
   {
     metodo: 'POST', caminho: '/auth/login', permissao: null, publica: true,
@@ -77,22 +85,46 @@ export const rotasAuth: DefinicaoRota[] = [
   {
     metodo: 'POST', caminho: '/auth/mfa', permissao: null, autenticada: true,
     handler: async (req) => {
+      const { contexto, sessaoId } = exigirAutenticacao(req);
       const { codigo } = entradaMfa.parse(req.body);
-      const ok = await conferirMfa(req.contexto.usuarioId, codigo);
-      if (!ok) throw new ErroHttp(422, 'codigo_invalido', 'Código inválido');
-      // Confirma o segundo fator NESTA sessao — e a unica forma de uma sessao
-      // pendente deixar de ser pendente (ver preHandler em core/app.ts).
-      await confirmarMfaDaSessao(req.sessaoId);
-      return { ok: true };
+
+      // Esta rota e o UNICO portao entre uma sessao pendente e a aplicacao
+      // inteira, entao e o unico lugar onde 10^6 combinacoes de 6 digitos podem
+      // ser marteladas. O orcamento e cobrado ANTES de conferir o codigo: palpite
+      // errado custa exatamente o mesmo que palpite certo, e um codigo de
+      // recuperacao (que `conferirMfa` tambem aceita) sai do mesmo orcamento —
+      // nao ha caminho de confirmacao que escape do contador.
+      const tentativas = await consumirTentativaMfa(sessaoId);
+      const ok = await conferirMfa(contexto.usuarioId, codigo);
+
+      if (ok) {
+        // Confirma o segundo fator NESTA sessao — e a unica forma de uma sessao
+        // pendente deixar de ser pendente (ver preHandler em core/app.ts).
+        await confirmarMfaDaSessao(sessaoId);
+        return { ok: true };
+      }
+
+      // Esgotou o orcamento: REVOGA, nao apenas bloqueia. Uma sessao pendente
+      // apenas "travada" continuaria de pe ate o teto absoluto, esperando o
+      // atacante voltar; revogada, o proximo palpite exige um login novo com
+      // senha, que passa pelos limites de `tentativas_login`. E o que transforma
+      // "10^6 palpites por sessao" em "MAX_TENTATIVAS_MFA palpites por login".
+      if (tentativas >= MAX_TENTATIVAS_MFA) {
+        await revogarSessao(sessaoId);
+        throw muitasTentativasMfa();
+      }
+
+      throw new ErroHttp(422, 'codigo_invalido', 'Código inválido');
     },
   },
   {
     metodo: 'POST', caminho: '/auth/sair', permissao: null, autenticada: true,
     handler: async (req, resp) => {
-      // `req.sessaoId` ja vem validado pelo preHandler desta mesma requisicao —
+      // `sessaoId` ja vem validado pelo preHandler desta mesma requisicao —
       // chamar `validarSessao` de novo aqui renovaria a sessao (renovacao
       // deslizante) um instante antes de revoga-la, sem necessidade nenhuma.
-      await revogarSessao(req.sessaoId);
+      const { sessaoId } = exigirAutenticacao(req);
+      await revogarSessao(sessaoId);
       resp.clearCookie(COOKIE_SESSAO, { path: '/' });
       resp.clearCookie(COOKIE_CSRF, { path: '/' });
       return { ok: true };
@@ -101,7 +133,7 @@ export const rotasAuth: DefinicaoRota[] = [
   {
     metodo: 'GET', caminho: '/auth/eu', permissao: null, autenticada: true,
     handler: async (req) => {
-      const { contexto } = req;
+      const { contexto } = exigirAutenticacao(req);
       const menu = req.server.menuDe(new Set(contexto.permissoes.keys()));
       const [u] = await db.select().from(usuarios)
         .where(eq(usuarios.id, contexto.usuarioId)).limit(1);
@@ -122,27 +154,32 @@ export const rotasAuth: DefinicaoRota[] = [
   },
   {
     metodo: 'GET', caminho: '/auth/sessoes', permissao: null, autenticada: true,
-    handler: async (req) => listarSessoes(req.contexto.usuarioId),
+    // `listarSessoes` projeta so o que a tela precisa — nunca `token_hash` nem o
+    // estado interno do gate de MFA (ver `SessaoVisivel`, em auth/sessoes.ts).
+    handler: async (req) => listarSessoes(exigirAutenticacao(req).contexto.usuarioId),
   },
   {
     metodo: 'DELETE', caminho: '/auth/sessoes/:id', permissao: null, autenticada: true,
     handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
       const { id } = req.params as { id: string };
-      const minhas = await listarSessoes(req.contexto.usuarioId);
-      if (!minhas.some((s) => s.id === id)) throw new ErroHttp(404, 'nao_encontrado', 'Sessão não encontrada');
-      await revogarSessao(id);
+      if (!idDeSessao.safeParse(id).success) throw naoEncontrado();
+      // A posse e condicao do proprio UPDATE (`revogarSessaoPropria`), nao de um
+      // SELECT anterior: nada entre conferir e escrever.
+      if (!(await revogarSessaoPropria(id, contexto.usuarioId))) throw naoEncontrado();
       return { ok: true };
     },
   },
   {
     metodo: 'POST', caminho: '/auth/convites', permissao: 'core.convite.administrar',
     handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
       const dados = entradaConvite.parse(req.body);
-      const { token } = await criarConvite({ ...dados, convidadoPor: req.contexto.usuarioId });
+      const { token } = await criarConvite({ ...dados, convidadoPor: contexto.usuarioId });
       await registrarAuditoria({
-        atorId: req.contexto.usuarioId, acao: 'convite.criado', recursoTipo: 'convite',
+        atorId: contexto.usuarioId, acao: 'convite.criado', recursoTipo: 'convite',
         recursoId: dados.email, unidadeId: dados.unidadeId, ip: req.ip,
-        agente: String(req.headers['user-agent'] ?? ''), delegacaoId: req.contexto.delegacaoId,
+        agente: String(req.headers['user-agent'] ?? ''), delegacaoId: contexto.delegacaoId,
       });
       // Em produção o token vai por e-mail; aqui ele volta para permitir a demonstração.
       return { token };

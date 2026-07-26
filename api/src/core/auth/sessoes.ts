@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
-import { sessoes, tentativasLogin, type Sessao } from '../db/schema/auth';
+import { sessoes, tentativasLogin } from '../db/schema/auth';
 import { ErroHttp, naoAutenticado } from '../erros';
 import { conferirSenha, gerarHash } from './senha';
 
@@ -18,6 +18,30 @@ const JANELA_MINUTOS = 15;
 // distribuída em vários IPs.
 const MAX_TENTATIVAS_IP = 6;
 const MAX_TENTATIVAS_CONTA = 20;
+
+/**
+ * Orçamento de tentativas de segundo fator por SESSÃO.
+ *
+ * Por que 5: o código TOTP tem 6 dígitos (10⁶ combinações) e vale por um passo de
+ * 30 s. Cinco palpites por sessão dão ao atacante uma chance de 5 em 10⁶ (0,0005%)
+ * por login — e, como estourar o orçamento REVOGA a sessão, cada bloco de 5
+ * palpites custa um login completo, que por sua vez esbarra nos limites de
+ * `tentativas_login` (6 por IP e 20 por conta a cada 15 min). O teto real de
+ * palpites passa a ser ~30 por IP a cada 15 minutos, não ilimitado: para chegar a
+ * 1% de chance seriam necessários ~10⁴ logins, ~2 000 janelas de 15 min, mais de
+ * 20 dias contra um único IP já bloqueado no caminho. Cinco também é folgado o
+ * bastante para o uso legítimo: erro de digitação e relógio dessincronizado (a
+ * `otplib` já tolera a janela vizinha) raramente passam de duas ou três repetições
+ * antes de a pessoa recorrer a um código de recuperação.
+ *
+ * Por sessão, e não por IP: quem chegou até aqui já tem a senha e quer atravessar
+ * o segundo fator DESTA sessão — ela é o alvo. Um contador por IP seria contornado
+ * por um atacante distribuído; um por conta permitiria trancar o dono legítimo de
+ * fora a partir de qualquer origem. A sessão é a única chave que o atacante não
+ * consegue nem trocar de graça (precisa de um login novo) nem usar contra outra
+ * pessoa.
+ */
+export const MAX_TENTATIVAS_MFA = 5;
 
 let hashFicticioPromise: Promise<string> | undefined;
 
@@ -183,28 +207,82 @@ export async function validarSessao(
   if (!linha) throw naoAutenticado();
   const { sessoes: sessao } = linha;
 
-  const novaExpiracao = new Date(Math.min(
-    agora.getTime() + HORAS_SESSAO * 3600_000,
-    sessao.limiteEm.getTime(),
-  ));
-  await db.update(sessoes)
-    // `clock_timestamp()` (avanca de verdade a cada chamada, mesmo dentro da mesma
-    // transacao) em vez do `agora` calculado em JS: `Date.now()`/`new Date()` no
-    // Node tem resolucao de relogio do sistema operacional (no Windows, tipicamente
-    // ~15ms), entao duas sessoes tocadas em sequencia rapida podiam gravar o MESMO
-    // instante em `ultimo_uso` e empatar na ordenacao de `listarSessoes` — o empate
-    // era resolvido de forma nao deterministica (ordem fisica das linhas no heap
-    // apos o UPDATE), causando o teste "lista so as sessoes ativas..." falhar de
-    // forma intermitente. `clock_timestamp()` tem resolucao de microssegundos e
-    // sempre avanca, eliminando o empate na pratica.
-    .set({ ultimoUso: sql`clock_timestamp()`, expiraEm: novaExpiracao })
-    .where(eq(sessoes.id, sessao.id));
+  // Renovação deslizante é privilégio de sessão JÁ CONFIRMADA. Enquanto o segundo
+  // fator não foi apresentado, a sessão vive apenas o prazo que ganhou no login e
+  // não ganha um minuto a mais por ser usada: sem isso, cada tentativa contra
+  // `POST /auth/mfa` empurrava `expira_em` para frente e a janela de ataque se
+  // auto-renovava até o teto absoluto de 7 dias. `ultimo_uso` também não é tocado —
+  // atividade de uma sessão que ainda não provou quem é não deve poluir a tela de
+  // sessões ativas, que existe justamente para o dono reconhecer o que é dele.
+  if (!sessao.mfaPendente) {
+    const novaExpiracao = new Date(Math.min(
+      agora.getTime() + HORAS_SESSAO * 3600_000,
+      sessao.limiteEm.getTime(),
+    ));
+    await db.update(sessoes)
+      // `clock_timestamp()` (avanca de verdade a cada chamada, mesmo dentro da mesma
+      // transacao) em vez do `agora` calculado em JS: `Date.now()`/`new Date()` no
+      // Node tem resolucao de relogio do sistema operacional (no Windows, tipicamente
+      // ~15ms), entao duas sessoes tocadas em sequencia rapida podiam gravar o MESMO
+      // instante em `ultimo_uso` e empatar na ordenacao de `listarSessoes` — o empate
+      // era resolvido de forma nao deterministica (ordem fisica das linhas no heap
+      // apos o UPDATE), causando o teste "lista so as sessoes ativas..." falhar de
+      // forma intermitente. `clock_timestamp()` tem resolucao de microssegundos e
+      // sempre avanca, eliminando o empate na pratica.
+      .set({ ultimoUso: sql`clock_timestamp()`, expiraEm: novaExpiracao })
+      .where(eq(sessoes.id, sessao.id));
+  }
 
   return { usuarioId: sessao.usuarioId, sessaoId: sessao.id, mfaPendente: sessao.mfaPendente };
 }
 
+/**
+ * Consome UMA tentativa de segundo fator desta sessão e devolve quantas já foram
+ * gastas, contando esta. O incremento é resolvido pelo próprio `UPDATE ...
+ * RETURNING`, sob o lock de linha do Postgres — nunca por um SELECT anterior
+ * seguido de UPDATE, que deixaria N requisições concorrentes lerem o mesmo valor
+ * antigo e gastarem uma única unidade do orçamento entre todas (mesmo padrão de
+ * claim atômico de `reivindicarPassoTotp`, em mfa.ts, e do consumo de código de
+ * recuperação). Cobra ANTES de conferir o código: um palpite errado precisa custar
+ * exatamente o mesmo que um certo, senão o orçamento não limita nada.
+ */
+export async function consumirTentativaMfa(sessaoId: string): Promise<number> {
+  const [linha] = await db.update(sessoes)
+    .set({ tentativasMfa: sql`${sessoes.tentativasMfa} + 1` })
+    .where(and(eq(sessoes.id, sessaoId), isNull(sessoes.revogadaEm)))
+    .returning({ tentativas: sessoes.tentativasMfa });
+
+  // Sessão revogada entre o preHandler e aqui (revogação concorrente, logout em
+  // outra aba): nada a consumir, e nada a confirmar — recusa em vez de seguir.
+  if (!linha) throw naoAutenticado();
+  return linha.tentativas;
+}
+
 export async function revogarSessao(sessaoId: string): Promise<void> {
   await db.update(sessoes).set({ revogadaEm: new Date() }).where(eq(sessoes.id, sessaoId));
+}
+
+/**
+ * Revoga uma sessão exigindo a posse dela no próprio `WHERE`, e devolve se alguma
+ * linha foi de fato revogada. Substitui o par "listar as minhas e conferir se o id
+ * está na lista, depois revogar" — ali a posse era garantida por uma propriedade
+ * externa (o dono de uma sessão nunca muda) e não pela consulta que escreve. Aqui
+ * a garantia é do próprio UPDATE: quem não é dono não encontra linha e recebe 404,
+ * nunca 403 (403 confirmaria que a sessão existe).
+ */
+export async function revogarSessaoPropria(
+  sessaoId: string,
+  usuarioId: string,
+): Promise<boolean> {
+  const [linha] = await db.update(sessoes)
+    .set({ revogadaEm: new Date() })
+    .where(and(
+      eq(sessoes.id, sessaoId),
+      eq(sessoes.usuarioId, usuarioId),
+      isNull(sessoes.revogadaEm),
+    ))
+    .returning({ id: sessoes.id });
+  return linha !== undefined;
 }
 
 /** Confirma o segundo fator da sessao: chamado por POST /auth/mfa quando `conferirMfa` aceita. */
@@ -220,11 +298,33 @@ export async function revogarSessoesDoUsuario(usuarioId: string): Promise<void> 
   ));
 }
 
-export async function listarSessoes(usuarioId: string): Promise<Sessao[]> {
+/**
+ * O que a tela de sessões ativas precisa mostrar, e SÓ isso. Projeção explícita em
+ * vez de `select()` de tudo: `token_hash` é material de autenticação do servidor e
+ * `mfa_pendente`/`tentativas_mfa` são estado interno do gate de segundo fator —
+ * nenhum deles tem consumidor do lado do cliente, e um `select()` sem projeção
+ * despeja qualquer coluna nova pela mesma rota HTTP, em silêncio, no dia em que
+ * alguém acrescentar uma.
+ */
+export type SessaoVisivel = {
+  id: string;
+  ip: string;
+  agente: string;
+  criadaEm: Date;
+  ultimoUso: Date;
+};
+
+export async function listarSessoes(usuarioId: string): Promise<SessaoVisivel[]> {
   // Desempate por `criadaEm` (imutavel, atribuido uma unica vez no insert):
   // rede extra contra qualquer empate residual em `ultimoUso`, alem do
   // `clock_timestamp()` usado em `validarSessao` — ver comentario la.
-  return db.select().from(sessoes).where(and(
+  return db.select({
+    id: sessoes.id,
+    ip: sessoes.ip,
+    agente: sessoes.agente,
+    criadaEm: sessoes.criadaEm,
+    ultimoUso: sessoes.ultimoUso,
+  }).from(sessoes).where(and(
     eq(sessoes.usuarioId, usuarioId),
     isNull(sessoes.revogadaEm),
   )).orderBy(desc(sessoes.ultimoUso), desc(sessoes.criadaEm));
