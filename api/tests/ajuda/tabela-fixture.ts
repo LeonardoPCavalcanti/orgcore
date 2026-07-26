@@ -3,10 +3,11 @@ import { usuarios } from '../../src/core/db/schema/acesso';
 import { unidades } from '../../src/core/db/schema/organograma';
 
 /**
- * Espelha `registros_teste_rbac` (migration 0003_fixture_rbac.sql). Existe só
- * para os testes do portão de autorização terem uma tabela real para
- * registrar via `registrarTabelaEscopada` e exercitar `listar`/`obter` com
- * dado de verdade no banco — não é schema de domínio; nenhum módulo de
+ * Espelha `registros_teste_rbac` (api/tests/fixtures/registros_teste_rbac.sql
+ * — fixture de teste, não migration; ver `prepararBanco` em ajuda/banco.ts).
+ * Existe só para os testes do portão de autorização terem uma tabela real
+ * para registrar via `registrarTabelaEscopada` e exercitar `listar`/`obter`
+ * com dado de verdade no banco — não é schema de domínio; nenhum módulo de
  * produção deve importar isto.
  */
 export const registrosTesteRbac = pgTable('registros_teste_rbac', {
