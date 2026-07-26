@@ -3,4 +3,5 @@ packages:
   - api
   - web
 allowBuilds:
+  argon2: true
   esbuild: true

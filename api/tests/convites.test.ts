@@ -1,0 +1,82 @@
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { limparBanco, prepararBanco } from './ajuda/banco';
+import { criarCenarioAcesso } from './ajuda/cenario';
+import { aceitarConvite, criarConvite } from '../src/core/auth/convites';
+import { conferirSenha, validarForcaDaSenha } from '../src/core/auth/senha';
+import { db } from '../src/core/db/client';
+import { usuarios } from '../src/core/db/schema/acesso';
+import { convites } from '../src/core/db/schema/auth';
+
+beforeAll(prepararBanco);
+beforeEach(limparBanco);
+
+describe('forca da senha', () => {
+  it('recusa senha curta', () => {
+    expect(() => validarForcaDaSenha('curta123')).toThrow(/12/);
+  });
+  it('recusa senha da lista de vazadas', () => {
+    expect(() => validarForcaDaSenha('senha123456789')).toThrow(/comum|vazad/i);
+  });
+  it('aceita senha longa e incomum', () => {
+    expect(() => validarForcaDaSenha('cadeira azul de madeira 41')).not.toThrow();
+  });
+});
+
+describe('convite', () => {
+  it('grava apenas o hash do token', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    const [linha] = await db.select().from(convites);
+    expect(linha?.tokenHash).toBeDefined();
+    expect(linha?.tokenHash).not.toBe(token);
+  });
+
+  it('aceitar cria usuario ativo com senha utilizavel', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    const { usuarioId } = await aceitarConvite(token, 'cadeira azul de madeira 41');
+    const [u] = await db.select().from(usuarios).where(eq(usuarios.id, usuarioId));
+    expect(u?.status).toBe('ativo');
+    expect(await conferirSenha('cadeira azul de madeira 41', u?.senhaHash ?? '')).toBe(true);
+  });
+
+  it('token so pode ser usado uma vez', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    await aceitarConvite(token, 'cadeira azul de madeira 41');
+    await expect(aceitarConvite(token, 'outra senha bem longa 99')).rejects.toThrow(/invalido|expirado/i);
+  });
+
+  it('token expirado e recusado', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    await db.update(convites).set({ expiraEm: new Date(Date.now() - 1000) });
+    await expect(aceitarConvite(token, 'cadeira azul de madeira 41')).rejects.toThrow(/invalido|expirado/i);
+  });
+
+  it('aceitar cria o vinculo com unidade e cargo do convite', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    const { usuarioId } = await aceitarConvite(token, 'cadeira azul de madeira 41');
+    const { resolverContexto } = await import('../src/core/rbac/contexto');
+    const ctx = await resolverContexto(usuarioId);
+    expect(ctx.permissoes.get('pessoas.colaborador.ler')?.unidades)
+      .toEqual([c.equipeSocial.id]);
+  });
+});
