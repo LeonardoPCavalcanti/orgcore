@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@4med/contracts": "workspace:*",
+    "@fastify/cookie": "^11.1.2",
     "argon2": "^0.45.1",
     "drizzle-orm": "^0.38.0",
     "fastify": "^5.2.0",
