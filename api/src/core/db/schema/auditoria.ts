@@ -15,6 +15,10 @@ export const logAuditoria = pgTable('log_auditoria', {
   delegacaoId: uuid('delegacao_id'),
   antes: jsonb('antes'),
   depois: jsonb('depois'),
-}, (t) => [index('idx_auditoria_ocorrido').on(t.ocorridoEm)]);
+}, (t) => [
+  index('idx_auditoria_ocorrido').on(t.ocorridoEm.desc()),
+  index('idx_auditoria_unidade').on(t.unidadeId, t.ocorridoEm.desc()),
+  index('idx_auditoria_ator').on(t.atorId, t.ocorridoEm.desc()),
+]);
 
 export type LinhaAuditoria = typeof logAuditoria.$inferSelect;
