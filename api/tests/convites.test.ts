@@ -1,8 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 import { criarCenarioAcesso } from './ajuda/cenario';
 import { aceitarConvite, criarConvite } from '../src/core/auth/convites';
+import * as senhaModulo from '../src/core/auth/senha';
 import { conferirSenha, validarForcaDaSenha } from '../src/core/auth/senha';
 import { db } from '../src/core/db/client';
 import { usuarios } from '../src/core/db/schema/acesso';
@@ -120,5 +121,32 @@ describe('convite', () => {
     });
     await expect(aceitarConvite(segundo.token, 'outra senha bem longa 99'))
       .rejects.toMatchObject({ status: 400, codigo: 'convite_invalido' });
+  });
+
+  it('convite para email que ja e usuario nao chega a gerar hash da senha', async () => {
+    const c = await criarCenarioAcesso();
+    const primeiro = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    await aceitarConvite(primeiro.token, 'cadeira azul de madeira 41');
+
+    const segundo = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+
+    // Fixa a ORDEM das operações, não só o resultado: se uma refatoração futura voltar
+    // a chamar gerarHash antes de checar o e-mail duplicado (reintroduzindo a
+    // assimetria de tempo entre os caminhos de erro), este teste quebra mesmo que o
+    // erro final continue com o mesmo status/código.
+    const espiaoGerarHash = vi.spyOn(senhaModulo, 'gerarHash');
+    try {
+      await expect(aceitarConvite(segundo.token, 'outra senha bem longa 99'))
+        .rejects.toMatchObject({ status: 400, codigo: 'convite_invalido' });
+      expect(espiaoGerarHash).not.toHaveBeenCalled();
+    } finally {
+      espiaoGerarHash.mockRestore();
+    }
   });
 });
