@@ -130,10 +130,12 @@ export async function autenticar(
 export async function criarSessao(
   usuarioId: string,
   origem: Origem,
-): Promise<{ token: string; expiraEm: Date }> {
+  opcoes: { mfaPendente?: boolean } = {},
+): Promise<{ token: string; expiraEm: Date; limiteEm: Date }> {
   const token = randomBytes(32).toString('base64url');
   const agora = Date.now();
   const expiraEm = new Date(agora + HORAS_SESSAO * 3600_000);
+  const limiteEm = new Date(agora + DIAS_LIMITE * 86_400_000);
 
   await db.insert(sessoes).values({
     id: randomUUID(),
@@ -142,14 +144,23 @@ export async function criarSessao(
     ip: origem.ip,
     agente: origem.agente,
     expiraEm,
-    limiteEm: new Date(agora + DIAS_LIMITE * 86_400_000),
+    limiteEm,
+    // Quem tem MFA ativo no momento do login nasce com a sessao pendente: so o
+    // preHandler da aplicacao (api/src/core/app.ts) e que decide o que uma sessao
+    // pendente pode acessar. Quem NAO tem MFA ativo nunca nasce pendente, mesmo
+    // que as permissoes do usuario exijam MFA por politica (ver exigeMfa em
+    // mfa.ts) — bloquear esse caso trancaria a conta fora do proprio fluxo de
+    // ativacao do segundo fator, sem nenhum caminho de saida.
+    mfaPendente: opcoes.mfaPendente ?? false,
   });
 
-  return { token, expiraEm };
+  return { token, expiraEm, limiteEm };
 }
 
 /** Valida e renova de forma deslizante, respeitando o teto absoluto. */
-export async function validarSessao(token: string): Promise<{ usuarioId: string; sessaoId: string }> {
+export async function validarSessao(
+  token: string,
+): Promise<{ usuarioId: string; sessaoId: string; mfaPendente: boolean }> {
   const agora = new Date();
   // Junção com `usuarios` e exigência de `status = 'ativo'` na própria consulta: sem
   // isso, "desligamento corta o acesso na hora" dependeria inteiramente de todo fluxo
@@ -177,14 +188,28 @@ export async function validarSessao(token: string): Promise<{ usuarioId: string;
     sessao.limiteEm.getTime(),
   ));
   await db.update(sessoes)
-    .set({ ultimoUso: agora, expiraEm: novaExpiracao })
+    // `clock_timestamp()` (avanca de verdade a cada chamada, mesmo dentro da mesma
+    // transacao) em vez do `agora` calculado em JS: `Date.now()`/`new Date()` no
+    // Node tem resolucao de relogio do sistema operacional (no Windows, tipicamente
+    // ~15ms), entao duas sessoes tocadas em sequencia rapida podiam gravar o MESMO
+    // instante em `ultimo_uso` e empatar na ordenacao de `listarSessoes` — o empate
+    // era resolvido de forma nao deterministica (ordem fisica das linhas no heap
+    // apos o UPDATE), causando o teste "lista so as sessoes ativas..." falhar de
+    // forma intermitente. `clock_timestamp()` tem resolucao de microssegundos e
+    // sempre avanca, eliminando o empate na pratica.
+    .set({ ultimoUso: sql`clock_timestamp()`, expiraEm: novaExpiracao })
     .where(eq(sessoes.id, sessao.id));
 
-  return { usuarioId: sessao.usuarioId, sessaoId: sessao.id };
+  return { usuarioId: sessao.usuarioId, sessaoId: sessao.id, mfaPendente: sessao.mfaPendente };
 }
 
 export async function revogarSessao(sessaoId: string): Promise<void> {
   await db.update(sessoes).set({ revogadaEm: new Date() }).where(eq(sessoes.id, sessaoId));
+}
+
+/** Confirma o segundo fator da sessao: chamado por POST /auth/mfa quando `conferirMfa` aceita. */
+export async function confirmarMfaDaSessao(sessaoId: string): Promise<void> {
+  await db.update(sessoes).set({ mfaPendente: false }).where(eq(sessoes.id, sessaoId));
 }
 
 /** Chamado no desligamento e na suspensão: corta o acesso na hora. */
@@ -196,8 +221,11 @@ export async function revogarSessoesDoUsuario(usuarioId: string): Promise<void> 
 }
 
 export async function listarSessoes(usuarioId: string): Promise<Sessao[]> {
+  // Desempate por `criadaEm` (imutavel, atribuido uma unica vez no insert):
+  // rede extra contra qualquer empate residual em `ultimoUso`, alem do
+  // `clock_timestamp()` usado em `validarSessao` — ver comentario la.
   return db.select().from(sessoes).where(and(
     eq(sessoes.usuarioId, usuarioId),
     isNull(sessoes.revogadaEm),
-  )).orderBy(desc(sessoes.ultimoUso));
+  )).orderBy(desc(sessoes.ultimoUso), desc(sessoes.criadaEm));
 }

@@ -26,6 +26,8 @@ export const sessoes = pgTable('sessoes', {
   limiteEm: timestamp('limite_em', { withTimezone: true }).notNull(),
   ultimoUso: timestamp('ultimo_uso', { withTimezone: true }).notNull().defaultNow(),
   revogadaEm: timestamp('revogada_em', { withTimezone: true }),
+  /** Ver comentario na migration 0004_sessoes.sql. */
+  mfaPendente: boolean('mfa_pendente').notNull().default(false),
 });
 
 export const tentativasLogin = pgTable('tentativas_login', {

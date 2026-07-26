@@ -44,6 +44,13 @@ export function validarManifestos(manifestos: ManifestoModulo[]): void {
       if (r.publica === true && r.autenticada === true) {
         throw new Error(`rota "${id}" nao pode ser publica e autenticada ao mesmo tempo`);
       }
+      // Uma rota pública ignora toda checagem de sessão/permissão no preHandler —
+      // declarar uma `permissao` junto com `publica: true` cria a aparência de rota
+      // protegida (a chave existe, aparece no manifesto) que na prática nunca é
+      // verificada, porque o preHandler retorna antes de chegar lá.
+      if (r.permissao !== null && r.publica === true) {
+        throw new Error(`rota "${id}" nao pode exigir permissao e ser publica ao mesmo tempo`);
+      }
       if (r.permissao !== null && !vistas.has(r.permissao)) {
         throw new Error(`rota "${id}" usa permissao "${r.permissao}" nao declarada em manifesto`);
       }

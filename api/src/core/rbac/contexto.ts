@@ -9,6 +9,15 @@ export type EscopoPermissao = {
   alcance: Alcance;
   /** unidades concretas onde esta permissão vale, já expandidas e sem duplicatas */
   unidades: number[];
+  /**
+   * `sensivel`/`modulo` vêm do catálogo (`permissoes`), carregados pelo mesmo
+   * `innerJoin` que `resolverContexto` já fazia — evita uma segunda consulta a
+   * `permissoes` só para descobrir se a permissão é sensível (ver `criarApp`).
+   * Opcionais para não quebrar código existente que monta `EscopoPermissao`
+   * manualmente (ex.: fixtures de teste) sem precisar declarar os dois campos.
+   */
+  sensivel?: boolean;
+  modulo?: string;
 };
 
 export type ContextoUsuario = {
@@ -37,6 +46,8 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
       alcance: papelPermissoes.alcance,
       unidadeId: vinculos.unidadeId,
       caminho: unidades.caminho,
+      sensivel: tabelaPermissoes.sensivel,
+      modulo: tabelaPermissoes.modulo,
     })
     .from(vinculos)
     .innerJoin(unidades, eq(unidades.id, vinculos.unidadeId))
@@ -76,7 +87,12 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
     const concedidas = await unidadesDaLinha(l.alcance, l.unidadeId, l.caminho);
     const atual = permissoes.get(l.chave);
     if (!atual) {
-      permissoes.set(l.chave, { alcance: l.alcance, unidades: [...concedidas] });
+      // `sensivel`/`modulo` são atributos da PERMISSÃO (linha de `permissoes`),
+      // não do vínculo — não variam entre as linhas que concedem a mesma chave,
+      // então só precisam ser gravados na primeira vez que a chave aparece.
+      permissoes.set(l.chave, {
+        alcance: l.alcance, unidades: [...concedidas], sensivel: l.sensivel, modulo: l.modulo,
+      });
     } else {
       atual.alcance = alcanceMaisAmplo(atual.alcance, l.alcance);
       atual.unidades.push(...concedidas);

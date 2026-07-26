@@ -7,7 +7,10 @@ export const manifestoNucleo: ManifestoModulo = {
   nome: 'core',
   permissoes: [
     { chave: 'core.convite.administrar', descricao: 'Convidar colaboradores' },
-    { chave: 'core.auditoria.ler', descricao: 'Consultar a trilha de auditoria' },
+    // Marcada sensivel de proposito: quem le a trilha de auditoria tambem entra
+    // na trilha (auditar quem audita), via o caminho generico do preHandler em
+    // core/app.ts.
+    { chave: 'core.auditoria.ler', descricao: 'Consultar a trilha de auditoria', sensivel: true },
     { chave: 'core.unidade.ler', descricao: 'Ver o organograma' },
     { chave: 'core.unidade.administrar', descricao: 'Criar e mover unidades' },
     { chave: 'core.papel.administrar', descricao: 'Gerir papéis e permissões' },

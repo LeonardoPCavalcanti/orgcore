@@ -59,6 +59,16 @@ describe('validarManifestos', () => {
     expect(() => validarManifestos([m])).toThrow(/ao mesmo tempo/i);
   });
 
+  it('recusa rota marcada como publica exigindo uma permissao', () => {
+    const m = base({
+      rotas: [{
+        metodo: 'GET', caminho: '/x', permissao: 'pessoas.colaborador.ler', publica: true,
+        handler: async () => ({}),
+      }],
+    });
+    expect(() => validarManifestos([m])).toThrow(/nao pode exigir permissao e ser publica/i);
+  });
+
   it('recusa rota que referencia permissao inexistente', () => {
     const m = base({
       rotas: [{ metodo: 'GET', caminho: '/x', permissao: 'pessoas.inexistente.ler', handler: async () => ({}) }],

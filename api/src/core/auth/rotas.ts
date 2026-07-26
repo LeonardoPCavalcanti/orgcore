@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   entradaAceitarConvite, entradaConvite, entradaLogin, entradaMfa,
 } from '@4med/contracts';
@@ -6,20 +7,40 @@ import { registrarAuditoria } from '../auditoria/registro';
 import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
 import { ErroHttp } from '../erros';
-import type { DefinicaoRota, RequisicaoAutenticada } from '../modulos/tipos';
+import type { DefinicaoRota } from '../modulos/tipos';
 import { aceitarConvite, criarConvite } from './convites';
 import { conferirMfa, exigeMfa } from './mfa';
 import {
-  autenticar, criarSessao, listarSessoes, revogarSessao, validarSessao,
+  autenticar, confirmarMfaDaSessao, criarSessao, listarSessoes, revogarSessao,
 } from './sessoes';
 
-const COOKIE = 'sessao';
-const opcoesCookie = (expiraEm: Date) => ({
+const COOKIE_SESSAO = 'sessao';
+const COOKIE_CSRF = 'csrf';
+
+const opcoesCookieSessao = (expiraEm: Date) => ({
   httpOnly: true,
   sameSite: 'lax' as const,
   secure: process.env.NODE_ENV === 'production',
   path: '/',
   expires: expiraEm,
+});
+
+// O cookie CSRF precisa ser LEGIVEL pelo front (para ecoar o valor no cabecalho
+// `x-csrf-token` a cada mutacao) — por isso, ao contrario do cookie de sessao,
+// nunca httpOnly. `SameSite=Lax` sozinho ja barra a maior parte do CSRF cross-site
+// em navegadores modernos; este token de dupla submissao e a camada extra pedida
+// pela especificacao, e continua util em cenarios que `SameSite` nao cobre (ex.:
+// subdominios do mesmo site, navegadores antigos). Expira no teto absoluto da
+// sessao (`limiteEm`), nao no prazo curto de renovacao deslizante (`expiraEm`):
+// como este cookie nao e renovado a cada requisicao, usar o prazo curto o faria
+// desaparecer no meio de uma sessao ainda valida (renovada), quebrando toda
+// mutacao subsequente com `csrf_invalido` mesmo com o login continuando bom.
+const opcoesCookieCsrf = (limiteEm: Date) => ({
+  httpOnly: false,
+  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  expires: limiteEm,
 });
 
 const origemDe = (req: { ip: string; headers: Record<string, unknown> }) => ({
@@ -40,8 +61,16 @@ export const rotasAuth: DefinicaoRota[] = [
         unidadeId: null, ip: origem.ip, agente: origem.agente, delegacaoId: null,
       });
 
-      const { token, expiraEm } = await criarSessao(usuarioId, origem);
-      resp.setCookie(COOKIE, token, opcoesCookie(expiraEm));
+      // Sessao nasce pendente quando a conta tem MFA ativo — ver o comentario em
+      // `criarSessao` (auth/sessoes.ts) sobre por que quem AINDA NAO ativou o MFA
+      // (mesmo que devesse, por `exigeMfa(ctx)`) nunca nasce pendente: bloquear
+      // esse caso deixaria a conta sem nenhum caminho para completar o cadastro
+      // do segundo fator.
+      const { token, expiraEm, limiteEm } = await criarSessao(usuarioId, origem, {
+        mfaPendente: pedeMfa,
+      });
+      resp.setCookie(COOKIE_SESSAO, token, opcoesCookieSessao(expiraEm));
+      resp.setCookie(COOKIE_CSRF, randomBytes(24).toString('base64url'), opcoesCookieCsrf(limiteEm));
       return { exigeMfa: pedeMfa };
     },
   },
@@ -51,25 +80,28 @@ export const rotasAuth: DefinicaoRota[] = [
       const { codigo } = entradaMfa.parse(req.body);
       const ok = await conferirMfa(req.contexto.usuarioId, codigo);
       if (!ok) throw new ErroHttp(422, 'codigo_invalido', 'Código inválido');
+      // Confirma o segundo fator NESTA sessao — e a unica forma de uma sessao
+      // pendente deixar de ser pendente (ver preHandler em core/app.ts).
+      await confirmarMfaDaSessao(req.sessaoId);
       return { ok: true };
     },
   },
   {
     metodo: 'POST', caminho: '/auth/sair', permissao: null, autenticada: true,
     handler: async (req, resp) => {
-      const token = req.cookies[COOKIE];
-      if (token) {
-        const { sessaoId } = await validarSessao(token);
-        await revogarSessao(sessaoId);
-      }
-      resp.clearCookie(COOKIE, { path: '/' });
+      // `req.sessaoId` ja vem validado pelo preHandler desta mesma requisicao —
+      // chamar `validarSessao` de novo aqui renovaria a sessao (renovacao
+      // deslizante) um instante antes de revoga-la, sem necessidade nenhuma.
+      await revogarSessao(req.sessaoId);
+      resp.clearCookie(COOKIE_SESSAO, { path: '/' });
+      resp.clearCookie(COOKIE_CSRF, { path: '/' });
       return { ok: true };
     },
   },
   {
     metodo: 'GET', caminho: '/auth/eu', permissao: null, autenticada: true,
     handler: async (req) => {
-      const { contexto } = req as RequisicaoAutenticada;
+      const { contexto } = req;
       const menu = req.server.menuDe(new Set(contexto.permissoes.keys()));
       const [u] = await db.select().from(usuarios)
         .where(eq(usuarios.id, contexto.usuarioId)).limit(1);
