@@ -14,7 +14,7 @@ export const naoEncontrado = () =>
   new ErroHttp(404, 'nao_encontrado', 'Recurso não encontrado');
 
 export const naoAutenticado = () =>
-  new ErroHttp(401, 'nao_autenticado', 'Sessão inválida ou expirada');
+  new ErroHttp(401, 'nao_autenticado', 'Sessao invalida ou expirada');
 
 export const semPermissao = () =>
   new ErroHttp(403, 'sem_permissao', 'Ação não permitida para este cargo');
