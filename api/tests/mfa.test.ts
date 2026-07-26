@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticator } from 'otplib';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 import { criarCenarioAcesso } from './ajuda/cenario';
@@ -7,6 +7,24 @@ import { resolverContexto } from '../src/core/rbac/contexto';
 
 beforeAll(prepararBanco);
 beforeEach(limparBanco);
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/**
+ * A guarda de replay do TOTP reivindica o passo de tempo corrente inteiro (30s
+ * por padrão), então dois códigos gerados em sequência rápida — como acontece
+ * naturalmente em testes — caem no mesmo passo e colidem entre si. No uso real
+ * isso não acontece (ativar e depois autenticar ficam minutos de distância);
+ * aqui avançamos o relógio simulado para reproduzir passos distintos sem
+ * comprimir tudo no mesmo instante. Só o `Date` é simulado — os timers reais
+ * (usados pelo driver do Postgres) continuam funcionando normalmente.
+ */
+function avancarPassoTotp(): void {
+  const passoMs = authenticator.allOptions().step * 1000;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.now() + passoMs);
+}
 
 describe('exigeMfa', () => {
   it('nao exige de quem so tem alcance proprio', async () => {
@@ -48,6 +66,10 @@ describe('ciclo do TOTP', () => {
       authenticator.generate(segredo),
     );
     expect(codigosRecuperacao).toHaveLength(8);
+
+    // Passo novo: a ativação acima já reivindicou o passo corrente (a guarda de
+    // replay do TOTP é compartilhada entre ativação e checagem contínua).
+    avancarPassoTotp();
     expect(await conferirMfa(c.diretor.id, authenticator.generate(segredo))).toBe(true);
   });
 
@@ -77,6 +99,27 @@ describe('ciclo do TOTP', () => {
     });
   });
 
+  it('duas ativacoes concorrentes com o mesmo codigo: so uma ativa, e os codigos de recuperacao dela sobrevivem', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    const codigo = authenticator.generate(segredo);
+
+    const resultados = await Promise.allSettled([
+      ativarMfa(c.diretor.id, codigo),
+      ativarMfa(c.diretor.id, codigo),
+    ]);
+    const sucessos = resultados.filter(
+      (r): r is PromiseFulfilledResult<{ codigosRecuperacao: string[] }> => r.status === 'fulfilled',
+    );
+    expect(sucessos).toHaveLength(1);
+
+    // Os códigos de recuperação devolvidos pela chamada vencedora continuam
+    // válidos — uma segunda ativação concorrente não os apagou/substituiu por
+    // um conjunto que o usuário nunca chegou a ver.
+    const codigoRecuperacao = sucessos[0]?.value.codigosRecuperacao[0] ?? '';
+    expect(await conferirMfa(c.diretor.id, codigoRecuperacao)).toBe(true);
+  });
+
   it('duas chamadas concorrentes com o mesmo codigo de recuperacao: so uma aceita', async () => {
     const c = await criarCenarioAcesso();
     const { segredo } = await prepararMfa(c.diretor.id);
@@ -95,9 +138,27 @@ describe('ciclo do TOTP', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
+    avancarPassoTotp();
     const codigo = authenticator.generate(segredo);
     expect(await conferirMfa(c.diretor.id, codigo)).toBe(true);
     expect(await conferirMfa(c.diretor.id, codigo)).toBe(false);
+  });
+
+  it('mesmo codigo TOTP aceito em conferirMfa nao serve depois na confirmacao de prepararMfa', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    await ativarMfa(c.diretor.id, authenticator.generate(segredo));
+
+    avancarPassoTotp();
+    const codigo = authenticator.generate(segredo);
+    expect(await conferirMfa(c.diretor.id, codigo)).toBe(true);
+
+    // Mesmo código, mesmo passo de tempo, caminho diferente (confirmação de
+    // reconfiguração em vez de checagem contínua): a guarda de replay é
+    // compartilhada entre os dois, então ele já está consumido.
+    await expect(prepararMfa(c.diretor.id, codigo)).rejects.toMatchObject({
+      codigo: 'confirmacao_necessaria',
+    });
   });
 });
 
@@ -117,6 +178,8 @@ describe('reconfiguracao do MFA', () => {
     const { segredo: segredoAntigo } = await prepararMfa(c.diretor.id);
     await ativarMfa(c.diretor.id, authenticator.generate(segredoAntigo));
 
+    // Passo novo: a ativação acima já reivindicou o passo corrente.
+    avancarPassoTotp();
     const { segredo: segredoNovo } = await prepararMfa(
       c.diretor.id,
       authenticator.generate(segredoAntigo),
