@@ -4,22 +4,38 @@ import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
 import { sessoes, tentativasLogin, type Sessao } from '../db/schema/auth';
 import { ErroHttp, naoAutenticado } from '../erros';
-import { conferirSenha } from './senha';
+import { conferirSenha, gerarHash } from './senha';
 
 export type Origem = { ip: string; agente: string };
 
 const HORAS_SESSAO = 12;
 const DIAS_LIMITE = 7;
-const MAX_TENTATIVAS = 6;
 const JANELA_MINUTOS = 15;
 
+// Dois limites, duas ameaças diferentes — ver o comentário completo em `autenticar`:
+// MAX_TENTATIVAS_IP protege qualquer conta (inclusive inexistente) contra um único IP
+// hostil; MAX_TENTATIVAS_CONTA protege uma conta específica contra força bruta
+// distribuída em vários IPs.
+const MAX_TENTATIVAS_IP = 6;
+const MAX_TENTATIVAS_CONTA = 20;
+
+let hashFicticioPromise: Promise<string> | undefined;
+
 /**
- * Hash Argon2id de um valor aleatório sem relação com senha real de ninguém, gerado
- * uma única vez (offline, com os mesmos parâmetros de `senha.ts`) e fixado aqui. Existe
- * só para dar a `conferirSenha` um hash válido para verificar quando não há usuário —
- * ver o comentário em `autenticar` sobre o canal lateral de tempo que isso fecha.
+ * Hash Argon2id de um valor aleatório sem relação com senha real de ninguém — calculado
+ * uma única vez por processo (lazy, cacheado em `hashFicticioPromise`) com a MESMA
+ * função `gerarHash` usada para senhas de verdade, em vez de um texto fixo copiado à
+ * mão. Isso garante duas coisas ao mesmo tempo: (1) o hash é sempre uma string PHC
+ * genuína, produzida pela própria lib instalada, então `argon2.verify` nunca a rejeita
+ * de cara por formato — sempre roda o Argon2id completo; (2) os parâmetros de custo
+ * (memoryCost/timeCost/parallelism) vêm de `OPCOES` em `senha.ts`, então não têm como
+ * divergir silenciosamente se aquele arquivo mudar esses valores no futuro. Ver o
+ * comentário em `autenticar` sobre o canal lateral de tempo que isso fecha.
  */
-const HASH_FICTICIO = '$argon2id$v=19$m=65536,p=1,t=3$nwH2nJONoRFACFdTh59ySw$T3FF2EmZLXJFjbnnPzrantN+WhkBljYP8cUIbqynpfY';
+export function hashFicticio(): Promise<string> {
+  hashFicticioPromise ??= gerarHash(randomBytes(32).toString('hex'));
+  return hashFicticioPromise;
+}
 
 const hashToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
@@ -27,41 +43,68 @@ const hashToken = (token: string): string =>
 const credenciaisInvalidas = () =>
   new ErroHttp(401, 'credenciais_invalidas', 'Credenciais inválidas');
 
+const muitasTentativas = () =>
+  new ErroHttp(429, 'muitas_tentativas', 'Muitas tentativas. Aguarde alguns minutos.');
+
 export async function autenticar(
   email: string,
   senha: string,
   origem: Origem,
 ): Promise<{ usuarioId: string; exigeMfa: boolean }> {
   const alvo = email.toLowerCase();
+  const desde = new Date(Date.now() - JANELA_MINUTOS * 60_000);
 
-  // Escopo do bloqueio: email E ip, não só email. Contar só por email (como no
-  // exemplo original desta tarefa) deixa qualquer terceiro, de qualquer IP, bloquear a
-  // conta de outra pessoa de propósito — bastaria errar a senha dela seis vezes para
-  // negar acesso ao dono legítimo, sem precisar saber nada além do e-mail-alvo. Ao
-  // escopar por (email, ip), um atacante só consome a cota da combinação email+IP dele
-  // mesmo; o dono da conta, entrando do IP de sempre, não é afetado por tentativas
-  // erradas feitas de outro IP. Isso não impede um atacante com múltiplos IPs de tentar
-  // senhas contra a mesma conta (cada IP tem sua própria cota) — fechar isso exigiria um
-  // limite agregado por conta independente de IP, o que reintroduziria o problema de
-  // negação de serviço acima; o trade-off escolhido aqui prioriza não permitir que um
-  // único IP hostil tranque o dono legítimo fora da própria conta.
-  const [{ total } = { total: 0 }] = await db
+  // Limite por IP (sozinho, sem filtrar por email): fecha a exaustão de CPU. Como
+  // `conferirSenha` roda sempre — inclusive para usuário inexistente, ver abaixo — um
+  // atacante num único IP poderia rotacionar e-mails que nunca se repetem (um por
+  // tentativa) e forçar um Argon2id completo (64 MiB, 3 iterações) por chamada, sem
+  // nunca esbarrar num teto amarrado ao par (email, ip), já que o par nunca se repete.
+  // Contar só por IP, ignorando o email da tentativa, fecha isso: 6 tentativas erradas
+  // de QUALQUER combinação de e-mails a partir do mesmo IP em 15 minutos bloqueiam esse
+  // IP. Escolhido apertado (mesmo valor do limite antigo por conta) porque tentativas
+  // legítimas do mesmo IP contra a MESMA conta raramente passam de meia dúzia antes de
+  // a pessoa desistir ou pedir redefinição de senha.
+  const [{ total: totalIp } = { total: 0 }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(tentativasLogin)
+    .where(and(
+      eq(tentativasLogin.ip, origem.ip),
+      eq(tentativasLogin.sucesso, false),
+      gt(tentativasLogin.criadaEm, desde),
+    ));
+
+  if (totalIp >= MAX_TENTATIVAS_IP) {
+    throw muitasTentativas();
+  }
+
+  // Limite por conta (agregando todos os IPs): fecha a força bruta distribuída — um
+  // atacante com vários IPs, cada um sob a cota individual acima, ainda não poderia
+  // testar senhas contra a MESMA conta indefinidamente. Deliberadamente mais folgado
+  // (20 em vez de 6) que o limite por IP: como ele agrega tentativas de qualquer
+  // origem, um valor igual ao limite por IP reabriria o problema original desta tarefa
+  // — um atacante de UM ÚNICO IP já esbarraria primeiro no limite por IP (acima) bem
+  // antes de chegar a 20, então o dono legítimo, entrando de outro IP, não é afetado
+  // por um atacante de IP único. Só um atacante com várias origens distintas (mais caro
+  // de montar) consegue somar as 20 tentativas e bloquear a conta por 15 minutos — um
+  // residual aceito conscientemente: qualquer limite por conta que agregue IPs tem essa
+  // mesma tensão, e a alternativa (sem limite algum por conta) deixa a força bruta
+  // distribuída sem nenhum teto.
+  const [{ total: totalConta } = { total: 0 }] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(tentativasLogin)
     .where(and(
       eq(tentativasLogin.email, alvo),
-      eq(tentativasLogin.ip, origem.ip),
       eq(tentativasLogin.sucesso, false),
-      gt(tentativasLogin.criadaEm, new Date(Date.now() - JANELA_MINUTOS * 60_000)),
+      gt(tentativasLogin.criadaEm, desde),
     ));
 
-  if (total >= MAX_TENTATIVAS) {
-    throw new ErroHttp(429, 'muitas_tentativas', 'Muitas tentativas. Aguarde alguns minutos.');
+  if (totalConta >= MAX_TENTATIVAS_CONTA) {
+    throw muitasTentativas();
   }
 
   const [usuario] = await db.select().from(usuarios).where(eq(usuarios.email, alvo)).limit(1);
 
-  // conferirSenha roda SEMPRE, mesmo sem usuário: contra HASH_FICTICIO quando não há
+  // conferirSenha roda SEMPRE, mesmo sem usuário: contra hashFicticio() quando não há
   // usuário (ou ele ainda não tem senha_hash, ex.: convite não aceito). Um curto-circuito
   // do tipo `usuario?.status === 'ativo' && conferirSenha(...)` pareceria equivalente,
   // mas não é — "usuário inexistente" e "conta desligada" retornariam sem chamar
@@ -72,7 +115,7 @@ export async function autenticar(
   // a mesma mensagem de erro nos três casos mas latências diferentes. Chamar
   // `conferirSenha` incondicionalmente elimina essa diferença: os três caminhos de erro
   // (inexistente, senha errada, desligado) sempre pagam o custo de um Argon2id.
-  const senhaConfere = await conferirSenha(senha, usuario?.senhaHash ?? HASH_FICTICIO);
+  const senhaConfere = await conferirSenha(senha, usuario?.senhaHash ?? await hashFicticio());
   const ok = usuario !== undefined && usuario.status === 'ativo' && senhaConfere;
 
   await db.insert(tentativasLogin).values({ email: alvo, ip: origem.ip, sucesso: ok });
@@ -108,14 +151,26 @@ export async function criarSessao(
 /** Valida e renova de forma deslizante, respeitando o teto absoluto. */
 export async function validarSessao(token: string): Promise<{ usuarioId: string; sessaoId: string }> {
   const agora = new Date();
-  const [sessao] = await db.select().from(sessoes).where(and(
-    eq(sessoes.tokenHash, hashToken(token)),
-    isNull(sessoes.revogadaEm),
-    gt(sessoes.expiraEm, agora),
-    gt(sessoes.limiteEm, agora),
-  )).limit(1);
+  // Junção com `usuarios` e exigência de `status = 'ativo'` na própria consulta: sem
+  // isso, "desligamento corta o acesso na hora" dependeria inteiramente de todo fluxo
+  // de desligamento futuro lembrar de chamar `revogarSessoesDoUsuario` — sem nenhuma
+  // rede. Se algum caminho esquecer, ou houver uma corrida entre mudar o status e
+  // revogar, a sessão continuaria válida por até `DIAS_LIMITE` dias. Checar o status
+  // aqui, a cada validação, torna a garantia central desta tarefa verdadeira por
+  // construção, não por disciplina de quem chama `revogarSessoesDoUsuario`. O custo é
+  // uma junção a mais por requisição, indexada pela chave primária de `usuarios`.
+  const [linha] = await db.select().from(sessoes)
+    .innerJoin(usuarios, eq(sessoes.usuarioId, usuarios.id))
+    .where(and(
+      eq(sessoes.tokenHash, hashToken(token)),
+      isNull(sessoes.revogadaEm),
+      gt(sessoes.expiraEm, agora),
+      gt(sessoes.limiteEm, agora),
+      eq(usuarios.status, 'ativo'),
+    )).limit(1);
 
-  if (!sessao) throw naoAutenticado();
+  if (!linha) throw naoAutenticado();
+  const { sessoes: sessao } = linha;
 
   const novaExpiracao = new Date(Math.min(
     agora.getTime() + HORAS_SESSAO * 3600_000,

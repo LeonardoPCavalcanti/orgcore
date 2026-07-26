@@ -22,4 +22,4 @@ create table tentativas_login (
 );
 
 create index idx_tentativas_email on tentativas_login (email, criada_em desc);
-create index idx_tentativas_email_ip on tentativas_login (email, ip, criada_em desc);
+create index idx_tentativas_ip on tentativas_login (ip, criada_em desc);
