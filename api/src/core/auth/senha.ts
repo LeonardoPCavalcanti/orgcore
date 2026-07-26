@@ -19,7 +19,7 @@ export function validarForcaDaSenha(senha: string): void {
   if (senha.length < 12) {
     throw new ErroHttp(422, 'senha_curta', 'A senha precisa ter ao menos 12 caracteres');
   }
-  if (vazadas.has(senha.toLowerCase())) {
+  if (vazadas.has(senha.trim().toLowerCase())) {
     throw new ErroHttp(422, 'senha_comum', 'Esta senha é comum e aparece em listas de vazamentos conhecidos');
   }
 }

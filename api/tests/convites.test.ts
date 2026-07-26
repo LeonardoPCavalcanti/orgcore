@@ -79,4 +79,46 @@ describe('convite', () => {
     expect(ctx.permissoes.get('pessoas.colaborador.ler')?.unidades)
       .toEqual([c.equipeSocial.id]);
   });
+
+  it('duas aceitacoes concorrentes do mesmo token: so uma cria usuario, a outra recebe o erro generico', async () => {
+    const c = await criarCenarioAcesso();
+    const { token } = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+
+    const resultados = await Promise.allSettled([
+      aceitarConvite(token, 'cadeira azul de madeira 41'),
+      aceitarConvite(token, 'outra senha bem longa 99'),
+    ]);
+
+    const sucessos = resultados.filter(
+      (r): r is PromiseFulfilledResult<{ usuarioId: string }> => r.status === 'fulfilled',
+    );
+    const falhas = resultados.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    expect(sucessos).toHaveLength(1);
+    expect(falhas).toHaveLength(1);
+    expect(falhas[0]?.reason).toMatchObject({ codigo: 'convite_invalido' });
+
+    const linhasUsuario = await db.select().from(usuarios).where(eq(usuarios.email, 'novo@4med.com'));
+    expect(linhasUsuario).toHaveLength(1);
+  });
+
+  it('convite para email que ja e usuario nao expoe erro cru do postgres', async () => {
+    const c = await criarCenarioAcesso();
+    const primeiro = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    await aceitarConvite(primeiro.token, 'cadeira azul de madeira 41');
+
+    const segundo = await criarConvite({
+      email: 'novo@4med.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
+      cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
+    });
+    await expect(aceitarConvite(segundo.token, 'outra senha bem longa 99'))
+      .rejects.toMatchObject({ status: 400, codigo: 'convite_invalido' });
+  });
 });
