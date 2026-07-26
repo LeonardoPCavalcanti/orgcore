@@ -36,4 +36,11 @@ export const tentativasLogin = pgTable('tentativas_login', {
   criadaEm: timestamp('criada_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const codigosRecuperacao = pgTable('codigos_recuperacao', {
+  id: uuid('id').primaryKey(),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  codigoHash: text('codigo_hash').notNull(),
+  usadoEm: timestamp('usado_em', { withTimezone: true }),
+});
+
 export type Sessao = typeof sessoes.$inferSelect;

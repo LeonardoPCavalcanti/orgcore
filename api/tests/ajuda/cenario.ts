@@ -64,5 +64,23 @@ export async function criarCenarioAcesso() {
         .set({ fim: '2020-01-01' })
         .where(condicao);
     },
+
+    /** Cria (ou reaproveita) a permissão `chave` e concede ao usuário, num papel novo, no alcance pedido. */
+    async conceder(usuarioId: string, chave: string, alcanceDesejado: 'proprio' | 'subarvore' | 'global') {
+      await db.insert(permissoes).values({ chave, modulo: chave.split('.')[0] ?? '', descricao: '' })
+        .onConflictDoNothing();
+      const papel = { id: randomUUID(), nome: `Papel ${chave} ${alcanceDesejado}`, descricao: '' };
+      await db.insert(papeis).values(papel);
+      await db.insert(papelPermissoes).values({
+        papelId: papel.id, permissaoChave: chave, alcance: alcanceDesejado,
+      });
+      const [v] = await db.select().from(vinculos).where(eq(vinculos.usuarioId, usuarioId)).limit(1);
+      if (!v) throw new Error('usuario sem vinculo');
+      await db.insert(cargoPapeis).values({ cargoId: v.cargoId, papelId: papel.id });
+    },
+
+    async concederGlobal(usuarioId: string, chave: string) {
+      await this.conceder(usuarioId, chave, 'global');
+    },
   };
 }
