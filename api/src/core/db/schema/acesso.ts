@@ -12,6 +12,8 @@ export const usuarios = pgTable('usuarios', {
   senhaHash: text('senha_hash'),
   mfaSegredo: text('mfa_segredo'),
   mfaAtivo: boolean('mfa_ativo').notNull().default(false),
+  /** Último passo de tempo TOTP (RFC 6238) aceito, para recusar reapresentação do mesmo código dentro da mesma janela. */
+  mfaUltimoPasso: bigint('mfa_ultimo_passo', { mode: 'number' }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 });
 

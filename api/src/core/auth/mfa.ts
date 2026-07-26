@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { authenticator } from 'otplib';
 import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
@@ -7,7 +7,12 @@ import { codigosRecuperacao } from '../db/schema/auth';
 import { ErroHttp } from '../erros';
 import type { ContextoUsuario } from '../rbac/contexto';
 
-const VERBOS_SENSIVEIS = new Set(['aprovar', 'administrar']);
+/**
+ * Verbo destrutivo (perde dado/estado que não volta sozinho) ou de concessão de
+ * poder (cria ou modifica o próprio sistema de acesso). Quem acrescentar um verbo
+ * novo com uma dessas duas naturezas deve incluí-lo aqui.
+ */
+const VERBOS_SENSIVEIS = new Set(['aprovar', 'administrar', 'excluir', 'revogar', 'desligar', 'bloquear']);
 
 /**
  * A exigência é derivada das permissões efetivas, não de uma lista de cargos.
@@ -25,9 +30,31 @@ export function exigeMfa(ctx: ContextoUsuario): boolean {
 const hashCodigo = (c: string): string =>
   createHash('sha256').update(c.replace(/\s|-/g, '').toLowerCase()).digest('hex');
 
-export async function prepararMfa(usuarioId: string): Promise<{ segredo: string; uri: string }> {
+/** Índice do passo de tempo TOTP corrente (RFC 6238), na duração de passo configurada na lib. */
+const passoAtual = (): number => Math.floor(Date.now() / 1000 / authenticator.allOptions().step);
+
+export async function prepararMfa(
+  usuarioId: string,
+  codigoConfirmacao?: string,
+): Promise<{ segredo: string; uri: string }> {
   const [u] = await db.select().from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1);
   if (!u) throw new ErroHttp(404, 'nao_encontrado', 'Usuário não encontrado');
+
+  // Reconfigurar quando o MFA já está ativo desliga a proteção que existia — só pode
+  // prosseguir com prova de posse do segredo ATUAL, um código TOTP válido dele.
+  // Sem isso, reabrir o fluxo de configuração (por acidente, ou com uma sessão obtida
+  // antes de o MFA ser exigido) desligaria a proteção sem confirmar nada.
+  if (u.mfaAtivo) {
+    const confirmaComSegredoAtual = u.mfaSegredo && codigoConfirmacao
+      && authenticator.check(codigoConfirmacao, u.mfaSegredo);
+    if (!confirmaComSegredoAtual) {
+      throw new ErroHttp(
+        422,
+        'confirmacao_necessaria',
+        'É preciso confirmar um código válido do autenticador atual para reconfigurar o MFA',
+      );
+    }
+  }
 
   const segredo = authenticator.generateSecret();
   await db.update(usuarios).set({ mfaSegredo: segredo, mfaAtivo: false })
@@ -62,17 +89,41 @@ export async function conferirMfa(usuarioId: string, codigo: string): Promise<bo
   const [u] = await db.select().from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1);
   if (!u?.mfaSegredo) return false;
 
-  if (authenticator.check(codigo, u.mfaSegredo)) return true;
+  if (authenticator.check(codigo, u.mfaSegredo)) {
+    // Guarda contra replay (RFC 6238): o mesmo código TOTP vale pela janela inteira
+    // (30s por padrão), então sem isso um código visto por cima do ombro, ou
+    // capturado em print, poderia ser reapresentado nos segundos seguintes e ainda
+    // ser aceito. Reivindica o passo de tempo atomicamente no próprio UPDATE — a
+    // mesma técnica do código de recuperação abaixo: só aceita se o passo desta
+    // chamada for estritamente maior que o último aceito, e a condição é resolvida
+    // pelo Postgres sob o lock de linha do UPDATE, não por um SELECT anterior, então
+    // chamadas concorrentes no mesmo passo só deixam uma reivindicar.
+    const passo = passoAtual();
+    const [reivindicado] = await db.update(usuarios)
+      .set({ mfaUltimoPasso: passo })
+      .where(and(
+        eq(usuarios.id, usuarioId),
+        or(isNull(usuarios.mfaUltimoPasso), lt(usuarios.mfaUltimoPasso, passo)),
+      ))
+      .returning();
+    return !!reivindicado;
+  }
 
-  const [recuperacao] = await db.select().from(codigosRecuperacao).where(and(
-    eq(codigosRecuperacao.usuarioId, usuarioId),
-    eq(codigosRecuperacao.codigoHash, hashCodigo(codigo)),
-    isNull(codigosRecuperacao.usadoEm),
-  )).limit(1);
+  // Reivindica o código de recuperação atomicamente no próprio UPDATE: a condição
+  // `usado_em is null` é resolvida pelo Postgres sob o lock de linha do UPDATE, não
+  // por um SELECT anterior. Chamadas concorrentes com o mesmo código serializam
+  // aqui — cada uma só enxerga o UPDATE de quem comitou antes dela, e nesse momento
+  // `usado_em` já não é mais null, então não reivindica nada. Sem isso, um SELECT
+  // prévio checando `usado_em is null` deixaria todas as chamadas concorrentes
+  // verem a linha ainda livre e todas reivindicariam o mesmo código.
+  const [recuperacao] = await db.update(codigosRecuperacao)
+    .set({ usadoEm: new Date() })
+    .where(and(
+      eq(codigosRecuperacao.usuarioId, usuarioId),
+      eq(codigosRecuperacao.codigoHash, hashCodigo(codigo)),
+      isNull(codigosRecuperacao.usadoEm),
+    ))
+    .returning();
 
-  if (!recuperacao) return false;
-
-  await db.update(codigosRecuperacao).set({ usadoEm: new Date() })
-    .where(eq(codigosRecuperacao.id, recuperacao.id));
-  return true;
+  return !!recuperacao;
 }

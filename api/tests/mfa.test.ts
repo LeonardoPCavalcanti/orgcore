@@ -31,6 +31,12 @@ describe('exigeMfa', () => {
     await c.conceder(c.analista.id, 'core.papel.administrar', 'proprio');
     expect(exigeMfa(await resolverContexto(c.analista.id))).toBe(true);
   });
+
+  it('exige de quem tem verbo de exclusao', async () => {
+    const c = await criarCenarioAcesso();
+    await c.conceder(c.analista.id, 'pessoas.colaborador.excluir', 'subarvore');
+    expect(exigeMfa(await resolverContexto(c.analista.id))).toBe(true);
+  });
 });
 
 describe('ciclo do TOTP', () => {
@@ -69,5 +75,58 @@ describe('ciclo do TOTP', () => {
     await expect(ativarMfa(c.diretor.id, '000000')).rejects.toMatchObject({
       codigo: 'codigo_invalido',
     });
+  });
+
+  it('duas chamadas concorrentes com o mesmo codigo de recuperacao: so uma aceita', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    const { codigosRecuperacao } = await ativarMfa(c.diretor.id, authenticator.generate(segredo));
+    const codigo = codigosRecuperacao[0] ?? '';
+
+    const resultados = await Promise.all(
+      Array.from({ length: 30 }, () => conferirMfa(c.diretor.id, codigo)),
+    );
+
+    expect(resultados.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('recusa o mesmo codigo TOTP reapresentado na mesma janela de tempo', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    await ativarMfa(c.diretor.id, authenticator.generate(segredo));
+
+    const codigo = authenticator.generate(segredo);
+    expect(await conferirMfa(c.diretor.id, codigo)).toBe(true);
+    expect(await conferirMfa(c.diretor.id, codigo)).toBe(false);
+  });
+});
+
+describe('reconfiguracao do MFA', () => {
+  it('usuario com MFA ativo nao consegue repreparar sem codigo valido', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    await ativarMfa(c.diretor.id, authenticator.generate(segredo));
+
+    await expect(prepararMfa(c.diretor.id)).rejects.toMatchObject({
+      codigo: 'confirmacao_necessaria',
+    });
+  });
+
+  it('usuario com MFA ativo consegue repreparar apresentando codigo valido do segredo atual', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo: segredoAntigo } = await prepararMfa(c.diretor.id);
+    await ativarMfa(c.diretor.id, authenticator.generate(segredoAntigo));
+
+    const { segredo: segredoNovo } = await prepararMfa(
+      c.diretor.id,
+      authenticator.generate(segredoAntigo),
+    );
+    expect(segredoNovo).not.toBe(segredoAntigo);
+  });
+
+  it('usuario sem MFA ativo prepara direto, sem exigir confirmacao', async () => {
+    const c = await criarCenarioAcesso();
+    const { segredo } = await prepararMfa(c.diretor.id);
+    expect(segredo).toBeTruthy();
   });
 });
