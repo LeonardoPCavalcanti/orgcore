@@ -43,7 +43,29 @@ export async function limparBanco(): Promise<void> {
   // o próprio gatilho — o papel `aplicacao` de produção, sem privilégio de
   // ALTER TABLE, não consegue. Por isso este é o único lugar do projeto
   // com permissão de contornar a imutabilidade, e só entre execuções de teste.
-  if (temAuditoria) await pool.query('alter table log_auditoria disable trigger trg_auditoria_imutavel');
-  await pool.query(`truncate ${lista} restart identity cascade`);
-  if (temAuditoria) await pool.query('alter table log_auditoria enable trigger trg_auditoria_imutavel');
+  if (temAuditoria) {
+    const { rows: gatilho } = await pool.query<{ tgenabled: string }>(
+      `select tgenabled from pg_trigger where tgname = 'trg_auditoria_imutavel'`,
+    );
+    // Se uma execução anterior desta função morreu entre o disable e o enable
+    // (erro transitório, deadlock, processo morto no meio), o gatilho fica
+    // desligado pelo resto do processo de teste e todo teste que deveria provar
+    // imutabilidade passaria por acidente, sem sinalizar nada. Falha alto aqui
+    // em vez de seguir em frente com a garantia central da tarefa já esvaziada.
+    if (gatilho[0]?.tgenabled === 'D') {
+      throw new Error(
+        'trg_auditoria_imutavel encontrado desabilitado no inicio de limparBanco: '
+        + 'uma execucao anterior falhou entre desabilitar e reabilitar o gatilho',
+      );
+    }
+  }
+
+  try {
+    if (temAuditoria) await pool.query('alter table log_auditoria disable trigger trg_auditoria_imutavel');
+    await pool.query(`truncate ${lista} restart identity cascade`);
+  } finally {
+    // Reabilita mesmo se o truncate (ou o próprio disable) lançar — senão o
+    // gatilho fica desligado pelo resto do processo de teste, em silêncio.
+    if (temAuditoria) await pool.query('alter table log_auditoria enable trigger trg_auditoria_imutavel');
+  }
 }

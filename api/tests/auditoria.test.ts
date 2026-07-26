@@ -93,6 +93,12 @@ describe('auditoria', () => {
     }))).rejects.toMatchObject({ codigo: 'dado_sensivel_auditoria' });
   });
 
+  it('recusa gravar segredo dentro de um array aninhado no diff', async () => {
+    await expect(registrarAuditoria(evento({
+      depois: { historico: [{ ok: true }, { tokenHash: 'x' }] },
+    }))).rejects.toMatchObject({ codigo: 'dado_sensivel_auditoria' });
+  });
+
   it('rejeita a promessa quando o insert falha, em vez de engolir o erro', async () => {
     await expect(registrarAuditoria(evento({ atorId: randomUUID() })))
       .rejects.toThrow();
