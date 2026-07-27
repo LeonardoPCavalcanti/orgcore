@@ -35,6 +35,12 @@ export const sessoes = pgTable('sessoes', {
 export const tentativasLogin = pgTable('tentativas_login', {
   id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
   email: text('email').notNull(),
+  /**
+   * Chave do orçamento de segundo fator, e anulável de propósito — ver comentário
+   * na migration 0004_sessoes.sql: nulo para `tipo = 'login'` (a conta pode nem
+   * existir), preenchido para `tipo = 'mfa'`.
+   */
+  usuarioId: uuid('usuario_id').references(() => usuarios.id, { onDelete: 'cascade' }),
   ip: text('ip').notNull(),
   sucesso: boolean('sucesso').notNull(),
   /**

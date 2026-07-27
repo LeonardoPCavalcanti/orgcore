@@ -49,6 +49,29 @@ function iguaisEmTempoConstante(a: string, b: string): boolean {
   return timingSafeEqual(bufferA, bufferB);
 }
 
+/**
+ * Decide se o token de dupla submissão confere. Função exportada, e não uma
+ * condição solta dentro do preHandler, por um motivo só: o tipo de
+ * `req.headers[x]` é `string | string[] | undefined`, e o caminho do ARRAY não é
+ * alcançável por HTTP — o parser do Node junta cabeçalhos repetidos numa única
+ * string separada por vírgula (só `set-cookie` vira array), e `app.inject` faz o
+ * mesmo. Um teste que injetasse `['a','a']` esperando exercitar a recusa por tipo
+ * estaria, na verdade, testando divergência de valor, e continuaria verde com a
+ * guarda trocada por `Array.isArray(x) ? x[0] : x`. Sendo função, o caso do array
+ * é exercitado onde ele de fato existe: uma chamada direta, no teste.
+ *
+ * `undefined` (cabeçalho ausente) cai na mesma guarda, e esse caso é alcançável
+ * por HTTP todo dia. Os dois recusam: nada de escolher uma ocorrência, nada de
+ * `String(...)` — qualquer valor que não seja exatamente uma string é recusa.
+ */
+export function csrfConfere(
+  cookie: string | undefined,
+  cabecalho: string | string[] | undefined,
+): boolean {
+  if (cookie === undefined || typeof cabecalho !== 'string') return false;
+  return iguaisEmTempoConstante(cabecalho, cookie);
+}
+
 export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyInstance> {
   validarManifestos(manifestos);
 
@@ -132,12 +155,9 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
           // de sessao continua vindo primeiro, para que "sem sessao" siga sendo 401
           // e nao 403.
           if (METODOS_MUTANTES.has(rota.metodo)) {
-            const cookieCsrf = req.cookies[COOKIE_CSRF];
-            const cabecalhoCsrf = req.headers[CABECALHO_CSRF];
-            // Cabecalho repetido chega como array: recusa, em vez de escolher uma
-            // das ocorrencias — fail-closed.
-            if (cookieCsrf === undefined || typeof cabecalhoCsrf !== 'string'
-              || !iguaisEmTempoConstante(cabecalhoCsrf, cookieCsrf)) {
+            // Ver `csrfConfere`: cookie ausente, cabecalho ausente, cabecalho que
+            // nao seja string e valor divergente sao todos recusa — fail-closed.
+            if (!csrfConfere(req.cookies[COOKIE_CSRF], req.headers[CABECALHO_CSRF])) {
               throw csrfInvalido();
             }
           }

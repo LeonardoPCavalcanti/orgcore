@@ -1,10 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticator } from 'otplib';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 import { criarCenarioAcesso } from './ajuda/cenario';
-import { criarApp } from '../src/core/app';
+import { criarApp, csrfConfere } from '../src/core/app';
 import { manifestoNucleo } from '../src/core/manifesto';
 import { sincronizarPermissoes } from '../src/core/modulos/registro';
 import { ativarMfa, prepararMfa } from '../src/core/auth/mfa';
@@ -321,7 +321,15 @@ describe('limite de tentativas do segundo fator', () => {
   // com palpites errados: o teto que vale e o da janela da conta.
   it('logins novos nao devolvem palpites: o orcamento de segundo fator e da conta', async () => {
     const { segredo, codigosRecuperacao } = await diretorComMfa();
-    const LOGINS = 4;
+    // Tudo aqui e DERIVADO das duas constantes. Escrever `[422,422,422,422,429]`
+    // a mao codificava a relacao MAX_FALHAS_MFA_CONTA = 2 x MAX_TENTATIVAS_MFA:
+    // afrouxar o orcamento da conta faria o teste falhar apontando para o proprio
+    // teste, e o caminho de menor resistencia seria ajustar o array em vez de
+    // rever o limite. Premissa unica, e ela e afirmada: o orcamento da conta
+    // cobre pelo menos uma sessao inteira.
+    expect(MAX_FALHAS_MFA_CONTA).toBeGreaterThanOrEqual(MAX_TENTATIVAS_MFA);
+    const LOGINS_ATE_ESGOTAR = Math.ceil(MAX_FALHAS_MFA_CONTA / MAX_TENTATIVAS_MFA);
+    const LOGINS = LOGINS_ATE_ESGOTAR + 2;
 
     const statusPorLogin: number[][] = [];
     for (let n = 0; n < LOGINS; n++) {
@@ -337,13 +345,17 @@ describe('limite de tentativas do segundo fator', () => {
       statusPorLogin.push(status);
     }
 
-    // Os dois primeiros logins gastam o orcamento inteiro da conta
-    // (MAX_FALHAS_MFA_CONTA = 2 x MAX_TENTATIVAS_MFA). Do TERCEIRO em diante
-    // nenhum palpite chega a ser conferido — nem um 422. Se o orcamento fosse por
-    // sessao, o login 3 se comportaria exatamente como o login 1.
-    expect(statusPorLogin[0]).toEqual([422, 422, 422, 422, 429]);
-    expect(statusPorLogin[2]).toEqual([429]);
-    expect(statusPorLogin[3]).toEqual([429]);
+    // O primeiro login gasta o orcamento inteiro DA SESSAO: MAX_TENTATIVAS_MFA-1
+    // recusas de codigo e um 429 na ultima, que encerra a sessao.
+    expect(statusPorLogin[0]).toEqual(
+      [...Array<number>(MAX_TENTATIVAS_MFA - 1).fill(422), 429],
+    );
+    // Depois de LOGINS_ATE_ESGOTAR logins, o orcamento da CONTA acabou: nenhum
+    // palpite chega a ser conferido — nem um 422. Se o orcamento fosse por sessao,
+    // estes logins se comportariam exatamente como o primeiro.
+    for (let n = LOGINS_ATE_ESGOTAR; n < LOGINS; n++) {
+      expect(statusPorLogin[n]).toEqual([429]);
+    }
 
     // Contagem exata: cada palpite CONFERIDO deixou uma falha registrada na conta.
     // Foram LOGINS x MAX_TENTATIVAS_MFA requisicoes, e so MAX_FALHAS_MFA_CONTA
@@ -392,6 +404,88 @@ describe('limite de tentativas do segundo fator', () => {
     // A ultima continua sendo a unica viva — nao e "todas morrem".
     const naSegunda = await postarMfa(segunda.cookie, segunda.csrf, codigoErrado(segredo));
     expect(naSegunda.statusCode).toBe(422);
+  });
+
+  // O TETO POR SESSAO SO E TETO SE FOR COBRADO ANTES DE CONFERIR O CODIGO. Com a
+  // checagem depois de `conferirMfa`, o contador servia apenas para revogar a
+  // sessao a posteriori: uma rajada simultanea passava inteira por
+  // `consumirTentativaMfa` (todas com `revogada_em is null`, porque a revogacao
+  // ainda nao tinha acontecido) e TODAS chegavam a conferir um palpite. Aqui a
+  // rajada e de verdade — `Promise.all` de RAJADA requisicoes na MESMA sessao.
+  // Cada palpite conferido deixa exatamente uma linha `tipo = 'mfa'`, porque a
+  // gravacao precede a conferencia e nao ha caminho de saida entre as duas: a
+  // contagem de linhas E a contagem de palpites conferidos.
+  it('rajada simultanea numa unica sessao nao confere mais palpites que o teto da sessao', async () => {
+    const { segredo } = await diretorComMfa();
+    const { cookie, csrf } = await logar('diretor@4med.com');
+    const RAJADA = 120;
+    const errado = codigoErrado(segredo);
+
+    const respostas = await Promise.all(
+      Array.from({ length: RAJADA }, () => postarMfa(cookie, csrf, errado)),
+    );
+
+    const conferidos = await db.select().from(tentativasLogin)
+      .where(eq(tentativasLogin.tipo, 'mfa'));
+    expect(conferidos).toHaveLength(MAX_TENTATIVAS_MFA);
+    // E nenhuma das requisicoes foi servida: todas erraram o codigo.
+    expect(respostas.some((r) => r.statusCode === 200)).toBe(false);
+    // A sessao termina revogada — o excedente nao fica de pe esperando o atacante.
+    const [linha] = await db.select().from(sessoes);
+    expect(linha?.revogadaEm).not.toBeNull();
+  });
+
+  // "Uma conta tem no maximo UMA sessao pendente por vez" e uma AFIRMACAO no
+  // codigo, e o argumento do orcamento por janela depende dela. Duas sentencas
+  // separadas (revogar, depois inserir) nao a sustentam sob concorrencia: dois
+  // logins simultaneos revogam sem enxergar a sessao ainda nao comitada do outro
+  // e inserem os dois. O que a sustenta e o indice unico parcial da migration
+  // 0004 somado ao lock por conta de `criarSessao` — e o lock existe para que o
+  // usuario legitimo (dois aparelhos entrando ao mesmo tempo) nunca veja erro.
+  it('logins simultaneos deixam no maximo uma sessao pendente viva, e nenhum falha', async () => {
+    await diretorComMfa();
+    const LOGINS = 12;
+
+    const resultados = await Promise.all(
+      Array.from({ length: LOGINS }, () => logar('diretor@4med.com')),
+    );
+
+    expect(resultados.map((r) => r.resp.statusCode)).toEqual(
+      Array<number>(LOGINS).fill(200),
+    );
+    const vivas = await db.select().from(sessoes).where(and(
+      eq(sessoes.mfaPendente, true),
+      isNull(sessoes.revogadaEm),
+    ));
+    expect(vivas).toHaveLength(1);
+  });
+
+  // O orcamento de segundo fator e da CONTA, e a conta e o usuario — nao o e-mail
+  // dele. Chaveado por e-mail, o orcamento zerava no instante em que o e-mail
+  // mudasse: quem tem a senha ganharia MAX_FALHAS_MFA_CONTA palpites novos por
+  // troca, sem nada no codigo sinalizando a dependencia. Nao existe rota de troca
+  // de e-mail hoje; o teste escreve direto na tabela justamente porque a
+  // armadilha e para o dia em que ela existir.
+  it('trocar o e-mail da conta nao devolve orcamento de segundo fator', async () => {
+    const { c, segredo, codigosRecuperacao } = await diretorComMfa();
+
+    const LOGINS_ATE_ESGOTAR = Math.ceil(MAX_FALHAS_MFA_CONTA / MAX_TENTATIVAS_MFA);
+    for (let n = 0; n < LOGINS_ATE_ESGOTAR; n++) {
+      const { cookie, csrf } = await logar('diretor@4med.com');
+      for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
+        await postarMfa(cookie, csrf, codigoErrado(segredo));
+      }
+    }
+
+    await db.update(usuarios).set({ email: 'diretor.novo@4med.com' })
+      .where(eq(usuarios.id, c.diretor.id));
+
+    // Codigo de recuperacao genuinamente valido, conta com e-mail novo: continua
+    // bloqueado, porque a janela e da conta e a janela nao passou.
+    const depois = await logar('diretor.novo@4med.com');
+    const recusado = await postarMfa(depois.cookie, depois.csrf, codigosRecuperacao[0] ?? '');
+    expect(recusado.statusCode).toBe(429);
+    expect(recusado.json().codigo).toBe('muitas_tentativas');
   });
 
   // A revogacao acima e estritamente das PENDENTES: entrar num aparelho novo nao
@@ -514,26 +608,28 @@ describe('csrf (dupla submissao)', () => {
     expect(resp.json().codigo).toBe('csrf_invalido');
   });
 
-  // Cabecalho repetido chega ao Fastify como array. A recusa vem de
-  // `typeof cabecalhoCsrf !== 'string'` (core/app.ts): sem essa checagem, uma
-  // "normalizacao" do tipo `String(cabecalho ?? '')` transformaria os dois valores
-  // na string concatenada "a,b" e a comparacao voltaria a acontecer.
-  it('cabecalho csrf repetido e recusado, em vez de ter uma ocorrencia escolhida', async () => {
-    const c = await criarCenarioAcesso();
-    await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
-
-    const resp = await app.inject({
-      method: 'POST', url: '/auth/sair',
-      cookies: { sessao: cookie, csrf }, headers: { 'x-csrf-token': [csrf, csrf] },
-    });
-    expect(resp.statusCode).toBe(403);
-    expect(resp.json().codigo).toBe('csrf_invalido');
-
-    // A sessao continua de pe: a requisicao foi recusada antes do handler.
-    const aindaValida = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: cookie } });
-    expect(aindaValida.statusCode).toBe(200);
+  // Cabecalho repetido NAO chega como array por HTTP: o parser do Node junta
+  // ocorrencias duplicadas numa unica string separada por virgula (so `set-cookie`
+  // vira array), e `app.inject` faz o mesmo — passar `[csrf, csrf]` ali entrega ao
+  // handler a string "csrf,csrf". Um teste por `inject` "provando" a recusa de
+  // array so reprovava, na verdade, a divergencia de valor, e continuava verde com
+  // a guarda de tipo trocada por `Array.isArray(b) ? b[0] : b`.
+  //
+  // A guarda existe assim mesmo, e nao e codigo morto: o TIPO de `req.headers[x]`
+  // e `string | string[] | undefined`, e os dois casos nao-string precisam ser
+  // recusados. Entao o caminho do array e exercitado onde ele de fato existe —
+  // chamando a funcao de verificacao direto, com o valor que o tipo permite.
+  it('csrfConfere recusa cabecalho em array, em vez de escolher uma ocorrencia', () => {
+    expect(csrfConfere('valor-do-cookie', ['valor-do-cookie', 'valor-do-cookie'])).toBe(false);
+    expect(csrfConfere('valor-do-cookie', ['valor-do-cookie'])).toBe(false);
+    // Ausencia dos dois lados tambem e recusa — fail-closed.
+    expect(csrfConfere('valor-do-cookie', undefined)).toBe(false);
+    expect(csrfConfere(undefined, 'valor-do-cookie')).toBe(false);
+    // E o unico caso que passa continua passando.
+    expect(csrfConfere('valor-do-cookie', 'valor-do-cookie')).toBe(true);
   });
+  // O caso ausente (`undefined`, que passa pela mesma guarda) ja e exercitado por
+  // HTTP no primeiro teste deste bloco.
 
   // O 403 de CSRF vinha DEPOIS de `validarSessao`, que escreve: um site hostil
   // disparando a mutacao cross-site era barrado, mas ja tinha estendido a sessao da

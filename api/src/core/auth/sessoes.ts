@@ -23,11 +23,20 @@ const MAX_TENTATIVAS_CONTA = 20;
 /**
  * Teto de tentativas de segundo fator NUMA MESMA SESSÃO.
  *
- * O que ele garante, e é só isto: um teto de RAJADA. O incremento é um
- * `UPDATE ... RETURNING` sob o lock da linha da sessão (`consumirTentativaMfa`),
- * então requisições concorrentes contra a mesma sessão serializam ali — por mais
- * requisições simultâneas que o atacante dispare, nenhuma sessão entrega mais de
- * MAX_TENTATIVAS_MFA palpites.
+ * O que ele garante, e é só isto: um teto de RAJADA. Uma sessão não entrega mais
+ * de MAX_TENTATIVAS_MFA palpites conferidos, por mais requisições simultâneas que
+ * o atacante dispare. **Medido: 120 requisições simultâneas numa única sessão = 5
+ * palpites conferidos.**
+ *
+ * A garantia tem duas pernas, e as duas precisam continuar de pé:
+ * 1. o incremento é um `UPDATE ... RETURNING` sob o lock da linha da sessão
+ *    (`consumirTentativaMfa`), então requisições concorrentes serializam ali e
+ *    recebem valores distintos — nunca todas o mesmo valor antigo;
+ * 2. `POST /auth/mfa` compara o valor devolvido com este teto ANTES de chamar
+ *    `conferirMfa`. Esta perna já esteve quebrada: com a comparação depois da
+ *    conferência, o contador só servia para revogar a sessão a posteriori e a
+ *    rajada inteira conferia um palpite cada (medido nessa forma: 12 palpites
+ *    conferidos numa rajada de 120, com o mesmo teto de 5).
  *
  * O que ele NÃO garante: nada sobre o total de palpites de uma conta. Estourar o
  * orçamento revoga a sessão, mas quem tem a senha faz login de novo e ganha uma
@@ -56,8 +65,20 @@ export const MAX_TENTATIVAS_MFA = 5;
  * Por que 10 por hora: o código TOTP tem 6 dígitos, 10⁶ combinações. Dez palpites
  * por hora dão 10/10⁶ = 10⁻⁵ de chance por hora, o que põe a expectativa de acerto
  * na ordem de 10⁵ horas. Isto é aritmética sobre o tamanho do espaço de códigos,
- * não uma medição de vazão do servidor: o que este arquivo garante é o orçamento
- * — dez falhas por conta por hora —, e nada além disso.
+ * não uma medição de vazão do servidor.
+ *
+ * O NÚMERO ENTREGUE NÃO É EXATAMENTE 10, e a diferença precisa estar escrita:
+ * este é um contador por janela, não um lock (ver `consumirTentativaSegundoFator`
+ * para o mecanismo). Requisições verdadeiramente simultâneas podem ler a mesma
+ * janela e passar juntas, então o teto é aproximado POR CIMA. O excesso é
+ * limitado pela rajada máxima em voo contra a conta, que é MAX_TENTATIVAS_MFA
+ * (uma sessão entrega no máximo isso, e a conta tem no máximo uma sessão pendente
+ * viva): o pior caso possível é MAX_FALHAS_MFA_CONTA + MAX_TENTATIVAS_MFA − 1 =
+ * 14 palpites por janela. Medido em três cenários de rajada — inclusive um
+ * construído de propósito para maximizar o excesso, com a janela parada em 9 e
+ * uma rajada cheia simultânea em cima — o número entregue foi 10 nos três. Ou
+ * seja: 14 é o limite teórico não observado, 10 é o observado. A expectativa de
+ * acerto do TOTP muda por menos de 1,5× entre os dois.
  *
  * Dez também é folgado para o uso legítimo: são dois blocos completos de
  * MAX_TENTATIVAS_MFA, isto é, a pessoa pode errar tudo numa sessão, entrar de novo
@@ -67,10 +88,14 @@ export const MAX_TENTATIVAS_MFA = 5;
  * LIMITAÇÃO ACEITA, e ela precisa estar escrita: quem TEM a senha consegue queimar
  * o orçamento de propósito e negar o segundo fator ao dono legítimo por uma
  * janela. Aceito porque (a) exige a senha — não é escalonamento a partir do zero;
- * (b) o bloqueio expira sozinho ao fim da janela, não é permanente; (c) fica
- * registrado em `log_auditoria` como `mfa.bloqueado`, então o abuso é detectável
- * em vez de silencioso. A alternativa — não limitar por conta — deixa a força
- * bruta de TOTP sem teto nenhum, que é estritamente pior.
+ * (b) CADA bloqueio expira sozinho ao fim da janela — mas o abuso SUSTENTADO não
+ * expira: quem repetir o gasto a cada janela mantém a vítima trancada
+ * indefinidamente, ao custo de MAX_FALHAS_MFA_CONTA requisições por hora, e nada
+ * aqui impede isso; (c) fica registrado em `log_auditoria` como `mfa.bloqueado`,
+ * então o abuso é detectável em vez de silencioso — é a detecção, e não a
+ * expiração da janela, que responde pelo caso sustentado. A alternativa — não
+ * limitar por conta — deixa a força bruta de TOTP sem teto nenhum, que é
+ * estritamente pior.
  */
 export const MAX_FALHAS_MFA_CONTA = 10;
 
@@ -199,18 +224,7 @@ export async function criarSessao(
   const expiraEm = new Date(agora + HORAS_SESSAO * 3600_000);
   const limiteEm = new Date(agora + DIAS_LIMITE * 86_400_000);
 
-  // Uma conta tem no máximo UMA sessão pendente por vez: abrir a próxima fecha as
-  // anteriores. Sem isso, quem tem a senha acumula sessões pendentes e martela o
-  // segundo fator em paralelo — cada sessão com o próprio orçamento de
-  // MAX_TENTATIVAS_MFA, todas ao mesmo tempo —, e o teto por sessão deixa de ser
-  // teto de coisa nenhuma. Serializar as sessões pendentes é o que faz o orçamento
-  // por conta (MAX_FALHAS_MFA_CONTA, contado por janela) valer na prática: sem
-  // paralelismo, a contagem por janela não tem como ser sub-lida em rajada.
-  // Só sessões PENDENTES são revogadas: login novo não derruba a sessão já
-  // confirmada de outro aparelho, que é uso legítimo comum.
-  if (opcoes.mfaPendente === true) await revogarSessoesPendentes(usuarioId);
-
-  await db.insert(sessoes).values({
+  const linhaNova = {
     id: randomUUID(),
     usuarioId,
     tokenHash: hashToken(token),
@@ -225,6 +239,45 @@ export async function criarSessao(
     // mfa.ts) — bloquear esse caso trancaria a conta fora do proprio fluxo de
     // ativacao do segundo fator, sem nenhum caminho de saida.
     mfaPendente: opcoes.mfaPendente ?? false,
+  };
+
+  // Sessão NÃO pendente não disputa nada: nasce sem revogar ninguém (login novo
+  // não derruba a sessão já confirmada de outro aparelho, que é uso legítimo
+  // comum) e sem passar pela serialização abaixo.
+  if (opcoes.mfaPendente !== true) {
+    await db.insert(sessoes).values(linhaNova);
+    return { token, expiraEm, limiteEm };
+  }
+
+  // Uma conta tem no máximo UMA sessão pendente viva por vez: abrir a próxima
+  // fecha as anteriores. Sem isso, quem tem a senha acumula sessões pendentes e
+  // martela o segundo fator em paralelo — cada sessão com o próprio orçamento de
+  // MAX_TENTATIVAS_MFA, todas ao mesmo tempo —, e o teto por sessão deixa de ser
+  // teto de coisa nenhuma. É essa invariante que limita a rajada máxima em voo
+  // contra a conta, e é dela que depende a folga declarada em
+  // `consumirTentativaSegundoFator`.
+  //
+  // QUEM GARANTE A INVARIANTE É O BANCO: o índice único parcial
+  // `idx_sessoes_pendente_unica` (migration 0004), sobre `usuario_id` onde
+  // `mfa_pendente and revogada_em is null`. Revogar e inserir são duas sentenças,
+  // e duas sentenças não se serializam sozinhas — medido antes do índice: 12
+  // logins simultâneos deixavam 2 sessões pendentes vivas, porque cada um revogou
+  // sem enxergar o insert ainda não comitado do outro.
+  //
+  // O LOCK EXISTE PARA QUE O USUÁRIO LEGÍTIMO NÃO VEJA ERRO. Só o índice
+  // transformaria dois logins simultâneos da mesma pessoa (dois aparelhos, um
+  // toque duplo no botão) em violação de unicidade — ou seja, 500 num login que
+  // não fez nada de errado. `select ... for update` na linha de `usuarios`
+  // serializa os logins concorrentes DAQUELA conta: o segundo espera o primeiro
+  // comitar, e aí enxerga e revoga a sessão dele antes de inserir a sua. Com o
+  // lock, a violação de unicidade é inalcançável; o índice fica como a garantia
+  // real, que não depende de nenhum caminho de código lembrar de tomar o lock.
+  await db.transaction(async (tx) => {
+    await tx.select({ id: usuarios.id }).from(usuarios)
+      .where(eq(usuarios.id, usuarioId)).for('update');
+    await tx.update(sessoes).set({ revogadaEm: new Date() })
+      .where(condicaoSessoesPendentes(usuarioId));
+    await tx.insert(sessoes).values(linhaNova);
   });
 
   return { token, expiraEm, limiteEm };
@@ -294,6 +347,11 @@ export async function validarSessao(
  * claim atômico de `reivindicarPassoTotp`, em mfa.ts, e do consumo de código de
  * recuperação). Cobra ANTES de conferir o código: um palpite errado precisa custar
  * exatamente o mesmo que um certo, senão o orçamento não limita nada.
+ *
+ * Esta função só CONTA — quem decide é quem chama, e o lugar da decisão é parte da
+ * garantia: `POST /auth/mfa` compara o valor devolvido com MAX_TENTATIVAS_MFA
+ * antes de `conferirMfa`. Comparar depois transforma este contador numa revogação
+ * a posteriori e deixa a rajada simultânea passar inteira (ver MAX_TENTATIVAS_MFA).
  */
 export async function consumirTentativaMfa(sessaoId: string): Promise<number> {
   const [linha] = await db.update(sessoes)
@@ -327,11 +385,23 @@ export async function consumirTentativaMfa(sessaoId: string): Promise<number> {
  * certo —, e ainda assim quem acerta não gasta orçamento. É o mesmo desenho do
  * limite de login, que também conta só `sucesso = false`.
  *
- * Residual honesto, porque um contador por janela não é um lock: requisições
- * verdadeiramente simultâneas podem enxergar a mesma janela e passar juntas. O que
- * limita a rajada não é esta função — é o orçamento POR SESSÃO
- * (`consumirTentativaMfa`, serializado no lock da linha da sessão) somado ao fato
- * de a conta ter no máximo uma sessão pendente por vez (ver `criarSessao`).
+ * LIMITAÇÃO, e não garantia: um contador por janela não é um lock. As CTEs de uma
+ * sentença compartilham um snapshot, mas sentenças concorrentes sob READ COMMITTED
+ * tiram snapshots próprios e não enxergam o `insert` ainda não comitado da
+ * vizinha — não há lock de linha aqui como há no `UPDATE ... RETURNING` de
+ * `consumirTentativaMfa`. Requisições verdadeiramente simultâneas podem, portanto,
+ * ler a mesma janela e passar juntas: este teto é aproximado por cima.
+ *
+ * O que limita o excesso não é esta função, são as duas invariantes de fora —
+ * e as duas são hoje impostas, não presumidas:
+ * - uma sessão entrega no máximo MAX_TENTATIVAS_MFA palpites (o teto é comparado
+ *   ANTES de `conferirMfa`, em `POST /auth/mfa`);
+ * - a conta tem no máximo uma sessão pendente viva (índice único parcial
+ *   `idx_sessoes_pendente_unica`, ver `criarSessao`).
+ * Logo a rajada máxima em voo contra uma conta é MAX_TENTATIVAS_MFA, e o pior
+ * caso por janela é MAX_FALHAS_MFA_CONTA + MAX_TENTATIVAS_MFA − 1. Medido: 10
+ * (o próprio orçamento) nos três cenários de rajada tentados — o pior caso
+ * teórico não foi observado. Ver MAX_FALHAS_MFA_CONTA.
  */
 export async function consumirTentativaSegundoFator(
   usuarioId: string,
@@ -339,23 +409,33 @@ export async function consumirTentativaSegundoFator(
 ): Promise<{ id: number; falhas: number } | null> {
   const desde = new Date(Date.now() - JANELA_MFA_MINUTOS * 60_000);
 
+  // A chave da janela é `usuario_id`, NÃO o e-mail. As duas eram equivalentes
+  // hoje (e-mail é `unique not null`, e não existe rota de troca de e-mail no
+  // projeto), e é exatamente por isso que a chave por e-mail era uma armadilha: no
+  // dia em que alguém acrescentar uma troca de e-mail, todas as falhas da janela
+  // corrente deixariam de ser contadas — orçamento zerado, palpites novos de
+  // graça, e nada no código sinalizando a dependência (`tsc` verde, testes
+  // verdes). O e-mail continua sendo gravado, para leitura da trilha, mas não é
+  // ele que decide nada aqui. As linhas `tipo = 'login'` continuam chaveadas por
+  // e-mail, e isso não é inconsistência: lá a conta pode nem existir.
+  //
   // `conta` vazia (usuário inexistente) não produz linha em `nova`, e a função
   // devolve `null` — recusa, nunca liberação por ausência de dado.
   const { rows } = await db.execute<{ falhas: number; id: string | null }>(sql`
     with conta as (
-      select email from usuarios where id = ${usuarioId}
+      select id, email from usuarios where id = ${usuarioId}
     ),
     janela as (
       select count(*)::int as falhas
         from tentativas_login t
-        join conta on conta.email = t.email
+        join conta on conta.id = t.usuario_id
        where t.tipo = 'mfa'
          and t.sucesso = false
          and t.criada_em > ${desde}::timestamptz
     ),
     nova as (
-      insert into tentativas_login (email, ip, sucesso, tipo)
-      select conta.email, ${origem.ip}::text, false, 'mfa'
+      insert into tentativas_login (email, usuario_id, ip, sucesso, tipo)
+      select conta.email, conta.id, ${origem.ip}::text, false, 'mfa'
         from conta, janela
        where janela.falhas < ${MAX_FALHAS_MFA_CONTA}::int
       returning id
@@ -380,18 +460,26 @@ export async function revogarSessao(sessaoId: string): Promise<void> {
 }
 
 /**
+ * "Sessão pendente viva desta conta" — a mesma condição do índice único parcial
+ * `idx_sessoes_pendente_unica` (migration 0004), escrita uma vez só para que as
+ * duas não possam divergir.
+ */
+const condicaoSessoesPendentes = (usuarioId: string) => and(
+  eq(sessoes.usuarioId, usuarioId),
+  eq(sessoes.mfaPendente, true),
+  isNull(sessoes.revogadaEm),
+);
+
+/**
  * Derruba todas as sessões da conta que ainda não passaram pelo segundo fator.
- * Chamado quando uma sessão pendente nova é aberta (ver `criarSessao`) e quando o
- * orçamento de segundo fator da conta estoura: o bloqueio precisa alcançar as
- * sessões que já existem, senão bastaria manter uma aberta para continuar tentando
- * assim que a janela virasse.
+ * Chamado quando o orçamento de segundo fator da conta estoura: o bloqueio precisa
+ * alcançar as sessões que já existem, senão bastaria manter uma aberta para
+ * continuar tentando assim que a janela virasse. (A revogação do login novo está
+ * dentro da transação de `criarSessao`, junto com o insert — ver o comentário lá.)
  */
 export async function revogarSessoesPendentes(usuarioId: string): Promise<void> {
-  await db.update(sessoes).set({ revogadaEm: new Date() }).where(and(
-    eq(sessoes.usuarioId, usuarioId),
-    eq(sessoes.mfaPendente, true),
-    isNull(sessoes.revogadaEm),
-  ));
+  await db.update(sessoes).set({ revogadaEm: new Date() })
+    .where(condicaoSessoesPendentes(usuarioId));
 }
 
 /**

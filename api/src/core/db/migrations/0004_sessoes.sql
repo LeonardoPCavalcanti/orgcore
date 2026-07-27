@@ -18,9 +18,14 @@ create table sessoes (
   -- (api/src/core/auth/sessoes.ts), nunca por SELECT seguido de UPDATE, e zerado
   -- quando o segundo fator e confirmado.
   --
-  -- O QUE ESTE CONTADOR GARANTE: um teto de RAJADA. Requisicoes concorrentes
-  -- contra a mesma sessao serializam no lock desta linha, entao nenhuma rajada
-  -- paralela consegue mais palpites do que MAX_TENTATIVAS_MFA nesta sessao.
+  -- O QUE ESTE CONTADOR GARANTE, e so vale porque POST /auth/mfa compara o valor
+  -- devolvido ANTES de conferir o codigo: um teto de RAJADA. Requisicoes
+  -- concorrentes contra a mesma sessao serializam no lock desta linha e recebem
+  -- valores distintos (1, 2, 3, ...), entao so as MAX_TENTATIVAS_MFA primeiras
+  -- chegam a conferir um palpite. Medido: 120 requisicoes simultaneas na mesma
+  -- sessao = 5 palpites conferidos, com MAX_TENTATIVAS_MFA = 5. Se a comparacao
+  -- voltar para depois da conferencia, este contador deixa de ser teto e vira
+  -- apenas uma revogacao a posteriori (medido nessa forma: 12 palpites).
   --
   -- O QUE ELE NAO GARANTE: nada sobre o total de palpites da CONTA. Estourar o
   -- orcamento revoga a sessao, mas quem tem a senha faz login de novo e ganha uma
@@ -33,15 +38,37 @@ create table sessoes (
 
 create index idx_sessoes_usuario on sessoes (usuario_id);
 
+-- Uma conta tem no maximo UMA sessao pendente viva. A afirmacao esta aqui, no
+-- banco, e nao so no comentario de `criarSessao`, porque revogar-as-anteriores e
+-- inserir-a-nova sao duas sentencas e duas sentencas nao se serializam sozinhas:
+-- medido sem este indice, 12 logins simultaneos da mesma conta deixavam 2 sessoes
+-- pendentes vivas, cada uma com o proprio orcamento de tentativas_mfa. E dessa
+-- invariante que depende a folga declarada do orcamento por conta (ver
+-- consumirTentativaSegundoFator, em api/src/core/auth/sessoes.ts).
+--
+-- `criarSessao` toma um lock na linha de `usuarios` antes de revogar e inserir,
+-- de modo que dois logins legitimos simultaneos (dois aparelhos) se serializem e
+-- nenhum deles chegue a violar este indice — se chegasse, o usuario veria 500 num
+-- login correto. O indice e a garantia; o lock e o que a torna indolor.
+create unique index idx_sessoes_pendente_unica
+  on sessoes (usuario_id)
+  where mfa_pendente and revogada_em is null;
+
 -- Registro de tentativas de autenticacao, usado pelos limites de forca bruta.
 -- Duas naturezas de tentativa convivem aqui, separadas por `tipo`, cada uma com o
 -- proprio orcamento e a propria janela (ver api/src/core/auth/sessoes.ts):
 --
---   tipo = 'login' — tentativa de senha. Chave de conta: `email` (a conta pode nem
---     existir). Limites por IP e por conta, em janela de 15 min.
+--   tipo = 'login' — tentativa de senha. Chave de conta: `email`, e tem de ser o
+--     e-mail mesmo: a conta pode nem existir, entao nao ha id para usar.
 --   tipo = 'mfa'   — tentativa de segundo fator de uma conta que ja passou pela
---     senha. Chave de conta: `email` do usuario autenticado. Limite por conta, em
---     janela de 60 min.
+--     senha. Chave de conta: `usuario_id` (sempre existe, porque a requisicao ja
+--     esta autenticada). Limite por conta, em janela de 60 min.
+--
+-- A chave do 'mfa' e o id, e nao o e-mail, porque e-mail e um atributo mutavel: o
+-- dia em que existir uma troca de e-mail, chavear por ele zeraria a janela
+-- corrente no instante da troca — orcamento de segundo fator de graca para quem
+-- ja tem a senha, sem nada no codigo sinalizando a dependencia. `email` continua
+-- gravado nas linhas de 'mfa' para leitura da trilha, mas nao decide limite.
 --
 -- O discriminador nao e decorativo: sem ele os dois orcamentos se contaminariam.
 -- Falhas de segundo fator entrariam no limite de login e quem tivesse a senha da
@@ -55,6 +82,9 @@ create index idx_sessoes_usuario on sessoes (usuario_id);
 create table tentativas_login (
   id        bigint generated always as identity primary key,
   email     text not null,
+  -- Nulo para tipo = 'login' (a conta pode nao existir), preenchido para
+  -- tipo = 'mfa'. E a chave do orcamento de segundo fator — ver acima.
+  usuario_id uuid references usuarios(id) on delete cascade,
   ip        text not null,
   sucesso   boolean not null,
   tipo      text not null default 'login' check (tipo in ('login', 'mfa')),
@@ -62,4 +92,5 @@ create table tentativas_login (
 );
 
 create index idx_tentativas_email on tentativas_login (email, tipo, criada_em desc);
+create index idx_tentativas_usuario on tentativas_login (usuario_id, tipo, criada_em desc);
 create index idx_tentativas_ip on tentativas_login (ip, criada_em desc);

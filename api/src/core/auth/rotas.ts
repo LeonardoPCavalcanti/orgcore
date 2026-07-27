@@ -94,16 +94,40 @@ export const rotasAuth: DefinicaoRota[] = [
 
       // Esta rota e o UNICO portao entre uma sessao pendente e a aplicacao
       // inteira, entao e o unico lugar onde 10^6 combinacoes de 6 digitos podem
-      // ser marteladas. Sao DOIS orcamentos, e os dois sao cobrados ANTES de
-      // conferir o codigo — palpite errado custa exatamente o mesmo que palpite
-      // certo, e um codigo de recuperacao (que `conferirMfa` tambem aceita) sai
-      // dos mesmos dois orcamentos: nao ha caminho de confirmacao que escape.
+      // ser marteladas. Sao DOIS orcamentos, e A ORDEM DESTAS LINHAS E A GARANTIA:
+      // os dois sao COBRADOS E CONFERIDOS antes de `conferirMfa`, nesta sequencia
+      // — sessao, conta, so entao o palpite.
       //
-      //   1. por SESSAO — teto de rajada, serializado no lock da linha;
+      //   1. por SESSAO — teto de rajada. O incremento e um `UPDATE ... RETURNING`
+      //      sob o lock da linha da sessao, entao requisicoes simultaneas recebem
+      //      valores distintos (1, 2, 3, ...) e so as MAX_TENTATIVAS_MFA primeiras
+      //      seguem adiante. Isto so vale porque a comparacao esta AQUI: com ela
+      //      depois de `conferirMfa` — como ja esteve —, o contador servia apenas
+      //      para revogar a sessao a posteriori e uma rajada simultanea passava
+      //      inteira, cada requisicao conferindo o seu palpite (medido: 120
+      //      simultaneas na mesma sessao = 12 palpites conferidos, contra um teto
+      //      declarado de 5).
       //   2. por CONTA  — teto real do ataque, porque quem tem a senha troca de
       //      sessao de graca (login bem-sucedido nao consome limite nenhum) mas
       //      nao troca de conta: e a conta que ele quer.
+      //
+      // Palpite errado custa exatamente o mesmo que palpite certo, e um codigo de
+      // recuperacao (que `conferirMfa` tambem aceita) sai dos mesmos dois
+      // orcamentos: nao ha caminho de confirmacao que escape.
       const tentativasDaSessao = await consumirTentativaMfa(sessaoId);
+
+      // Teto DESTA sessao ja estourado: REVOGA, nao apenas bloqueia. Uma sessao
+      // pendente apenas "travada" continuaria de pe ate o teto absoluto,
+      // esperando o atacante voltar; revogada, o proximo palpite exige um login
+      // novo com senha — que abre uma sessao nova com orcamento proprio, mas
+      // continua saindo do orcamento da conta abaixo. Recusa antes de tocar no
+      // orcamento da conta: quem excedeu o teto da sessao nao chega a queimar a
+      // janela da conta (o bloqueio por conta e um DoS contra o dono legitimo).
+      if (tentativasDaSessao > MAX_TENTATIVAS_MFA) {
+        await revogarSessao(sessaoId);
+        throw muitasTentativasMfa();
+      }
+
       const tentativaDaConta = await consumirTentativaSegundoFator(contexto.usuarioId, origem);
 
       // Orcamento da conta esgotado nesta janela: recusa ANTES de conferir o
@@ -143,11 +167,11 @@ export const rotasAuth: DefinicaoRota[] = [
         throw segundoFatorBloqueado();
       }
 
-      // Esgotou o orcamento DESTA sessao: REVOGA, nao apenas bloqueia. Uma sessao
-      // pendente apenas "travada" continuaria de pe ate o teto absoluto,
-      // esperando o atacante voltar; revogada, o proximo palpite exige um login
-      // novo com senha — que abre uma sessao nova com orcamento proprio, mas
-      // continua saindo do orcamento da conta acima.
+      // Esta falha foi a ULTIMA que cabia na sessao: revoga agora, em vez de
+      // esperar a requisicao seguinte esbarrar na checagem la de cima. Nao e ela
+      // que garante o teto — o teto e garantido pela comparacao anterior a
+      // `conferirMfa` —, e sim o que faz a sessao morrer no mesmo instante em que
+      // o orcamento acaba, sem depender de o atacante voltar para descobrir.
       if (tentativasDaSessao >= MAX_TENTATIVAS_MFA) {
         await revogarSessao(sessaoId);
         throw muitasTentativasMfa();
