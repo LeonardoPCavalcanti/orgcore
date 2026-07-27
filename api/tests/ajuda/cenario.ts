@@ -69,7 +69,14 @@ export async function criarCenarioAcesso() {
     async conceder(usuarioId: string, chave: string, alcanceDesejado: 'proprio' | 'subarvore' | 'global') {
       await db.insert(permissoes).values({ chave, modulo: chave.split('.')[0] ?? '', descricao: '' })
         .onConflictDoNothing();
-      const papel = { id: randomUUID(), nome: `Papel ${chave} ${alcanceDesejado}`, descricao: '' };
+      // `papeis.nome` é único: sem o sufixo, conceder a MESMA chave no MESMO
+      // alcance a duas pessoas diferentes (o que um teste de delegação faz o
+      // tempo todo) estouraria violação de unicidade em vez de conceder.
+      const papel = {
+        id: randomUUID(),
+        nome: `Papel ${chave} ${alcanceDesejado} ${randomUUID().slice(0, 8)}`,
+        descricao: '',
+      };
       await db.insert(papeis).values(papel);
       await db.insert(papelPermissoes).values({
         papelId: papel.id, permissaoChave: chave, alcance: alcanceDesejado,

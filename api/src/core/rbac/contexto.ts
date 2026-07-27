@@ -1,9 +1,11 @@
 import { alcanceMaisAmplo, type Alcance } from '@4med/contracts';
-import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { db } from '../db/client';
+import { dataDeHoje } from '../db/fuso';
 import { cargoPapeis, papelPermissoes, permissoes as tabelaPermissoes, vinculos } from '../db/schema/acesso';
 import { unidades } from '../db/schema/organograma';
 import { idsDaSubarvore } from '../organograma/servico';
+import { delegacaoAtiva } from './delegacoes';
 
 export type EscopoPermissao = {
   alcance: Alcance;
@@ -42,10 +44,16 @@ export type ContextoUsuario = {
 };
 
 /**
- * Resolve o contexto em uma consulta. Sem cache entre requisições: verificar
- * a versão custaria a mesma ida ao banco que esta consulta evita.
+ * Escopo que a pessoa tem POR SI — vínculos, cargos e papéis dela — sem nada de
+ * delegação. Não é exportada de propósito: quem precisa do escopo de alguém
+ * precisa quase sempre do efetivo (`resolverContexto`), e o único ponto do
+ * sistema que quer o próprio é o empréstimo logo abaixo, cuja garantia depende
+ * de não haver outro caminho até aqui.
+ *
+ * Resolve em uma consulta. Sem cache entre requisições: verificar a versão
+ * custaria a mesma ida ao banco que esta consulta evita.
  */
-export async function resolverContexto(usuarioId: string): Promise<ContextoUsuario> {
+async function resolverProprio(usuarioId: string): Promise<ContextoUsuario> {
   const linhas = await db
     .select({
       chave: papelPermissoes.permissaoChave,
@@ -65,8 +73,12 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
     .innerJoin(tabelaPermissoes, eq(tabelaPermissoes.chave, papelPermissoes.permissaoChave))
     .where(and(
       eq(vinculos.usuarioId, usuarioId),
-      lte(vinculos.inicio, sql`current_date`),
-      or(isNull(vinculos.fim), sql`${vinculos.fim} >= current_date`),
+      // Fuso da organização, não o do servidor de banco (ver db/fuso.ts): com
+      // `current_date` num banco em UTC, o último dia de um vínculo terminava
+      // às 21h de Brasília, e o primeiro dia do vínculo seguinte começava na
+      // noite anterior.
+      lte(vinculos.inicio, dataDeHoje()),
+      or(isNull(vinculos.fim), gte(vinculos.fim, dataDeHoje())),
       eq(tabelaPermissoes.ativo, true),
     ));
 
@@ -110,4 +122,51 @@ export async function resolverContexto(usuarioId: string): Promise<ContextoUsuar
   }
 
   return { usuarioId, permissoes, delegacaoId: null };
+}
+
+/**
+ * Contexto efetivo: o próprio, mais o escopo emprestado por uma delegação vigente.
+ *
+ * O que é emprestado vem de `resolverProprio(delegante)`, NUNCA de
+ * `resolverContexto(delegante)`. A diferença é a garantia de que delegação não
+ * encadeia: se A delega a B e B delega a C, o que C recebe é o escopo de B, não
+ * o de A. Com a chamada recursiva, uma cadeia de dois saltos entregaria a C o
+ * escopo do diretor sem que ninguém tivesse decidido isso — e, pior, sem nada
+ * na trilha ligando C a A. Também é o que impede um ciclo (A→B e B→A) de virar
+ * recursão infinita na resolução de contexto de toda requisição.
+ *
+ * Nunca concede mais do que o delegante possui, e nunca tira nada do próprio:
+ * a união é por CHAVE de permissão — o escopo emprestado de `aprovar` não pode
+ * alargar o escopo de `ler`.
+ */
+export async function resolverContexto(usuarioId: string): Promise<ContextoUsuario> {
+  const proprio = await resolverProprio(usuarioId);
+  const delegacao = await delegacaoAtiva(usuarioId);
+  if (!delegacao) return proprio;
+
+  const emprestado = await resolverProprio(delegacao.deUsuarioId);
+
+  const permissoes = new Map(proprio.permissoes);
+  for (const [chave, cedido] of emprestado.permissoes) {
+    const atual = permissoes.get(chave);
+    if (!atual) {
+      // Cópia: `cedido` e o array dele pertencem ao mapa de `emprestado`, e
+      // guardar a mesma referência nos dois deixaria uma mutação futura em um
+      // aparecer no outro.
+      permissoes.set(chave, { ...cedido, unidades: [...cedido.unidades] });
+      continue;
+    }
+    permissoes.set(chave, {
+      alcance: alcanceMaisAmplo(atual.alcance, cedido.alcance),
+      unidades: [...new Set([...atual.unidades, ...cedido.unidades])].sort((a, b) => a - b),
+      // `sensivel`/`modulo` são atributos da PERMISSÃO, lidos do mesmo catálogo
+      // nas duas pontas: para a mesma chave, `atual` e `cedido` trazem sempre os
+      // mesmos valores. Qualquer um dos dois serve; escolher um deles é o que
+      // mantém os campos obrigatórios (ver `EscopoPermissao`) preenchidos.
+      sensivel: atual.sensivel,
+      modulo: atual.modulo,
+    });
+  }
+
+  return { usuarioId, permissoes, delegacaoId: delegacao.id };
 }

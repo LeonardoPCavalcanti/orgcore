@@ -14,7 +14,10 @@ export const manifestoNucleo: ManifestoModulo = {
     { chave: 'core.unidade.ler', descricao: 'Ver o organograma' },
     { chave: 'core.unidade.administrar', descricao: 'Criar e mover unidades' },
     { chave: 'core.papel.administrar', descricao: 'Gerir papéis e permissões' },
-    { chave: 'core.delegacao.administrar', descricao: 'Conceder delegações' },
+    // Autoriza emprestar o PRÓPRIO escopo, e só ele — ver `criarDelegacao`,
+    // em rbac/delegacoes.ts, sobre por que não existe delegar o de outra pessoa.
+    { chave: 'core.delegacao.criar', descricao: 'Delegar o próprio escopo temporariamente' },
+    { chave: 'core.delegacao.administrar', descricao: 'Revogar delegações de terceiros' },
   ],
   rotas: [...rotasAuth, ...rotasAuditoria, ...rotasOrganograma],
   menu: [

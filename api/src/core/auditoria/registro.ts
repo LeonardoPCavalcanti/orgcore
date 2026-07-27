@@ -1,7 +1,15 @@
 import { and, desc, eq, gte, inArray, isNull, lte, or, type SQL } from 'drizzle-orm';
-import { db } from '../db/client';
+import { db, type Db } from '../db/client';
 import { logAuditoria, type LinhaAuditoria } from '../db/schema/auditoria';
 import { dadoSensivelNaAuditoria } from '../erros';
+
+/**
+ * Onde a linha da trilha é gravada: a conexão comum, ou a transação de quem
+ * chama. O segundo caso existe para que o registro de um ato e a trilha desse
+ * ato caiam ou passem juntos — ver `criarDelegacao`, em rbac/delegacoes.ts.
+ */
+type Transacao = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type ExecutorAuditoria = Db | Transacao;
 
 /**
  * Evento a registrar na trilha de auditoria.
@@ -56,11 +64,14 @@ function encontrarChaveSensivel(valor: unknown): string | null {
   return null;
 }
 
-export async function registrarAuditoria(evento: EventoAuditoria): Promise<void> {
+export async function registrarAuditoria(
+  evento: EventoAuditoria,
+  executor: ExecutorAuditoria = db,
+): Promise<void> {
   const chaveSuspeita = encontrarChaveSensivel(evento.antes) ?? encontrarChaveSensivel(evento.depois);
   if (chaveSuspeita) throw dadoSensivelNaAuditoria(chaveSuspeita);
 
-  await db.insert(logAuditoria).values({
+  await executor.insert(logAuditoria).values({
     atorId: evento.atorId,
     acao: evento.acao,
     recursoTipo: evento.recursoTipo,

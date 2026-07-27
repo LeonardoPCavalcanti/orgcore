@@ -64,6 +64,31 @@ export const segundoFatorBloqueado = () =>
   );
 
 /**
+ * Entrada de delegação que nunca poderia virar uma linha: fim antes do início,
+ * delegação para si mesmo, data malformada, motivo em branco. 422 (e não 404)
+ * de propósito: nada aqui depende de existir ou não um registro do outro lado,
+ * então a resposta não revela nada — é a própria requisição que está errada.
+ */
+export const delegacaoInvalida = (mensagem: string) =>
+  new ErroHttp(422, 'delegacao_invalida', mensagem);
+
+/**
+ * Já existe delegação vigente para essa pessoa no período pedido. Ver o
+ * comentário da restrição `delegacao_sem_sobreposicao`, na migration
+ * 0007_delegacoes.sql, sobre por que duas delegações simultâneas são recusadas
+ * em vez de desempatadas.
+ *
+ * Não vaza registro alheio: quem recebe esta resposta é o delegante, e o
+ * conflito é sobre a pessoa que ele mesmo acabou de nomear.
+ */
+export const delegacaoSobreposta = () =>
+  new ErroHttp(
+    409,
+    'delegacao_sobreposta',
+    'Esta pessoa já tem uma delegação vigente no período. Revogue a atual antes de criar outra.',
+  );
+
+/**
  * A trilha de auditoria é append-only: um vazamento gravado nela não tem como
  * ser corrigido ou removido depois. Por isso `registrarAuditoria` recusa, em
  * tempo de execução, qualquer diff que contenha uma chave que pareça segredo
