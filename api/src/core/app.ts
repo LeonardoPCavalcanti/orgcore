@@ -4,7 +4,9 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { registrarAuditoria } from './auditoria/registro';
 import { validarSessao } from './auth/sessoes';
-import { csrfInvalido, ErroHttp, mfaPendenteErro, naoAutenticado } from './erros';
+import {
+  csrfInvalido, ErroHttp, mfaPendenteErro, naoAutenticado, naoEncontrado,
+} from './erros';
 import { sincronizarPermissoes, validarManifestos } from './modulos/registro';
 import type { ManifestoModulo } from './modulos/tipos';
 import { resolverContexto } from './rbac/contexto';
@@ -161,8 +163,17 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
             // uma segunda consulta a `permissoes` só para descobrir isso (ver
             // comentário em `EscopoPermissao`, em rbac/contexto.ts).
             // `escopo` existe: a checagem de `permissoes.has` acima ja garantiu.
+            // Mesmo assim isto e um `throw`, e nao um `&&` que segue em frente
+            // quando o valor falta: `has` e `get` sao duas leituras do Map com 13
+            // linhas entre elas, e a forma `escopo !== undefined && escopo.sensivel`
+            // significa "se sumiu, sirva a rota sensivel SEM registrar na trilha".
+            // Fail-open por construcao, dependendo de um invariante mantido a
+            // distancia. Se `get` devolver nada aqui, o estado e impossivel e a
+            // unica resposta segura e recusar — 404, nunca 403 (a regra do projeto
+            // para o que nao pode ser servido), e nunca servir sem rastro.
             const escopo = contexto.permissoes.get(rota.permissao);
-            if (escopo !== undefined && escopo.sensivel) {
+            if (escopo === undefined) throw naoEncontrado();
+            if (escopo.sensivel) {
               // Decisao: se `registrarAuditoria` lancar aqui, a excecao SOBE e a
               // requisicao inteira falha (500, via setErrorHandler acima) — nao ha
               // try/catch escondendo o erro. Uma leitura sensivel que nao pode ser

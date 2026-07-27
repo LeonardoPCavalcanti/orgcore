@@ -33,17 +33,34 @@ export const csrfInvalido = () =>
   new ErroHttp(403, 'csrf_invalido', 'Token CSRF ausente ou inválido');
 
 /**
- * Orçamento de tentativas de segundo fator desta sessão esgotado. A sessão já foi
- * REVOGADA quando este erro é lançado — não é um bloqueio temporário: o caminho de
- * volta é um login novo com senha, que por sua vez passa pelos limites de
- * `tentativas_login`. Mesmo código (`muitas_tentativas`) e mesmo status do limite
- * de login: para o front é a mesma decisão, voltar à tela de entrar.
+ * Orçamento de tentativas de segundo fator DESTA SESSÃO esgotado. A sessão já foi
+ * REVOGADA quando este erro é lançado: o caminho de volta é um login novo com
+ * senha — que ainda passa pelo orçamento da CONTA (ver `segundoFatorBloqueado`),
+ * então "entrar de novo" não devolve palpites ilimitados. Mesmo código
+ * (`muitas_tentativas`) e mesmo status do limite de login: para o front é a mesma
+ * decisão, voltar à tela de entrar.
  */
 export const muitasTentativasMfa = () =>
   new ErroHttp(
     429,
     'muitas_tentativas',
     'Muitas tentativas de confirmação do segundo fator. A sessão foi encerrada; entre novamente.',
+  );
+
+/**
+ * Orçamento de tentativas de segundo fator da CONTA esgotado na janela corrente.
+ * Diferente do anterior em uma coisa que importa para quem lê a mensagem: entrar
+ * de novo NÃO resolve, porque o orçamento não é da sessão — é preciso esperar a
+ * janela passar. Mesmo `codigo` de propósito: a decisão do front continua sendo
+ * voltar à tela de entrar, e um código novo obrigaria toda tela a tratá-lo.
+ * Não vaza nada a quem não tem a senha: para receber esta resposta é preciso ter
+ * atravessado o login com a senha correta.
+ */
+export const segundoFatorBloqueado = () =>
+  new ErroHttp(
+    429,
+    'muitas_tentativas',
+    'Muitas tentativas de confirmação do segundo fator nesta conta. Aguarde antes de tentar novamente.',
   );
 
 /**

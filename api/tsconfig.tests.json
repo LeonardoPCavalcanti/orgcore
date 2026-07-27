@@ -1,4 +1,9 @@
 {
+  // Config unico do `typecheck` deste pacote: cobre `src` E `tests` com as MESMAS
+  // opcoes. `tsconfig.json` (que inclui so `src`, com rootDir/outDir) continua
+  // existindo para o editor e para um build futuro, mas nao e mais um segundo
+  // `tsc` no script — era superconjunto estrito deste sob `--noEmit`, entao
+  // compilava `src` duas vezes sem cobrir um arquivo a mais.
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true

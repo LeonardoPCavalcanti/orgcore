@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticator } from 'otplib';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -9,10 +9,10 @@ import { manifestoNucleo } from '../src/core/manifesto';
 import { sincronizarPermissoes } from '../src/core/modulos/registro';
 import { ativarMfa, prepararMfa } from '../src/core/auth/mfa';
 import { gerarHash } from '../src/core/auth/senha';
-import { MAX_TENTATIVAS_MFA } from '../src/core/auth/sessoes';
+import { MAX_FALHAS_MFA_CONTA, MAX_TENTATIVAS_MFA } from '../src/core/auth/sessoes';
 import { db } from '../src/core/db/client';
 import { usuarios } from '../src/core/db/schema/acesso';
-import { sessoes } from '../src/core/db/schema/auth';
+import { sessoes, tentativasLogin } from '../src/core/db/schema/auth';
 import { logAuditoria } from '../src/core/db/schema/auditoria';
 import type { EscopoPermissao } from '../src/core/rbac/contexto';
 import * as registroAuditoriaModulo from '../src/core/auditoria/registro';
@@ -312,6 +312,148 @@ describe('limite de tentativas do segundo fator', () => {
     const [confirmada] = await db.select().from(sessoes);
     expect(confirmada?.expiraEm.getTime()).toBeGreaterThan(prazoCurto.getTime());
   });
+
+  // O ORCAMENTO E DA CONTA, NAO DA SESSAO. Este e o teste que reproduz, em escala
+  // reduzida, o contorno que existia: login BEM-SUCEDIDO nao consome nenhum dos
+  // dois limites de `autenticar` (ambos contam so `sucesso = false`), entao quem
+  // ja tem a senha entrava de novo a cada estouro e ganhava um orcamento novo, de
+  // graca, indefinidamente. Aqui sao LOGINS logins bem-sucedidos seguidos, cada um
+  // com palpites errados: o teto que vale e o da janela da conta.
+  it('logins novos nao devolvem palpites: o orcamento de segundo fator e da conta', async () => {
+    const { segredo, codigosRecuperacao } = await diretorComMfa();
+    const LOGINS = 4;
+
+    const statusPorLogin: number[][] = [];
+    for (let n = 0; n < LOGINS; n++) {
+      const { cookie, csrf } = await logar('diretor@4med.com');
+      const status: number[] = [];
+      for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
+        const resp = await postarMfa(cookie, csrf, codigoErrado(segredo));
+        status.push(resp.statusCode);
+        // 429 encerra a sessao (orcamento da sessao) ou a janela (orcamento da
+        // conta): nos dois casos nao ha o que continuar tentando nesta sessao.
+        if (resp.statusCode === 429) break;
+      }
+      statusPorLogin.push(status);
+    }
+
+    // Os dois primeiros logins gastam o orcamento inteiro da conta
+    // (MAX_FALHAS_MFA_CONTA = 2 x MAX_TENTATIVAS_MFA). Do TERCEIRO em diante
+    // nenhum palpite chega a ser conferido — nem um 422. Se o orcamento fosse por
+    // sessao, o login 3 se comportaria exatamente como o login 1.
+    expect(statusPorLogin[0]).toEqual([422, 422, 422, 422, 429]);
+    expect(statusPorLogin[2]).toEqual([429]);
+    expect(statusPorLogin[3]).toEqual([429]);
+
+    // Contagem exata: cada palpite CONFERIDO deixou uma falha registrada na conta.
+    // Foram LOGINS x MAX_TENTATIVAS_MFA requisicoes, e so MAX_FALHAS_MFA_CONTA
+    // viraram palpite de verdade.
+    const falhas = await db.select().from(tentativasLogin)
+      .where(and(eq(tentativasLogin.tipo, 'mfa'), eq(tentativasLogin.sucesso, false)));
+    expect(falhas).toHaveLength(MAX_FALHAS_MFA_CONTA);
+    expect(MAX_FALHAS_MFA_CONTA).toBeLessThan(LOGINS * MAX_TENTATIVAS_MFA);
+
+    // Fecha a prova: um codigo GENUINAMENTE VALIDO, num login novo, e recusado
+    // enquanto a janela nao passa. Recusado ANTES de ser conferido, entao ele nem
+    // e consumido.
+    const valido = codigosRecuperacao[0] ?? '';
+    const bloqueado = await logar('diretor@4med.com');
+    const recusado = await postarMfa(bloqueado.cookie, bloqueado.csrf, valido);
+    expect(recusado.statusCode).toBe(429);
+    expect(recusado.json().codigo).toBe('muitas_tentativas');
+
+    // E era mesmo valido: envelhecendo as falhas para fora da janela, o MESMO
+    // codigo confirma. Prova duas coisas de uma vez — que o 429 acima nao era um
+    // "codigo invalido" disfarcado, e que o bloqueio expira sozinho (a limitacao
+    // aceita e negar o segundo fator por UMA JANELA, nao para sempre).
+    await db.update(tentativasLogin)
+      .set({ criadaEm: new Date(Date.now() - 2 * 3600_000) })
+      .where(eq(tentativasLogin.tipo, 'mfa'));
+
+    const depois = await logar('diretor@4med.com');
+    const aceito = await postarMfa(depois.cookie, depois.csrf, valido);
+    expect(aceito.statusCode).toBe(200);
+  });
+
+  // Sem isto, o teto por sessao nao e teto de nada: quem tem a senha acumula
+  // sessoes pendentes e martela o segundo fator em paralelo, cada sessao com o
+  // proprio orcamento. E o paralelismo entre sessoes que permite sub-ler a
+  // contagem por janela do orcamento da conta.
+  it('sessao pendente nova revoga as sessoes pendentes anteriores da mesma conta', async () => {
+    const { segredo } = await diretorComMfa();
+
+    const primeira = await logar('diretor@4med.com');
+    const segunda = await logar('diretor@4med.com');
+
+    const naPrimeira = await postarMfa(primeira.cookie, primeira.csrf, codigoErrado(segredo));
+    expect(naPrimeira.statusCode).toBe(401);
+    expect(naPrimeira.json().codigo).toBe('nao_autenticado');
+
+    // A ultima continua sendo a unica viva — nao e "todas morrem".
+    const naSegunda = await postarMfa(segunda.cookie, segunda.csrf, codigoErrado(segredo));
+    expect(naSegunda.statusCode).toBe(422);
+  });
+
+  // A revogacao acima e estritamente das PENDENTES: entrar num aparelho novo nao
+  // pode derrubar a sessao ja confirmada de outro, que e uso legitimo comum.
+  it('login novo nao derruba a sessao ja confirmada de outro aparelho', async () => {
+    const { codigosRecuperacao } = await diretorComMfa();
+
+    const antiga = await logar('diretor@4med.com', 'aparelho-a');
+    const confirmacao = await postarMfa(antiga.cookie, antiga.csrf, codigosRecuperacao[0] ?? '');
+    expect(confirmacao.statusCode).toBe(200);
+
+    await logar('diretor@4med.com', 'aparelho-b');
+
+    const resp = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: antiga.cookie } });
+    expect(resp.statusCode).toBe(200);
+  });
+
+  // O bloqueio por conta e um DoS possivel contra o proprio usuario por quem tem a
+  // senha dele. A defesa aceita para esse residual e ser DETECTAVEL — se nao ficar
+  // registrado, o residual deixa de ser aceitavel.
+  it('o bloqueio do segundo fator vai para a trilha, sem o codigo tentado', async () => {
+    const { c, segredo } = await diretorComMfa();
+
+    for (let n = 0; n < 2; n++) {
+      const { cookie, csrf } = await logar('diretor@4med.com');
+      for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
+        await postarMfa(cookie, csrf, codigoErrado(segredo));
+      }
+    }
+
+    const linhas = await db.select().from(logAuditoria)
+      .where(eq(logAuditoria.acao, 'mfa.bloqueado'));
+    // Um evento por janela fechada, nao um por tentativa recusada: a trilha e
+    // append-only e uma enxurrada afogaria a propria deteccao.
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0]?.atorId).toBe(c.diretor.id);
+    // Nada do que foi digitado entra na trilha.
+    expect(linhas[0]?.antes).toBeNull();
+    expect(linhas[0]?.depois).toBeNull();
+  });
+
+  // `tentativas_mfa` e orcamento da FASE pendente. Ficando pendurado no teto apos
+  // a confirmacao, ele passava a valer para o resto da vida da sessao: a proxima
+  // chamada a /auth/mfa (um retry do front, um botao de reconferir) devolvia 429 e
+  // revogava a sessao de quem ja tinha se autenticado direito.
+  it('confirmar o segundo fator zera o orcamento da sessao', async () => {
+    const { segredo, codigosRecuperacao } = await diretorComMfa();
+    const { cookie, csrf } = await logar('diretor@4med.com');
+
+    for (let i = 1; i < MAX_TENTATIVAS_MFA; i++) {
+      const errada = await postarMfa(cookie, csrf, codigoErrado(segredo));
+      expect(errada.statusCode).toBe(422);
+    }
+    const confirmacao = await postarMfa(cookie, csrf, codigosRecuperacao[0] ?? '');
+    expect(confirmacao.statusCode).toBe(200);
+
+    const [confirmada] = await db.select().from(sessoes);
+    expect(confirmada?.tentativasMfa).toBe(0);
+
+    const seguinte = await postarMfa(cookie, csrf, codigoErrado(segredo));
+    expect(seguinte.statusCode).toBe(422);
+  });
 });
 
 describe('csrf (dupla submissao)', () => {
@@ -370,6 +512,27 @@ describe('csrf (dupla submissao)', () => {
     });
     expect(resp.statusCode).toBe(403);
     expect(resp.json().codigo).toBe('csrf_invalido');
+  });
+
+  // Cabecalho repetido chega ao Fastify como array. A recusa vem de
+  // `typeof cabecalhoCsrf !== 'string'` (core/app.ts): sem essa checagem, uma
+  // "normalizacao" do tipo `String(cabecalho ?? '')` transformaria os dois valores
+  // na string concatenada "a,b" e a comparacao voltaria a acontecer.
+  it('cabecalho csrf repetido e recusado, em vez de ter uma ocorrencia escolhida', async () => {
+    const c = await criarCenarioAcesso();
+    await comSenha(c.analista.id);
+    const { cookie, csrf } = await logar('analista@4med.com');
+
+    const resp = await app.inject({
+      method: 'POST', url: '/auth/sair',
+      cookies: { sessao: cookie, csrf }, headers: { 'x-csrf-token': [csrf, csrf] },
+    });
+    expect(resp.statusCode).toBe(403);
+    expect(resp.json().codigo).toBe('csrf_invalido');
+
+    // A sessao continua de pe: a requisicao foi recusada antes do handler.
+    const aindaValida = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: cookie } });
+    expect(aindaValida.statusCode).toBe(200);
   });
 
   // O 403 de CSRF vinha DEPOIS de `validarSessao`, que escreve: um site hostil

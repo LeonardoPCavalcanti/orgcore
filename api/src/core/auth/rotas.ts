@@ -7,14 +7,17 @@ import { z } from 'zod';
 import { registrarAuditoria } from '../auditoria/registro';
 import { db } from '../db/client';
 import { usuarios } from '../db/schema/acesso';
-import { ErroHttp, muitasTentativasMfa, naoEncontrado } from '../erros';
+import {
+  ErroHttp, muitasTentativasMfa, naoEncontrado, segundoFatorBloqueado,
+} from '../erros';
 import type { DefinicaoRota } from '../modulos/tipos';
 import { exigirAutenticacao } from '../requisicao';
 import { aceitarConvite, criarConvite } from './convites';
 import { conferirMfa, exigeMfa } from './mfa';
 import {
-  autenticar, confirmarMfaDaSessao, consumirTentativaMfa, criarSessao, listarSessoes,
-  revogarSessao, revogarSessaoPropria, MAX_TENTATIVAS_MFA,
+  absolverTentativaSegundoFator, autenticar, confirmarMfaDaSessao, consumirTentativaMfa,
+  consumirTentativaSegundoFator, criarSessao, listarSessoes, revogarSessao,
+  revogarSessaoPropria, revogarSessoesPendentes, MAX_FALHAS_MFA_CONTA, MAX_TENTATIVAS_MFA,
 } from './sessoes';
 
 const COOKIE_SESSAO = 'sessao';
@@ -87,29 +90,65 @@ export const rotasAuth: DefinicaoRota[] = [
     handler: async (req) => {
       const { contexto, sessaoId } = exigirAutenticacao(req);
       const { codigo } = entradaMfa.parse(req.body);
+      const origem = origemDe(req);
 
       // Esta rota e o UNICO portao entre uma sessao pendente e a aplicacao
       // inteira, entao e o unico lugar onde 10^6 combinacoes de 6 digitos podem
-      // ser marteladas. O orcamento e cobrado ANTES de conferir o codigo: palpite
-      // errado custa exatamente o mesmo que palpite certo, e um codigo de
-      // recuperacao (que `conferirMfa` tambem aceita) sai do mesmo orcamento —
-      // nao ha caminho de confirmacao que escape do contador.
-      const tentativas = await consumirTentativaMfa(sessaoId);
+      // ser marteladas. Sao DOIS orcamentos, e os dois sao cobrados ANTES de
+      // conferir o codigo — palpite errado custa exatamente o mesmo que palpite
+      // certo, e um codigo de recuperacao (que `conferirMfa` tambem aceita) sai
+      // dos mesmos dois orcamentos: nao ha caminho de confirmacao que escape.
+      //
+      //   1. por SESSAO — teto de rajada, serializado no lock da linha;
+      //   2. por CONTA  — teto real do ataque, porque quem tem a senha troca de
+      //      sessao de graca (login bem-sucedido nao consome limite nenhum) mas
+      //      nao troca de conta: e a conta que ele quer.
+      const tentativasDaSessao = await consumirTentativaMfa(sessaoId);
+      const tentativaDaConta = await consumirTentativaSegundoFator(contexto.usuarioId, origem);
+
+      // Orcamento da conta esgotado nesta janela: recusa ANTES de conferir o
+      // codigo, e derruba as sessoes pendentes que existirem — o bloqueio precisa
+      // valer independentemente de quantas sessoes novas o atacante crie.
+      if (tentativaDaConta === null) {
+        await revogarSessoesPendentes(contexto.usuarioId);
+        throw segundoFatorBloqueado();
+      }
+
       const ok = await conferirMfa(contexto.usuarioId, codigo);
 
       if (ok) {
-        // Confirma o segundo fator NESTA sessao — e a unica forma de uma sessao
+        // Acertou: a tentativa sai do orcamento da conta (so falha conta) e o
+        // segundo fator e confirmado NESTA sessao — a unica forma de uma sessao
         // pendente deixar de ser pendente (ver preHandler em core/app.ts).
+        await absolverTentativaSegundoFator(tentativaDaConta.id);
         await confirmarMfaDaSessao(sessaoId);
         return { ok: true };
       }
 
-      // Esgotou o orcamento: REVOGA, nao apenas bloqueia. Uma sessao pendente
-      // apenas "travada" continuaria de pe ate o teto absoluto, esperando o
-      // atacante voltar; revogada, o proximo palpite exige um login novo com
-      // senha, que passa pelos limites de `tentativas_login`. E o que transforma
-      // "10^6 palpites por sessao" em "MAX_TENTATIVAS_MFA palpites por login".
-      if (tentativas >= MAX_TENTATIVAS_MFA) {
+      // Esta falha fechou o orcamento da CONTA. Registra na trilha: o bloqueio e
+      // um DoS possivel contra o proprio usuario por quem tem a senha dele (ver
+      // MAX_FALHAS_MFA_CONTA, em auth/sessoes.ts), e a defesa aceita para esse
+      // residual e ser detectavel. So o evento que FECHA a janela e registrado, e
+      // nao cada 429 subsequente: a trilha e append-only, e um evento por
+      // tentativa recusada transformaria a propria deteccao em enxurrada — um
+      // evento por janela ja mostra o padrao de repeticao ao longo das horas.
+      // Sem `antes`/`depois`: o codigo tentado JAMAIS entra na trilha.
+      if (tentativaDaConta.falhas >= MAX_FALHAS_MFA_CONTA) {
+        await revogarSessoesPendentes(contexto.usuarioId);
+        await registrarAuditoria({
+          atorId: contexto.usuarioId, acao: 'mfa.bloqueado', recursoTipo: 'sessao',
+          recursoId: null, unidadeId: null, ip: origem.ip, agente: origem.agente,
+          delegacaoId: contexto.delegacaoId,
+        });
+        throw segundoFatorBloqueado();
+      }
+
+      // Esgotou o orcamento DESTA sessao: REVOGA, nao apenas bloqueia. Uma sessao
+      // pendente apenas "travada" continuaria de pe ate o teto absoluto,
+      // esperando o atacante voltar; revogada, o proximo palpite exige um login
+      // novo com senha — que abre uma sessao nova com orcamento proprio, mas
+      // continua saindo do orcamento da conta acima.
+      if (tentativasDaSessao >= MAX_TENTATIVAS_MFA) {
         await revogarSessao(sessaoId);
         throw muitasTentativasMfa();
       }

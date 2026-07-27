@@ -37,6 +37,12 @@ export const tentativasLogin = pgTable('tentativas_login', {
   email: text('email').notNull(),
   ip: text('ip').notNull(),
   sucesso: boolean('sucesso').notNull(),
+  /**
+   * Discrimina os dois orçamentos que compartilham esta tabela — ver comentário na
+   * migration 0004_sessoes.sql. Toda consulta de limite PRECISA filtrar por ele:
+   * sem o filtro, falha de segundo fator conta como falha de senha e vice-versa.
+   */
+  tipo: text('tipo').$type<'login' | 'mfa'>().notNull().default('login'),
   criadaEm: timestamp('criada_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
