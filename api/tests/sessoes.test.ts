@@ -203,6 +203,32 @@ describe('sessoes', () => {
     await expect(validarSessao(token)).rejects.toMatchObject({ codigo: 'nao_autenticado' });
   });
 
+  it('o indice unico parcial barra uma segunda sessao pendente da mesma conta', async () => {
+    // Trava do INDICE, nao do lock: o teste de logins simultaneos passa mesmo com
+    // o indice apagado, porque o lock de `criarSessao` ja serializa os dois. Aqui
+    // a segunda linha entra por insert direto, sem passar pelo lock — e o comentario
+    // da migration 0004 chama o indice de "a garantia", entao a garantia precisa de
+    // trava propria.
+    const c = await criarCenarioAcesso();
+    await criarSessao(c.analista.id, origem, { mfaPendente: true });
+
+    const inserirSegunda = db.insert(sessoes).values({
+      id: crypto.randomUUID(),
+      usuarioId: c.analista.id,
+      tokenHash: 'hash-que-nao-colide',
+      ip: origem.ip,
+      agente: origem.agente,
+      expiraEm: new Date(Date.now() + 3600_000),
+      limiteEm: new Date(Date.now() + 7 * 24 * 3600_000),
+      mfaPendente: true,
+    });
+
+    await expect(inserirSegunda).rejects.toThrow(/idx_sessoes_pendente_unica/);
+
+    // Sessao NAO pendente da mesma conta continua livre: o indice e parcial.
+    await expect(criarSessao(c.analista.id, origem)).resolves.toBeDefined();
+  });
+
   it('lista so as sessoes ativas do usuario, mais recente primeiro, e revogar uma isoladamente nao afeta as outras', async () => {
     const c = await criarCenarioAcesso();
     const { token: token1 } = await criarSessao(c.analista.id, origem);

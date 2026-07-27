@@ -35,8 +35,10 @@ const MAX_TENTATIVAS_CONTA = 20;
  * 2. `POST /auth/mfa` compara o valor devolvido com este teto ANTES de chamar
  *    `conferirMfa`. Esta perna já esteve quebrada: com a comparação depois da
  *    conferência, o contador só servia para revogar a sessão a posteriori e a
- *    rajada inteira conferia um palpite cada (medido nessa forma: 12 palpites
- *    conferidos numa rajada de 120, com o mesmo teto de 5).
+ *    rajada inteira conferia um palpite cada (medido nessa forma, com o mesmo
+ *    teto de 5: uma rajada de 120 conferiu entre 12 e 14 palpites, variando por
+ *    execução — o número não é estável, o que importa é que era múltiplo do
+ *    teto). Com a comparação no lugar certo, a mesma rajada de 120 confere 5.
  *
  * O que ele NÃO garante: nada sobre o total de palpites de uma conta. Estourar o
  * orçamento revoga a sessão, mas quem tem a senha faz login de novo e ganha uma
@@ -70,15 +72,23 @@ export const MAX_TENTATIVAS_MFA = 5;
  * O NÚMERO ENTREGUE NÃO É EXATAMENTE 10, e a diferença precisa estar escrita:
  * este é um contador por janela, não um lock (ver `consumirTentativaSegundoFator`
  * para o mecanismo). Requisições verdadeiramente simultâneas podem ler a mesma
- * janela e passar juntas, então o teto é aproximado POR CIMA. O excesso é
- * limitado pela rajada máxima em voo contra a conta, que é MAX_TENTATIVAS_MFA
- * (uma sessão entrega no máximo isso, e a conta tem no máximo uma sessão pendente
- * viva): o pior caso possível é MAX_FALHAS_MFA_CONTA + MAX_TENTATIVAS_MFA − 1 =
- * 14 palpites por janela. Medido em três cenários de rajada — inclusive um
- * construído de propósito para maximizar o excesso, com a janela parada em 9 e
- * uma rajada cheia simultânea em cima — o número entregue foi 10 nos três. Ou
- * seja: 14 é o limite teórico não observado, 10 é o observado. A expectativa de
- * acerto do TOTP muda por menos de 1,5× entre os dois.
+ * janela e passar juntas, então o teto é aproximado POR CIMA.
+ *
+ * NÃO existe cota teórica fechada para esse excesso, e é preciso resistir à
+ * tentação de escrever uma. Seria natural raciocinar que a rajada em voo contra a
+ * conta é no máximo MAX_TENTATIVAS_MFA, logo o pior caso seria
+ * MAX_FALHAS_MFA_CONTA + MAX_TENTATIVAS_MFA − 1 = 14. Esse raciocínio NÃO se
+ * sustenta: revogar a sessão não cancela as requisições dela que já estão em voo,
+ * então o excesso é limitado pela concorrência que o processo consegue sustentar
+ * (na prática, o tamanho do pool de conexões), não pelo teto por sessão.
+ *
+ * O que existe é medição. Numa bateria de sete rajadas, inclusive cenários
+ * construídos de propósito para maximizar o excesso — janela parada em 9 com uma
+ * rajada cheia simultânea em cima —, o número entregue ficou entre 10 e 12, e 14
+ * nunca foi ultrapassado. Trate 10 como o valor típico e ~12 como o observado em
+ * pior caso, ambos MEDIDOS neste pool; nenhum dos dois é garantia. A expectativa
+ * de acerto do TOTP muda por menos de 1,5× em toda essa faixa, que é a razão de a
+ * imprecisão ser aceitável em vez de exigir um lock.
  *
  * Dez também é folgado para o uso legítimo: são dois blocos completos de
  * MAX_TENTATIVAS_MFA, isto é, a pessoa pode errar tudo numa sessão, entrar de novo
@@ -398,10 +408,10 @@ export async function consumirTentativaMfa(sessaoId: string): Promise<number> {
  *   ANTES de `conferirMfa`, em `POST /auth/mfa`);
  * - a conta tem no máximo uma sessão pendente viva (índice único parcial
  *   `idx_sessoes_pendente_unica`, ver `criarSessao`).
- * Logo a rajada máxima em voo contra uma conta é MAX_TENTATIVAS_MFA, e o pior
- * caso por janela é MAX_FALHAS_MFA_CONTA + MAX_TENTATIVAS_MFA − 1. Medido: 10
- * (o próprio orçamento) nos três cenários de rajada tentados — o pior caso
- * teórico não foi observado. Ver MAX_FALHAS_MFA_CONTA.
+ * As duas juntas reduzem o excesso, mas NÃO o fecham num número: revogar a sessão
+ * não cancela o que já está em voo por ela. Medido entre 10 e 12 por janela numa
+ * bateria de sete rajadas, sem garantia formal. Ver MAX_FALHAS_MFA_CONTA, onde a
+ * medição e o porquê de não haver cota fechada estão descritos por extenso.
  */
 export async function consumirTentativaSegundoFator(
   usuarioId: string,
