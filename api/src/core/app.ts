@@ -1,5 +1,6 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { registrarAuditoria } from './auditoria/registro';
@@ -100,6 +101,25 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
     genReqId: () => randomUUID(),
   });
   await app.register(cookie, { secret: process.env.COOKIE_SECRET ?? 'desenvolvimento' });
+
+  // CORS com allowlist FECHADA, e por um motivo de seguranca, nao de conveniencia:
+  // o front manda `credentials: 'include'` (o cookie de sessao vai junto), e o
+  // navegador so entrega uma resposta credenciada se o cabecalho
+  // `Access-Control-Allow-Origin` trouxer a origem EXATA da requisicao — nunca `*`.
+  // Refletir origem arbitraria com credenciais seria entregar a sessao da vitima a
+  // qualquer site que a chamasse. Por isso a origem sai de uma lista explicita
+  // (`WEB_ORIGIN`, ou a origem do dev por padrao), separada por virgula se houver
+  // mais de um front, e nada fora dela recebe cabecalho de CORS. Registrado ANTES
+  // das rotas para que o preflight OPTIONS — disparado pelo JSON e pelo cabecalho
+  // `x-csrf-token` das mutacoes — seja respondido pelo proprio plugin.
+  const origens = (process.env.WEB_ORIGIN ?? 'http://localhost:5173')
+    .split(',').map((o) => o.trim()).filter((o) => o.length > 0);
+  await app.register(cors, {
+    origin: origens,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['content-type', 'x-csrf-token'],
+  });
 
   app.decorate('menuDe', (chaves: Set<string>) =>
     manifestos.flatMap((m) => m.menu).filter((i) => chaves.has(i.permissao)));

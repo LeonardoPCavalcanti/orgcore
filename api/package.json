@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/servidor.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.tests.json",
     "seed": "tsx src/seed/executar.ts"
@@ -11,6 +12,7 @@
   "dependencies": {
     "@4med/contracts": "workspace:*",
     "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^10.0.1",
     "argon2": "^0.45.1",
     "drizzle-orm": "^0.38.0",
     "fastify": "^5.2.0",

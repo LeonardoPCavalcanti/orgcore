@@ -2,6 +2,7 @@ import { rotasAuditoria } from './auditoria/rotas';
 import { rotasAuth } from './auth/rotas';
 import type { ManifestoModulo } from './modulos/tipos';
 import { rotasOrganograma } from './organograma/rotas';
+import { rotasTeste } from './testes/rotas';
 
 export const manifestoNucleo: ManifestoModulo = {
   nome: 'core',
@@ -18,7 +19,12 @@ export const manifestoNucleo: ManifestoModulo = {
     { chave: 'core.delegacao.criar', descricao: 'Delegar o próprio escopo temporariamente' },
     { chave: 'core.delegacao.administrar', descricao: 'Revogar delegações de terceiros' },
   ],
-  rotas: [...rotasAuth, ...rotasAuditoria, ...rotasOrganograma],
+  // As rotas de teste (`/testes/*`) só existem fora de produção: em produção o
+  // ternário devolve `[]` e elas não são registradas. Ver core/testes/rotas.ts.
+  rotas: [
+    ...rotasAuth, ...rotasAuditoria, ...rotasOrganograma,
+    ...(process.env.NODE_ENV === 'production' ? [] : rotasTeste),
+  ],
   menu: [
     { rotulo: 'Organograma', caminho: '/organograma', permissao: 'core.unidade.ler' },
     { rotulo: 'Auditoria', caminho: '/auditoria', permissao: 'core.auditoria.ler' },
