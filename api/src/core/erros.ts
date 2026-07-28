@@ -74,8 +74,8 @@ export const delegacaoInvalida = (mensagem: string) =>
 
 /**
  * Já existe delegação vigente para essa pessoa no período pedido. Ver o
- * comentário da restrição `delegacao_sem_sobreposicao`, na migration
- * 0007_delegacoes.sql, sobre por que duas delegações simultâneas são recusadas
+ * comentário longo da migration 0007_delegacoes.sql (e o lock em
+ * `criarDelegacao`) sobre por que duas delegações simultâneas são recusadas
  * em vez de desempatadas.
  *
  * Não vaza registro alheio: quem recebe esta resposta é o delegante, e o
