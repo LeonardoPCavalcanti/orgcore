@@ -1,0 +1,81 @@
+/*
+  Identidade 4med. O verde da marca (#37FC26) tem contraste 1,4:1 sobre branco
+  e 14:1 sobre #020617 — por isso o tema escuro é o padrão, e o texto sobre o
+  verde é sempre #020617, nunca branco.
+  Regra de contenção: o verde ocupa no máximo ~5% da tela.
+*/
+:root {
+  --marca: #37fc26;
+  --marca-texto: #020617;
+  --fundo: #020617;
+  --superficie: #0b1220;
+  --borda: #1e293b;
+  --texto: #e5e7eb;
+  --texto-fraco: #94a3b8;
+  --apoio: #8b5cf6;
+  --verde-profundo: #12400f;
+  --perigo: #f87171;
+
+  --fonte-titulo: 'Poppins', system-ui, sans-serif;
+  --fonte-corpo: 'Inter', system-ui, sans-serif;
+
+  --raio: 8px;
+  --espaco: 8px;
+}
+
+:root[data-tema='claro'] {
+  --marca: #15803d;
+  --marca-texto: #ffffff;
+  --fundo: #ffffff;
+  --superficie: #f8fafc;
+  --borda: #e2e8f0;
+  --texto: #0f172a;
+  --texto-fraco: #475569;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte-corpo);
+}
+
+h1, h2, h3, .marca {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+}
+
+/* Números de tabela alinhados na vertical. */
+td.numero, .tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.botao-primario {
+  background: var(--marca);
+  color: var(--marca-texto);
+  border: 0;
+  border-radius: var(--raio);
+  padding: 10px 16px;
+  font-family: var(--fonte-corpo);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+}
+
+.nav-item {
+  display: block;
+  padding: 10px 14px;
+  color: var(--texto-fraco);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+.nav-item[aria-current='page'] {
+  color: var(--texto);
+  border-left-color: var(--marca);
+  background: var(--superficie);
+}
