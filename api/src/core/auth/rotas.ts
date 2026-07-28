@@ -13,6 +13,7 @@ import {
 import type { DefinicaoRota } from '../modulos/tipos';
 import { exigirAutenticacao } from '../requisicao';
 import { aceitarConvite, criarConvite } from './convites';
+import { montarMeusDados } from './meus-dados';
 import { conferirMfa, exigeMfa } from './mfa';
 import {
   absolverTentativaSegundoFator, autenticar, confirmarMfaDaSessao, consumirTentativaMfa,
@@ -220,6 +221,10 @@ export const rotasAuth: DefinicaoRota[] = [
     // `listarSessoes` projeta so o que a tela precisa — nunca `token_hash` nem o
     // estado interno do gate de MFA (ver `SessaoVisivel`, em auth/sessoes.ts).
     handler: async (req) => listarSessoes(exigirAutenticacao(req).contexto.usuarioId),
+  },
+  {
+    metodo: 'GET', caminho: '/auth/meus-dados', permissao: null, autenticada: true,
+    handler: async (req) => montarMeusDados(exigirAutenticacao(req).contexto.usuarioId),
   },
   {
     metodo: 'DELETE', caminho: '/auth/sessoes/:id', permissao: null, autenticada: true,

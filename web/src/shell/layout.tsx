@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AlternadorTema } from './alternador-tema';
 import { Navegacao } from './navegacao';
 import { useSessao } from './sessao';
 
@@ -20,7 +21,10 @@ export function Layout({ children }: { children: ReactNode }) {
             <div style={{ color: 'var(--texto-fraco)', fontSize: 13 }}>Conectado como</div>
             <div>{eu.nome}</div>
           </div>
-          <button type="button" onClick={sair}>Sair</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <AlternadorTema />
+            <button type="button" onClick={sair}>Sair</button>
+          </div>
         </header>
         {children}
       </main>

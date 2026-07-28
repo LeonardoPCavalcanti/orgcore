@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PaginaLogin } from './paginas/login';
 import { Layout } from './shell/layout';
+import { Roteador } from './shell/roteador';
 import { ProvedorSessao, useSessao } from './shell/sessao';
 import './shell/tema.css';
 
@@ -13,10 +14,7 @@ function App() {
 
   return (
     <Layout>
-      <h1>Bem-vindo, {eu.nome}</h1>
-      <p style={{ color: 'var(--texto-fraco)' }}>
-        Selecione um item no menu ao lado para começar.
-      </p>
+      <Roteador />
     </Layout>
   );
 }

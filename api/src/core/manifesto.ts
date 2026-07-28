@@ -23,5 +23,6 @@ export const manifestoNucleo: ManifestoModulo = {
   menu: [
     { rotulo: 'Organograma', caminho: '/organograma', permissao: 'core.unidade.ler' },
     { rotulo: 'Auditoria', caminho: '/auditoria', permissao: 'core.auditoria.ler' },
+    { rotulo: 'Minha conta', caminho: '/minha-conta', permissao: 'core.unidade.ler' },
   ],
 };
