@@ -13,7 +13,6 @@ export const manifestoNucleo: ManifestoModulo = {
     { chave: 'core.auditoria.ler', descricao: 'Consultar a trilha de auditoria', sensivel: true },
     { chave: 'core.unidade.ler', descricao: 'Ver o organograma' },
     { chave: 'core.unidade.administrar', descricao: 'Criar e mover unidades' },
-    { chave: 'core.papel.administrar', descricao: 'Gerir papéis e permissões' },
     // Autoriza emprestar o PRÓPRIO escopo, e só ele — ver `criarDelegacao`,
     // em rbac/delegacoes.ts, sobre por que não existe delegar o de outra pessoa.
     { chave: 'core.delegacao.criar', descricao: 'Delegar o próprio escopo temporariamente' },
