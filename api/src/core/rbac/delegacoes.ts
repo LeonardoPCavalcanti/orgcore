@@ -4,6 +4,7 @@ import { registrarAuditoria } from '../auditoria/registro';
 import type { Origem } from '../auth/sessoes';
 import { db } from '../db/client';
 import { dataDeHoje } from '../db/fuso';
+import { usuarios } from '../db/schema/acesso';
 import { delegacoes } from '../db/schema/delegacoes';
 import { delegacaoInvalida, delegacaoSobreposta, naoEncontrado, semPermissao } from '../erros';
 import type { ContextoUsuario } from './contexto';
@@ -28,18 +29,17 @@ function dataValida(valor: string): boolean {
 }
 
 /**
- * Traduz as violações que só o banco consegue detectar sem corrida. Tudo que dá
- * para checar antes já foi checado; o que sobra aqui é o desfecho de duas
- * requisições simultâneas, e sem esta tradução viraria 500 com texto do
- * Postgres. Qualquer outro erro sobe intacto: engolir o desconhecido aqui
- * transformaria falha de banco em "delegação recusada", que é mentira.
+ * Rede de segurança para violações de chave estrangeira: o delegante deixou de
+ * existir entre a resolução do contexto e o insert. O destinatário já foi
+ * conferido antes, pelo `select ... for update` que trava a linha dele.
+ *
+ * 404, nunca 403 — e nunca uma mensagem que confirme, para quem está sondando,
+ * qual dos dois ids é o inexistente. Qualquer outro erro sobe intacto: engolir o
+ * desconhecido aqui transformaria falha de banco em "delegação recusada", que é
+ * mentira.
  */
 function traduzirErroDoBanco(erro: unknown): unknown {
-  const { code, constraint } = erro as { code?: string; constraint?: string };
-  if (code === '23P01' && constraint === 'delegacao_sem_sobreposicao') return delegacaoSobreposta();
-  // Chave estrangeira: o usuário nomeado não existe (ou foi apagado entre a
-  // montagem da tela e o envio). 404, nunca 403 — e nunca uma mensagem que
-  // confirme, para quem está sondando, qual dos dois ids é o inexistente.
+  const { code } = erro as { code?: string };
   if (code === '23503') return naoEncontrado();
   return erro;
 }
@@ -84,10 +84,45 @@ export async function criarDelegacao(
 
   const id = randomUUID();
   try {
-    // A linha e o registro dela na trilha caem ou passam juntos. Fora da
-    // transação, uma falha ao auditar deixaria escopo emprestado sem rastro —
-    // exatamente o que a trilha existe para impedir.
+    // Três coisas na MESMA transação, nesta ordem, e a ordem é a garantia:
+    //
+    // 1. Lock na linha do DESTINATÁRIO. É o mesmo padrão de `criarSessao` para
+    //    "no máximo uma sessão pendente por conta". Serializa todas as tentativas
+    //    dirigidas à mesma pessoa — e só a elas: delegações para pessoas
+    //    diferentes não se esperam.
+    // 2. Checagem de sobreposição. Vem DEPOIS do lock de propósito: em READ
+    //    COMMITTED cada comando pega um snapshot novo, então quem esperou o lock
+    //    enxerga o que a transação anterior comitou. Antes do lock, leria o
+    //    passado e concluiria que está livre.
+    // 3. Insert + trilha. A linha e o registro dela caem ou passam juntos: fora
+    //    da transação, uma falha ao auditar deixaria escopo emprestado sem
+    //    rastro — exatamente o que a trilha existe para impedir.
+    //
+    // O lock é tomado aqui, e não no início da função, para não segurar a linha
+    // durante as validações — mesmo motivo pelo qual `criarSessao` só o toma
+    // depois do Argon2id.
     await db.transaction(async (tx) => {
+      const [destinatario] = await tx.select({ id: usuarios.id })
+        .from(usuarios)
+        .where(eq(usuarios.id, entrada.paraUsuarioId))
+        .for('update');
+      // Sem linha não há quem travar, e a corrida deixa de existir junto com o
+      // destinatário. Mesma resposta do id malformado: 404, sem dizer qual id.
+      if (!destinatario) throw naoEncontrado();
+
+      // Intervalos fechados nas duas pontas: [a,b] e [c,d] se tocam quando
+      // a <= d e b >= c. `fim` é o último dia de vigência, não o primeiro de fora.
+      const [conflito] = await tx.select({ id: delegacoes.id })
+        .from(delegacoes)
+        .where(and(
+          eq(delegacoes.paraUsuarioId, entrada.paraUsuarioId),
+          isNull(delegacoes.revogadaEm),
+          lte(delegacoes.inicio, entrada.fim),
+          gte(delegacoes.fim, entrada.inicio),
+        ))
+        .limit(1);
+      if (conflito) throw delegacaoSobreposta();
+
       await tx.insert(delegacoes).values({
         id,
         deUsuarioId: ctx.usuarioId,
@@ -167,9 +202,12 @@ export async function revogarDelegacao(
 /**
  * Delegação vigente hoje para esta pessoa, se houver.
  *
- * `limit(1)` sem desempate é seguro porque `delegacao_sem_sobreposicao` (ver
- * migration 0007) impede que duas delegações não revogadas cubram o mesmo dia
- * para o mesmo destinatário: o conjunto tem no máximo uma linha.
+ * `limit(1)` sem desempate porque o conjunto tem, por invariante, no máximo uma
+ * linha: `criarDelegacao` serializa sob lock as criações dirigidas à mesma
+ * pessoa e recusa período sobreposto (ver o comentário longo na migration 0007
+ * sobre o que essa invariante garante e o que ela NÃO garante). Um desempate por
+ * `order by` só tornaria determinística a escolha entre duas delegações que não
+ * deveriam coexistir — e esconderia, em vez de expor, a quebra da invariante.
  *
  * A vigência é comparada no fuso da organização, nunca no do servidor de banco
  * — ver `dataDeHoje`, em db/fuso.ts.

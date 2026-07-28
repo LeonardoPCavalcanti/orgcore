@@ -215,6 +215,93 @@ describe('delegacao', () => {
     expect(await db.select().from(delegacoes)).toHaveLength(1);
   });
 
+  it('a criacao trava a linha do destinatario antes de checar sobreposicao', async () => {
+    // O QUE ESTE TESTE PROVA, e por que é ele que guarda a invariante:
+    //
+    // A garantia de "no máximo uma delegação viva por destinatário" mora no
+    // `select ... for update` da linha do destinatário, dentro de `criarDelegacao`.
+    // Sem ele, a checagem de sobreposição e o insert são dois comandos com uma
+    // janela entre eles: duas transações alinhadas leem "livre" e ambas inserem.
+    // Que essa corrida é real está provado fora do teste (probe de barreira de
+    // fase, registrada em progress.md): N conexões que TODAS checam antes de
+    // qualquer insert produzem N linhas, 100% das vezes.
+    //
+    // O que NÃO dá para fazer é reproduzir essa corrida disparando N
+    // `criarDelegacao` concorrentes: o pool e o driver escalonam as transações,
+    // então na prática cada uma comita antes de a seguinte checar, e nunca vazam
+    // — medido com o lock REMOVIDO e 120 chamadas simultâneas: zero vazamento.
+    // Um teste assim ficaria verde COM e SEM o lock, ou seja, não guarda nada.
+    //
+    // Então este teste prova a única coisa determinística e suficiente: que o
+    // `select ... for update` é REALMENTE tomado na linha do destinatário, ANTES
+    // da checagem. Seguramos um lock nessa linha por fora e exigimos que uma
+    // `criarDelegacao` para ela BLOQUEIE até soltarmos.
+    //
+    // A ARMADILHA que escolhe o modo do lock externo: inserir em `delegacoes`
+    // pega, sozinho, um `for key share` na linha de `usuarios` do destinatário
+    // (é a FK garantindo que o pai não some no meio). Um `for update` externo
+    // conflita com esse `for key share`, então SEM o lock explícito a criação
+    // ainda bloquearia — no INSERT, não no lock — e o teste passaria à toa
+    // (verificado: com `for update` externo ele fica verde com e sem o lock).
+    //
+    // `for no key update` desfaz a armadilha: conflita com o `for update` do
+    // `criarDelegacao` (bloqueia quando o lock existe), mas NÃO conflita com o
+    // `for key share` da FK (o INSERT não espera). Logo, sem o lock explícito a
+    // criação resolve na hora e a asserção "continua pendente" falha — que é o
+    // vermelho-antes que faz deste teste um guardião de verdade.
+    const c = await criarCenarioAcesso();
+    await c.conceder(c.diretor.id, 'core.delegacao.criar', 'proprio');
+    const ctxDiretor = await resolverContexto(c.diretor.id);
+
+    const trava = await pool.connect();
+    let resolvida = false;
+    try {
+      await trava.query('begin');
+      await trava.query('select id from usuarios where id = $1 for no key update', [c.analista.id]);
+
+      const criacao = criarDelegacao(ctxDiretor, {
+        paraUsuarioId: c.analista.id, inicio: hoje(), fim: daquiA(7), motivo: 'concorrente',
+      }, origem).then((v) => { resolvida = true; return v; }, (e) => { resolvida = true; throw e; });
+
+      // Enquanto o lock é nosso, a criação tem de estar parada no `for update`.
+      await new Promise((r) => setTimeout(r, 300));
+      expect(resolvida).toBe(false);
+
+      await trava.query('commit'); // solta o lock
+      await criacao;               // agora deve concluir (era a única, sem sobreposição)
+    } finally {
+      trava.release();
+    }
+
+    expect(await db.select().from(delegacoes)).toHaveLength(1);
+  });
+
+  it('sob muitas tentativas simultaneas, sobra exatamente uma linha viva', async () => {
+    // Fumaça, não guardião: com o lock em vigor, disparar muitas criações
+    // concorrentes tem de convergir para uma linha viva e recusas coerentes.
+    // (Este teste NÃO fica vermelho se o lock sair — ver o teste acima para o
+    // porquê; ele existe para pegar quebra grosseira do caminho de criação.)
+    const c = await criarCenarioAcesso();
+    await c.conceder(c.diretor.id, 'core.delegacao.criar', 'proprio');
+    const ctxDiretor = await resolverContexto(c.diretor.id);
+
+    const resultados = await Promise.allSettled(
+      Array.from({ length: 40 }, (_, i) => criarDelegacao(ctxDiretor, {
+        paraUsuarioId: c.analista.id, inicio: hoje(), fim: daquiA(7), motivo: `tentativa ${i}`,
+      }, origem)),
+    );
+
+    expect(await db.select().from(delegacoes)).toHaveLength(1);
+    expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+
+    // As perdedoras têm de ter perdido pelo motivo certo. Sem esta asserção, um
+    // erro de conexão contaria como "recusa correta" e o teste passaria à toa.
+    const motivosDeRecusa = new Set(
+      resultados.flatMap((r) => (r.status === 'rejected' ? [(r.reason as { codigo?: string }).codigo] : [])),
+    );
+    expect([...motivosDeRecusa]).toEqual(['delegacao_sobreposta']);
+  });
+
   it('aceita a delegacao seguinte quando ela comeca depois do fim da anterior', async () => {
     const c = await criarCenarioAcesso();
     await c.conceder(c.diretor.id, 'core.delegacao.criar', 'proprio');
