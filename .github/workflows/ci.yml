@@ -31,9 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A versão vem do campo "packageManager" do package.json (não repetir aqui,
+      # senão o action reclama de versões duplicadas).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
