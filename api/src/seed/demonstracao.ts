@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../core/db/client';
+import { dataDeHoje } from '../core/db/fuso';
 import {
   cargoPapeis, cargos, papeis, papelPermissoes, usuarios, vinculos,
 } from '../core/db/schema/acesso';
@@ -72,7 +73,9 @@ export async function semearDemonstracao(): Promise<{
     { email: 'rh@4med.com', nome: 'Rita Homem', cargo: cargoRh, unidade: empresa },
   ];
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  // Início do vínculo no fuso da organização, não em UTC — senão, rodado à noite
+  // no Brasil, o vínculo nasceria com data de amanhã e ninguém logaria com acesso.
+  const hoje = dataDeHoje();
   for (const p of pessoas) {
     const id = randomUUID();
     await db.insert(usuarios).values({

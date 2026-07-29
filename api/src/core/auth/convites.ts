@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '../db/client';
+import { dataDeHoje } from '../db/fuso';
 import { usuarios, vinculos } from '../db/schema/acesso';
 import { convites } from '../db/schema/auth';
 import { ErroHttp } from '../erros';
@@ -119,7 +120,10 @@ export async function aceitarConvite(
       unidadeId: convite.unidadeId,
       cargoId: convite.cargoId,
       principal: true,
-      inicio: new Date().toISOString().slice(0, 10),
+      // Data no fuso da organização (ver db/fuso.ts). Um `toISOString()` daria a
+      // data UTC: quem aceita o convite à noite no Brasil teria o vínculo
+      // começando "amanhã", sem acesso nenhum até o UTC virar.
+      inicio: dataDeHoje(),
     });
 
     return { usuarioId };

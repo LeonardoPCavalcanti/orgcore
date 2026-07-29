@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 import { db } from '../src/core/db/client';
+import { dataDeHoje } from '../src/core/db/fuso';
 import {
   cargoPapeis, cargos, papeis, papelPermissoes, permissoes, usuarios, vinculos,
 } from '../src/core/db/schema/acesso';
@@ -49,7 +50,7 @@ describe('resolverContexto', () => {
 
   it('vinculo com fim igual a hoje ainda concede permissao', async () => {
     const c = await criarCenarioAcesso();
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = dataDeHoje();
     await db.update(vinculos).set({ fim: hoje }).where(eq(vinculos.id, c.vinculoAnalista));
 
     const ctx = await resolverContexto(c.analista.id);
@@ -83,7 +84,7 @@ describe('resolverContexto', () => {
     const administrador = { id: randomUUID(), email: 'admin@4med.com', nome: 'Ada', status: 'ativo' as const };
     await db.insert(usuarios).values(administrador);
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = dataDeHoje();
     await db.insert(vinculos).values({
       id: randomUUID(),
       usuarioId: administrador.id,
@@ -122,7 +123,7 @@ describe('resolverContexto', () => {
     const coordenadora = { id: randomUUID(), email: 'coordenadora@4med.com', nome: 'Clara', status: 'ativo' as const };
     await db.insert(usuarios).values(coordenadora);
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = dataDeHoje();
     await db.insert(vinculos).values([
       // "ler" via subarvore em Marketing (cargo ja existente do cenario base).
       {

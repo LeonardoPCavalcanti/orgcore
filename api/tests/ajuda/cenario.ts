@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../src/core/db/client';
+import { dataDeHoje } from '../../src/core/db/fuso';
 import {
   cargoPapeis, cargos, papeis, papelPermissoes, permissoes, usuarios, vinculos,
 } from '../../src/core/db/schema/acesso';
@@ -39,7 +40,10 @@ export async function criarCenarioAcesso() {
 
   const vinculoAnalista = randomUUID();
   const vinculoDiretor = randomUUID();
-  const hoje = new Date().toISOString().slice(0, 10);
+  // Fuso da organização (ver db/fuso.ts), o mesmo que resolverContexto usa para
+  // decidir se o vínculo já vale — em UTC, à noite no Brasil, o início cairia em
+  // "amanhã" e nenhum vínculo do cenário concederia permissão.
+  const hoje = dataDeHoje();
   await db.insert(vinculos).values([
     { id: vinculoAnalista, usuarioId: analista.id, unidadeId: equipeSocial.id, cargoId: cargoAnalista.id, principal: true, inicio: hoje },
     { id: vinculoDiretor, usuarioId: diretor.id, unidadeId: marketing.id, cargoId: cargoDiretor.id, principal: true, inicio: hoje },
