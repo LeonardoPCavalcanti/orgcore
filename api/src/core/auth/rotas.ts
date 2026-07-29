@@ -14,7 +14,7 @@ import type { DefinicaoRota } from '../modulos/tipos';
 import { exigirAutenticacao } from '../requisicao';
 import { aceitarConvite, criarConvite } from './convites';
 import { montarMeusDados } from './meus-dados';
-import { conferirMfa, exigeMfa } from './mfa';
+import { ativarMfa, conferirMfa, exigeMfa, prepararMfa } from './mfa';
 import {
   absolverTentativaSegundoFator, autenticar, confirmarMfaDaSessao, consumirTentativaMfa,
   consumirTentativaSegundoFator, criarSessao, listarSessoes, revogarSessao,
@@ -179,6 +179,45 @@ export const rotasAuth: DefinicaoRota[] = [
       }
 
       throw new ErroHttp(422, 'codigo_invalido', 'Código inválido');
+    },
+  },
+  {
+    // Cadastro do segundo fator, self-service (sem permissao nova, matriz de
+    // autorizacao intacta). Nao entra na allowlist de MFA pendente: so uma sessao
+    // ja confirmada (ou de quem ainda nao tem MFA, que nunca nasce pendente)
+    // alcanca o cadastro.
+    metodo: 'POST', caminho: '/auth/mfa/preparar', permissao: null, autenticada: true,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      // So ATIVACAO passa por aqui. Reconfigurar um MFA ja ativo desliga a
+      // protecao existente e exige prova de posse do segredo atual — isso vive
+      // apenas no servico `prepararMfa(usuarioId, codigo)`, nunca exposto por esta
+      // rota. Com o MFA ja ativo, recusa: o front nem oferece o botao, e esta
+      // guarda fecha o acesso direto.
+      const [u] = await db.select({ mfaAtivo: usuarios.mfaAtivo }).from(usuarios)
+        .where(eq(usuarios.id, contexto.usuarioId)).limit(1);
+      if (u?.mfaAtivo) {
+        throw new ErroHttp(409, 'mfa_ja_ativo', 'A verificação em duas etapas já está ativa');
+      }
+      const { segredo, uri } = await prepararMfa(contexto.usuarioId);
+      return { segredo, otpauth: uri };
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/auth/mfa/ativar', permissao: null, autenticada: true,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      const { codigo } = entradaMfa.parse(req.body);
+      // `ativarMfa` confere o codigo contra o segredo preparado e so entao liga o
+      // MFA, devolvendo os codigos de recuperacao (mostrados uma unica vez ao
+      // usuario). Codigo errado sobe como 422 `codigo_invalido`, do proprio servico.
+      const { codigosRecuperacao } = await ativarMfa(contexto.usuarioId, codigo);
+      await registrarAuditoria({
+        atorId: contexto.usuarioId, acao: 'mfa.ativado', recursoTipo: 'usuario',
+        recursoId: contexto.usuarioId, unidadeId: null, ip: req.ip,
+        agente: String(req.headers['user-agent'] ?? ''), delegacaoId: contexto.delegacaoId,
+      });
+      return { codigosRecuperacao };
     },
   },
   {

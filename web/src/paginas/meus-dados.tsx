@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { apiFetch } from '../api';
+import { AtivarMfa } from './ativar-mfa';
 
 type Vinculo = { unidade: string; cargo: string; inicio: string; fim: string | null; principal: boolean };
 type MeusDados = {
@@ -20,9 +21,11 @@ function Linha({ rotulo, children }: { rotulo: string; children: ReactNode }) {
 export function PaginaMeusDados() {
   const [dados, setDados] = useState<MeusDados | null>(null);
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
     apiFetch<MeusDados>('/auth/meus-dados').then(setDados).catch(() => setDados(null));
   }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   function baixar() {
     const arquivo = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
@@ -76,6 +79,12 @@ export function PaginaMeusDados() {
           )}
         </div>
       </div>
+
+      {u && (
+        <div style={{ marginTop: 18 }}>
+          <AtivarMfa mfaAtivo={u.mfaAtivo} aoAtivar={carregar} />
+        </div>
+      )}
 
       <div className="linha" style={{ marginTop: 18, gap: 12 }}>
         <button className="botao botao--primario" type="button" onClick={baixar} disabled={!dados}>

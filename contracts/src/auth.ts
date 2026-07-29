@@ -8,6 +8,18 @@ export const entradaLogin = z.object({
 
 export const entradaMfa = z.object({ codigo: z.string().min(6).max(12) });
 
+// Cadastro do segundo fator: `preparar` devolve o segredo e a URI `otpauth://`
+// (para o QR); `ativar` reaproveita `entradaMfa` no corpo (um `codigo`) e
+// responde com os códigos de recuperação, mostrados uma única vez.
+export const respostaPrepararMfa = z.object({
+  segredo: z.string(),
+  otpauth: z.string(),
+});
+
+export const respostaAtivarMfa = z.object({
+  codigosRecuperacao: z.array(z.string()),
+});
+
 export const entradaConvite = z.object({
   email: z.string().email(),
   nome: z.string().min(2),
@@ -37,3 +49,5 @@ export const respostaEu = z.object({
 
 export type RespostaEu = z.infer<typeof respostaEu>;
 export type ItemMenu = z.infer<typeof itemMenu>;
+export type RespostaPrepararMfa = z.infer<typeof respostaPrepararMfa>;
+export type RespostaAtivarMfa = z.infer<typeof respostaAtivarMfa>;
