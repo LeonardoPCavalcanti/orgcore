@@ -1,3 +1,4 @@
+import './carregar-env';
 import { criarApp } from './core/app';
 import { manifestoNucleo } from './core/manifesto';
 
