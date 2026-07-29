@@ -13,6 +13,11 @@ describe('Roteador', () => {
     expect(screen.getByRole('heading', { name: 'Auditoria' })).toBeInTheDocument();
   });
 
+  it('desenha as delegacoes em /delegacoes', () => {
+    render(<Roteador caminho="/delegacoes" />);
+    expect(screen.getByRole('heading', { name: 'Delegações' })).toBeInTheDocument();
+  });
+
   it('desenha minha conta em /minha-conta', () => {
     render(<Roteador caminho="/minha-conta" />);
     expect(screen.getByRole('heading', { name: 'Minha conta' })).toBeInTheDocument();

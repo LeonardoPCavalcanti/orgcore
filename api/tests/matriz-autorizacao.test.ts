@@ -38,13 +38,18 @@ async function entrar(email: string): Promise<Credenciais> {
 }
 
 /**
- * Permissões de uma feature JÁ construída (delegação, ver rbac/delegacoes.ts:
- * `criarDelegacao`/`revogarDelegacao` conferem estas chaves) cuja rota HTTP ainda
- * não foi ligada. Não dá para exercê-las por `app.inject`, então não entram na
- * matriz por HTTP — entram quando a rota entrar. `core.papel.administrar` NÃO está
- * aqui: nenhum código a usa, é permissão morta e saiu do manifesto.
+ * `core.delegacao.administrar` NÃO tem permissão de rota: quem revoga a própria
+ * delegação usa `core.delegacao.criar` (a rota DELETE /delegacoes/:id), e a
+ * autorização extra para revogar a de TERCEIRO é conferida DENTRO de
+ * `revogarDelegacao`, não no manifesto. Como nenhuma rota declara essa chave, ela
+ * não pode ser exercida por `app.inject` e fica aqui — a garantia dela mora nos
+ * testes de serviço (delegacoes.test.ts), não na matriz HTTP.
+ *
+ * `core.delegacao.criar` SAIU desta lista quando as rotas de /delegacoes entraram:
+ * agora tem casos de verdade na matriz, abaixo. `core.papel.administrar` nunca
+ * esteve aqui — nenhum código a usa, é permissão morta e saiu do manifesto.
  */
-const SEM_ROTA_HTTP = new Set(['core.delegacao.criar', 'core.delegacao.administrar']);
+const SEM_ROTA_HTTP = new Set(['core.delegacao.administrar']);
 
 describe('cobertura de rotas', () => {
   it('toda rota declara permissao, ou e publica, ou exige apenas sessao', () => {
@@ -78,6 +83,11 @@ describe('cobertura de rotas', () => {
   });
 });
 
+// Id sintético para exercitar a rota DELETE de delegação: todos os cargos do seed
+// são barrados no preHandler pela permissão ANTES de o id importar, então ele
+// nunca precisa apontar para uma linha real.
+const DELEGACAO_INEXISTENTE = '00000000-0000-4000-8000-000000000000';
+
 const CASOS = [
   { permissao: 'core.unidade.ler', metodo: 'GET' as const, url: '/organograma',
     permitidos: ['analista', 'coordenador', 'diretor', 'rh'] },
@@ -87,6 +97,16 @@ const CASOS = [
     permitidos: ['coordenador', 'diretor', 'rh'] },
   { permissao: 'core.convite.administrar', metodo: 'POST' as const, url: '/auth/convites',
     permitidos: ['rh'] },
+  // Delegação: NENHUM cargo do seed carrega `core.delegacao.criar` — nem o rh, que
+  // tem alcance global mas não a permissão de delegar. Logo todos são barrados nas
+  // três rotas. O caminho POSITIVO (quem TEM a permissão cria, lista e revoga por
+  // HTTP) fica em rotas-delegacao.test.ts, onde a concessão é feita à mão.
+  { permissao: 'core.delegacao.criar', metodo: 'GET' as const, url: '/delegacoes',
+    permitidos: [] as string[] },
+  { permissao: 'core.delegacao.criar', metodo: 'POST' as const, url: '/delegacoes',
+    permitidos: [] as string[] },
+  { permissao: 'core.delegacao.criar', metodo: 'DELETE' as const,
+    url: `/delegacoes/${DELEGACAO_INEXISTENTE}`, permitidos: [] as string[] },
 ];
 
 const TODOS = ['analista', 'coordenador', 'diretor', 'rh'] as const;

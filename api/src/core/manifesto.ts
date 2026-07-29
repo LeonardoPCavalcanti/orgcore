@@ -2,6 +2,7 @@ import { rotasAuditoria } from './auditoria/rotas';
 import { rotasAuth } from './auth/rotas';
 import type { ManifestoModulo } from './modulos/tipos';
 import { rotasOrganograma } from './organograma/rotas';
+import { rotasDelegacao } from './rbac/rotas-delegacao';
 import { rotasTeste } from './testes/rotas';
 
 export const manifestoNucleo: ManifestoModulo = {
@@ -22,12 +23,13 @@ export const manifestoNucleo: ManifestoModulo = {
   // As rotas de teste (`/testes/*`) só existem fora de produção: em produção o
   // ternário devolve `[]` e elas não são registradas. Ver core/testes/rotas.ts.
   rotas: [
-    ...rotasAuth, ...rotasAuditoria, ...rotasOrganograma,
+    ...rotasAuth, ...rotasAuditoria, ...rotasOrganograma, ...rotasDelegacao,
     ...(process.env.NODE_ENV === 'production' ? [] : rotasTeste),
   ],
   menu: [
     { rotulo: 'Organograma', caminho: '/organograma', permissao: 'core.unidade.ler' },
     { rotulo: 'Auditoria', caminho: '/auditoria', permissao: 'core.auditoria.ler' },
+    { rotulo: 'Delegações', caminho: '/delegacoes', permissao: 'core.delegacao.criar' },
     { rotulo: 'Minha conta', caminho: '/minha-conta', permissao: 'core.unidade.ler' },
   ],
 };
