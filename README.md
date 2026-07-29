@@ -146,7 +146,6 @@ web/
   src/shell/         sessão, navegação, layout, tema, roteador
   src/paginas/       organograma, auditoria, sessões, minha conta, login
   e2e/               Playwright
-docs/                especificação e plano de implementação
 ```
 
 ---
@@ -158,4 +157,4 @@ Este repositório é o **núcleo**. Sobre ele, o produto cresce em módulos inde
 1. **Núcleo** — auth, organograma, cargos/papéis, autorização, auditoria, módulos ✅
 2. Pessoas · 3. Documentos · 4. Tarefas · 5. Conteúdo · 6. Publicação
 
-Antes de qualquer dado real de colaborador, há um checklist de produção em `docs/` (segredo de cookie, papel de banco sem posse das tabelas, HTTPS com cookie `secure`, provedor de e-mail transacional, anonimização de desligados). O protótipo não vira produção sozinho — e o repositório é explícito sobre isso.
+Antes de qualquer dado real de colaborador, há um checklist de produção (segredo de cookie, papel de banco sem posse das tabelas, HTTPS com cookie `secure`, provedor de e-mail transacional, anonimização de desligados). O protótipo não vira produção sozinho — e o repositório é explícito sobre isso.
