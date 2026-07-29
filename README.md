@@ -1,8 +1,12 @@
 # orgcore
 
+[![CI](https://github.com/LeonardoPCavalcanti/orgcore/actions/workflows/ci.yml/badge.svg)](https://github.com/LeonardoPCavalcanti/orgcore/actions/workflows/ci.yml)
+
 **Núcleo de uma intranet corporativa modular** — identidade, autorização por organograma e trilha de auditoria, para uma organização única. Concebido como protótipo para a 4med (agência de marketing médico), mas construído como produto real: front e back separados, contratos tipados compartilhados e um sistema de módulos sobre o qual novas áreas (Pessoas, Documentos, Tarefas, Conteúdo) entram sem tocar no núcleo.
 
 Não é um SaaS multiempresa. É a fundação de acesso e auditoria de uma empresa só — a camada em que todo o resto se apoia.
+
+![Painel do orgcore: organograma com escopo por cargo](assets/painel.png)
 
 ---
 

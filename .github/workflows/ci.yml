@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    name: typecheck · lint · testes
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: 4med
+          POSTGRES_PASSWORD: desenvolvimento
+          POSTGRES_DB: 4med
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U 4med"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://4med:desenvolvimento@localhost:5432/4med
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # typecheck + lint + testes (contracts, api contra o Postgres do serviço, web)
+      - run: pnpm test
