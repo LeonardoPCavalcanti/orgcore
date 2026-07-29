@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlternadorTema } from './alternador-tema';
+import { Logo } from './logo';
 import { Navegacao } from './navegacao';
 import { useSessao } from './sessao';
 
@@ -15,8 +16,8 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <aside className="lateral">
-        <div className="lateral-topo marca">
-          <span className="marca-4">4</span>med
+        <div className="lateral-topo">
+          <Logo size={28} />
         </div>
         <div className="lateral-rotulo">Navegação</div>
         <Navegacao itens={eu.menu} caminhoAtual={window.location.pathname} />

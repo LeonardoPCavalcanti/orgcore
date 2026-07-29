@@ -110,13 +110,44 @@ a { color: inherit; }
   display: inline-flex;
   align-items: center;
 }
-.marca-4 {
-  color: var(--marca-texto);
-  background: var(--marca);
-  border-radius: var(--r-sm);
-  padding: 0 0.28em;
-  margin-right: 0.05em;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 6px 18px -8px var(--marca);
+/* ── Logo (marca 4med recriada em vetor) ─────────────────── */
+.logo {
+  position: relative;
+  display: inline-block;
+  height: var(--logo-h, 32px);
+  line-height: 1;
+}
+.logo-4 {
+  display: block;
+  font-family: var(--fonte-titulo);
+  font-weight: 800;
+  font-size: calc(var(--logo-h, 32px) * 1.34);
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+  color: var(--marca);
+}
+.logo-med {
+  position: absolute;
+  left: calc(var(--logo-h, 32px) * 0.02);
+  bottom: calc(var(--logo-h, 32px) * -0.08);
+  font-family: var(--fonte-titulo);
+  font-weight: 700;
+  font-size: calc(var(--logo-h, 32px) * 0.40);
+  letter-spacing: 0.01em;
+  color: var(--texto);
+  text-shadow: 0 1px 2px rgba(2, 6, 23, 0.55);
+}
+.logo-seta {
+  position: absolute;
+  top: calc(var(--logo-h, 32px) * 0.34);
+  left: calc(var(--logo-h, 32px) * 0.16);
+  width: calc(var(--logo-h, 32px) * 1.18);
+  height: auto;
+  stroke: #ffffff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1.5px rgba(2, 6, 23, 0.6));
 }
 
 /* ── Estrutura do app ────────────────────────────────────── */

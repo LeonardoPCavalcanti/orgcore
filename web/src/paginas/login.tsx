@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { apiFetch, ErroApi } from '../api';
+import { Logo } from '../shell/logo';
 
 export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   const [email, setEmail] = useState('');
@@ -25,7 +26,7 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
     <div className="login-tela">
       <div className="card login-card">
         <div className="card-corpo">
-          <div className="marca login-marca"><span className="marca-4">4</span>med</div>
+          <div className="login-marca"><Logo size={40} /></div>
           <h1>Entrar</h1>
           <p className="texto-fraco" style={{ marginTop: 4, marginBottom: 22 }}>
             Acesse a intranet corporativa.
