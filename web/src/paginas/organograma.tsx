@@ -26,11 +26,13 @@ export function montarArvore(lista: Unidade[]): NoArvore[] {
 export function ArvoreUnidades({ nos }: { nos: NoArvore[] }) {
   if (nos.length === 0) return null;
   return (
-    <ul style={{ listStyle: 'none', paddingLeft: 16, borderLeft: '1px solid var(--borda)' }}>
+    <ul className="arvore">
       {nos.map((no) => (
-        <li key={no.id} style={{ padding: '6px 0' }}>
-          <span>{no.nome}</span>
-          <span style={{ color: 'var(--texto-fraco)', fontSize: 12, marginLeft: 8 }}>{no.tipo}</span>
+        <li key={no.id} className="arvore-no">
+          <span className="arvore-linha">
+            <span className="arvore-nome">{no.nome}</span>
+            <span className="selo">{no.tipo}</span>
+          </span>
           <ArvoreUnidades nos={no.filhos} />
         </li>
       ))}
@@ -50,10 +52,18 @@ export function PaginaOrganograma() {
 
   return (
     <section>
-      <h1>Organograma</h1>
-      <p style={{ color: 'var(--texto-fraco)' }}>Você vê as unidades que seu cargo alcança.</p>
-      {erro && <p role="alert">{erro}</p>}
-      <ArvoreUnidades nos={nos} />
+      <div className="pagina-cabecalho">
+        <h1>Organograma</h1>
+        <p className="texto-fraco">Você vê as unidades que o seu cargo alcança.</p>
+      </div>
+      {erro && <p role="alert" className="alerta alerta--erro">{erro}</p>}
+      <div className="card">
+        <div className="card-corpo">
+          {nos.length > 0
+            ? <ArvoreUnidades nos={nos} />
+            : !erro && <div className="vazio">Nenhuma unidade no seu escopo.</div>}
+        </div>
+      </div>
     </section>
   );
 }

@@ -17,30 +17,43 @@ export function PaginaAuditoria() {
 
   return (
     <section>
-      <h1>Auditoria</h1>
-      <label htmlFor="acao">Filtrar por ação</label>
-      <input id="acao" value={acao} onChange={(e) => setAcao(e.target.value)}
-        placeholder="login.sucesso" />
+      <div className="pagina-cabecalho">
+        <h1>Auditoria</h1>
+        <p className="texto-fraco">Trilha de eventos das unidades no seu alcance. Imutável por construção.</p>
+      </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-        <thead>
-          <tr>
-            <th align="left">Quando</th><th align="left">Ação</th>
-            <th align="left">Recurso</th><th align="left">Origem</th>
-          </tr>
-        </thead>
-        <tbody>
-          {linhas.map((l) => (
-            <tr key={l.id} style={{ borderTop: '1px solid var(--borda)' }}>
-              <td className="numero">{new Date(l.ocorridoEm).toLocaleString('pt-BR')}</td>
-              <td>{l.acao}</td>
-              <td>{l.recursoTipo}{l.recursoId ? ` · ${l.recursoId}` : ''}</td>
-              <td className="numero">{l.ip}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {linhas.length === 0 && <p style={{ color: 'var(--texto-fraco)' }}>Nenhum evento no período.</p>}
+      <div className="campo" style={{ maxWidth: 320, marginBottom: 16 }}>
+        <label htmlFor="acao">Filtrar por ação</label>
+        <input className="entrada" id="acao" value={acao}
+          onChange={(e) => setAcao(e.target.value)} placeholder="login.sucesso" />
+      </div>
+
+      <div className="card">
+        {linhas.length > 0 ? (
+          <div className="tabela-wrap">
+            <table className="tabela">
+              <thead>
+                <tr><th>Quando</th><th>Ação</th><th>Recurso</th><th>Origem</th></tr>
+              </thead>
+              <tbody>
+                {linhas.map((l) => (
+                  <tr key={l.id}>
+                    <td className="numero texto-medio">{new Date(l.ocorridoEm).toLocaleString('pt-BR')}</td>
+                    <td><span className="mono">{l.acao}</span></td>
+                    <td>
+                      {l.recursoTipo}
+                      {l.recursoId && <span className="texto-fraco"> · {l.recursoId}</span>}
+                    </td>
+                    <td className="numero mono">{l.ip}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="card-corpo"><div className="vazio">Nenhum evento no período.</div></div>
+        )}
+      </div>
     </section>
   );
 }

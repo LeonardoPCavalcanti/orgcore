@@ -2,14 +2,31 @@ import { PaginaAuditoria } from '../paginas/auditoria';
 import { PaginaMeusDados } from '../paginas/meus-dados';
 import { PaginaOrganograma } from '../paginas/organograma';
 import { PaginaSessoes } from '../paginas/sessoes';
+import { useSessao } from './sessao';
 
 function BoasVindas() {
+  const { eu } = useSessao();
+  const primeiro = eu?.nome.split(' ')[0];
   return (
     <section>
-      <h1>Bem-vindo à intranet 4med</h1>
-      <p style={{ color: 'var(--texto-fraco)' }}>
-        Selecione um item no menu ao lado para começar.
-      </p>
+      <div className="pagina-cabecalho">
+        <h1>{primeiro ? `Bem-vindo, ${primeiro}` : 'Bem-vindo à intranet 4med'}</h1>
+        <p className="texto-fraco">Escolha por onde começar.</p>
+      </div>
+      {eu && eu.menu.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14 }}>
+          {eu.menu.map((item) => (
+            <a key={item.caminho} href={item.caminho} className="card atalho">
+              <div className="card-corpo">
+                <div style={{ fontWeight: 600 }}>{item.rotulo}</div>
+                <div className="texto-fraco" style={{ fontSize: 13, marginTop: 4 }}>
+                  Abrir {item.rotulo.toLowerCase()}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

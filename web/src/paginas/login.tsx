@@ -22,20 +22,34 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   }
 
   return (
-    <form onSubmit={enviar} style={{ maxWidth: 360, margin: '15vh auto', display: 'grid', gap: 12 }}>
-      <h1 className="marca">
-        <span style={{ color: 'var(--marca)' }}>4</span>med
-      </h1>
-      <label htmlFor="email">E-mail corporativo</label>
-      <input id="email" type="email" value={email} required
-        onChange={(e) => setEmail(e.target.value)} />
-      <label htmlFor="senha">Senha</label>
-      <input id="senha" type="password" value={senha} required
-        onChange={(e) => setSenha(e.target.value)} />
-      {erro && <p role="alert" style={{ color: 'var(--perigo)' }}>{erro}</p>}
-      <button className="botao-primario" type="submit" disabled={enviando}>
-        {enviando ? 'Entrando...' : 'Entrar'}
-      </button>
-    </form>
+    <div className="login-tela">
+      <div className="card login-card">
+        <div className="card-corpo">
+          <div className="marca login-marca"><span className="marca-4">4</span>med</div>
+          <h1>Entrar</h1>
+          <p className="texto-fraco" style={{ marginTop: 4, marginBottom: 22 }}>
+            Acesse a intranet corporativa.
+          </p>
+          <form className="form" onSubmit={enviar}>
+            <div className="campo">
+              <label htmlFor="email">E-mail corporativo</label>
+              <input className="entrada" id="email" type="email" value={email} required
+                autoComplete="username" placeholder="voce@4med.com"
+                onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="campo">
+              <label htmlFor="senha">Senha</label>
+              <input className="entrada" id="senha" type="password" value={senha} required
+                autoComplete="current-password" placeholder="••••••••••"
+                onChange={(e) => setSenha(e.target.value)} />
+            </div>
+            {erro && <p role="alert" className="alerta alerta--erro">{erro}</p>}
+            <button className="botao botao--primario botao--bloco" type="submit" disabled={enviando}>
+              {enviando ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }

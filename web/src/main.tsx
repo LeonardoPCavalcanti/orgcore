@@ -9,7 +9,7 @@ import './shell/tema.css';
 function App() {
   const { eu, carregando } = useSessao();
 
-  if (carregando) return <p style={{ padding: 24 }}>Carregando...</p>;
+  if (carregando) return <div className="login-tela texto-fraco">Carregando…</div>;
   if (!eu) return <PaginaLogin aoEntrar={() => window.location.reload()} />;
 
   return (
