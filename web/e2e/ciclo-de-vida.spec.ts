@@ -22,6 +22,28 @@ test('analista entra, ve apenas o proprio escopo e perde acesso ao ser desligado
   await expect(page.getByLabel('E-mail corporativo')).toBeVisible();
 });
 
+test('o botao Sair encerra a sessao no servidor, nao so na tela', async ({ page, request }) => {
+  await request.post('http://localhost:3333/testes/semear');
+
+  await page.goto('/');
+  await page.getByLabel('E-mail corporativo').fill('coordenador@4med.com');
+  await page.getByLabel('Senha').fill(SENHA);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page.getByText('Caio Nunes')).toBeVisible();
+
+  // Sair é um POST /auth/sair — mutação protegida por CSRF de dupla submissão. Se
+  // o front não ecoar o cookie `csrf` no cabeçalho, o servidor recusa com 403, a
+  // tela volta pro login mesmo assim, mas a sessão continua VIVA no backend. O
+  // reload abaixo é o que separa "saiu de verdade" de "só limpou a tela": recarregar
+  // reautentica por /auth/eu; se a sessão sobrevivesse, o app apareceria de novo.
+  await page.getByRole('button', { name: 'Sair' }).click();
+  await expect(page.getByLabel('E-mail corporativo')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('E-mail corporativo')).toBeVisible();
+  await expect(page.getByText('Caio Nunes')).toHaveCount(0);
+});
+
 test('diretor enxerga a subarvore de marketing e nao a de comercial', async ({ page, request }) => {
   await request.post('http://localhost:3333/testes/semear');
 
