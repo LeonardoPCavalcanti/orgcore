@@ -28,6 +28,8 @@ export const manifestoNucleo: ManifestoModulo = {
   ],
   menu: [
     { rotulo: 'Organograma', caminho: '/organograma', permissao: 'core.unidade.ler' },
+    { rotulo: 'Unidades', caminho: '/unidades', permissao: 'core.unidade.administrar' },
+    { rotulo: 'Convidar', caminho: '/convidar', permissao: 'core.convite.administrar' },
     { rotulo: 'Auditoria', caminho: '/auditoria', permissao: 'core.auditoria.ler' },
     { rotulo: 'Delegações', caminho: '/delegacoes', permissao: 'core.delegacao.criar' },
     { rotulo: 'Minha conta', caminho: '/minha-conta', permissao: 'core.unidade.ler' },

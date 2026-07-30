@@ -2,11 +2,11 @@ import { randomBytes } from 'node:crypto';
 import {
   entradaAceitarConvite, entradaConvite, entradaLogin, entradaMfa,
 } from '@4med/contracts';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { registrarAuditoria } from '../auditoria/registro';
 import { db } from '../db/client';
-import { usuarios } from '../db/schema/acesso';
+import { cargos, usuarios } from '../db/schema/acesso';
 import {
   ErroHttp, muitasTentativasMfa, naoEncontrado, segundoFatorBloqueado,
 } from '../erros';
@@ -276,6 +276,13 @@ export const rotasAuth: DefinicaoRota[] = [
       if (!(await revogarSessaoPropria(id, contexto.usuarioId))) throw naoEncontrado();
       return { ok: true };
     },
+  },
+  {
+    // Alimenta o select de cargo da tela de convite. Mesma permissão do convite em
+    // si: quem não pode convidar não tem por que enumerar os cargos disponíveis.
+    metodo: 'GET', caminho: '/auth/cargos', permissao: 'core.convite.administrar',
+    handler: async () =>
+      db.select({ id: cargos.id, nome: cargos.nome }).from(cargos).orderBy(asc(cargos.nome)),
   },
   {
     metodo: 'POST', caminho: '/auth/convites', permissao: 'core.convite.administrar',

@@ -1,8 +1,10 @@
 import { PaginaAuditoria } from '../paginas/auditoria';
+import { PaginaConvidar } from '../paginas/convidar';
 import { PaginaDelegacoes } from '../paginas/delegacoes';
 import { PaginaMeusDados } from '../paginas/meus-dados';
 import { PaginaOrganograma } from '../paginas/organograma';
 import { PaginaSessoes } from '../paginas/sessoes';
+import { PaginaUnidades } from '../paginas/unidades';
 import { useSessao } from './sessao';
 
 function BoasVindas() {
@@ -43,6 +45,10 @@ export function Roteador({ caminho = window.location.pathname }: { caminho?: str
   switch (caminho) {
     case '/organograma':
       return <PaginaOrganograma />;
+    case '/unidades':
+      return <PaginaUnidades />;
+    case '/convidar':
+      return <PaginaConvidar />;
     case '/auditoria':
       return <PaginaAuditoria />;
     case '/delegacoes':
