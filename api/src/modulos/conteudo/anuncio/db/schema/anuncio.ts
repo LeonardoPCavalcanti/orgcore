@@ -1,4 +1,5 @@
-import { bigint, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { GrupoTabela } from '@4med/contracts';
+import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { usuarios } from '../../../../../core/db/schema/acesso';
 import { unidades } from '../../../../../core/db/schema/organograma';
 
@@ -20,6 +21,7 @@ export const anuncios = pgTable('anuncios', {
   veiculo: text('veiculo'),
   dataRotulo: text('data_rotulo'),
   localRotulo: text('local_rotulo'),
+  grupos: jsonb('grupos').$type<GrupoTabela[]>().notNull().default([]),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
   template: text('template').notNull(),

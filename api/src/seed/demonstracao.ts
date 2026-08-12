@@ -155,6 +155,7 @@ export async function semearAnuncioDemo(): Promise<void> {
         { nome: 'Estefani Pontes', papel: 'Coautora' },
         { nome: 'Patrícia Endo', papel: 'Orientadora' },
       ],
+      grupos: [],
       veiculo: 'Journal of Healthcare Informatics Research',
     },
     autorId: analista.id,

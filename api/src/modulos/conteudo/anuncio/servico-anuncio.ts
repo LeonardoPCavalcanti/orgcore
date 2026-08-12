@@ -69,7 +69,10 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     };
   }));
 
-  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render));
+  // `grupos` (variante tabela) NÃO passa pela IA: é dado estruturado do usuário que a
+  // IA não deve reescrever. Vai direto do formulário para o render e o armazenamento.
+  const grupos = entrada.dados.grupos;
+  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos);
 
   const anuncioId = randomUUID();
   const [criado] = await db.transaction(async (tx) => {
@@ -84,6 +87,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       veiculo: plano.veiculo ?? null,
       dataRotulo: plano.dataRotulo ?? null,
       localRotulo: plano.localRotulo ?? null,
+      grupos,
       imagem: imagemCard,
       imagemTipo: 'image/png',
       template: TEMPLATE_C2AI,
@@ -111,6 +115,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       id: c.id, ordem: c.ordem, nome: c.nome, papel: c.papel,
       fotoUrl: c.foto ? urlFoto(c.id) : null,
     })),
+    grupos,
   };
 }
 
@@ -149,6 +154,7 @@ export async function obterAnuncio(id: string, autorId: string): Promise<Anuncio
       id: p.id, ordem: p.ordem, nome: p.nome, papel: p.papel,
       fotoUrl: p.temFoto ? urlFoto(p.id) : null,
     })),
+    grupos: anuncio.grupos,
   };
 }
 

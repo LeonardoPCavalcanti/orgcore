@@ -6,6 +6,7 @@ const base: NovoAnuncio = {
   tipo: 'artigo_aprovado',
   titulo: '  Assistente Inteligente baseado em LLM  ',
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }, { nome: 'Flávio Lins', papel: '' }],
+  grupos: [],
 };
 
 describe('geradorAnuncioFake', () => {

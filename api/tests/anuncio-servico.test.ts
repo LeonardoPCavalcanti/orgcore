@@ -32,6 +32,7 @@ const dados = (over: Partial<NovoAnuncio> = {}): NovoAnuncio => ({
   tipo: 'artigo_aprovado',
   titulo: 'Assistente Inteligente baseado em LLM',
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }],
+  grupos: [],
   ...over,
 });
 
@@ -71,6 +72,20 @@ describe('servico de anuncio', () => {
     const ana = await autor('analista@4med.com');
     const resp = await criar(ana);
     expect(resp.pessoas[0]!.fotoUrl).toBeNull();
+  }, 30_000);
+
+  it('guarda e devolve a variante tabela (grupos)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const grupos = [{
+      titulo: 'DOUTORADO', colunas: ['Orientando', 'Orientadora'] as [string, string],
+      linhas: [['Gabriel Masson', 'Patrícia Endo'] as [string, string]],
+    }];
+    const resp = await criar(ana, { tipo: 'aprovados', titulo: 'Pós-Graduação 2026.2', pessoas: [], grupos });
+
+    expect(resp.grupos).toEqual(grupos);
+    const obtido = await obterAnuncio(resp.id, ana.id);
+    expect(obtido?.grupos[0]!.linhas[0]).toEqual(['Gabriel Masson', 'Patrícia Endo']);
   }, 30_000);
 
   it('lista apenas os anuncios do proprio autor', async () => {
