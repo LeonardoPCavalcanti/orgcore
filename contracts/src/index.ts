@@ -1,3 +1,4 @@
 export * from './comum';
 export * from './auth';
 export * from './delegacao';
+export * from './conteudo';
