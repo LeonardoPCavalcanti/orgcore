@@ -18,8 +18,8 @@ export type ConfigLLM = {
   apiKey: string;
   baseUrl: string;
   modelo: string;
-  fetchImpl?: FetchLike;
-  timeoutMs?: number;
+  fetchImpl?: FetchLike | undefined;
+  timeoutMs?: number | undefined;
 };
 
 /** Falha de geração vira 503 com código próprio; o front mostra a mensagem. */

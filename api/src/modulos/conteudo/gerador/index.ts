@@ -8,11 +8,11 @@ const BASE_URL_PADRAO = 'https://api.groq.com/openai/v1';
 const MODELO_PADRAO = 'llama-3.1-8b-instant';
 
 export type ConfigGerador = {
-  LLM_API_KEY?: string;
-  LLM_BASE_URL?: string;
-  LLM_MODELO?: string;
+  LLM_API_KEY?: string | undefined;
+  LLM_BASE_URL?: string | undefined;
+  LLM_MODELO?: string | undefined;
   /** Só para teste: injeta o cliente HTTP no gerador de LLM. */
-  fetchImpl?: FetchLike;
+  fetchImpl?: FetchLike | undefined;
 };
 
 function lerEnv(): ConfigGerador {

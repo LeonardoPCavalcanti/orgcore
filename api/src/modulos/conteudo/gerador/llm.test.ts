@@ -35,7 +35,7 @@ describe('geradorLLM', () => {
   it('manda a chave no header e o modelo no corpo', async () => {
     const fetchFake: FetchLike = vi.fn(async () => respostaOpenAI(planoValido));
     await geradorLLM({ ...cfgBase, fetchImpl: fetchFake }).gerar('tema', 3);
-    const [, init] = (fetchFake as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
+    const [, init] = (fetchFake as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]!;
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer chave-teste');
     expect(String(init.body)).toContain('modelo-teste');
   });
