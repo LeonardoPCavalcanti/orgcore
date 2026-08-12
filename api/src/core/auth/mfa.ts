@@ -69,7 +69,7 @@ export async function prepararMfa(
   if (!u) throw new ErroHttp(404, 'nao_encontrado', 'Usuário não encontrado');
 
   const segredo = authenticator.generateSecret();
-  const uri = authenticator.keyuri(u.email, '4med', segredo);
+  const uri = authenticator.keyuri(u.email, 'Conect2AI', segredo);
 
   if (!u.mfaAtivo) {
     // Primeira configuração: não há prova de posse a exigir (o usuário ainda não

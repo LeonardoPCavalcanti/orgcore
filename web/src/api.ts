@@ -1,5 +1,13 @@
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
 
+/**
+ * URL absoluta de um recurso da API. Usada para carregar bytes binários direto no
+ * `<img src>` / download (a imagem de um slide), que não passam pelo `apiFetch`
+ * (este devolve JSON). O cookie de sessão vai junto: web e API são same-site
+ * (mesmo `localhost`), então o `SameSite=Lax` não bloqueia o subrecurso.
+ */
+export const urlDaApi = (caminho: string): string => `${BASE}${caminho}`;
+
 // Métodos que o servidor protege com o token de dupla submissão (ver o preHandler
 // em api/core/app.ts). Só neles o cookie `csrf` precisa ser ecoado no cabeçalho;
 // sem isso, toda mutação autenticada — sair, encerrar sessão — leva 403, e o

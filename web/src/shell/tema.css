@@ -1,18 +1,17 @@
 /*
-  Sistema de design da 4med.
+  Sistema de design da Conect2AI.
 
-  O verde da marca (#37FC26) tem contraste 1,4:1 sobre branco e 14:1 sobre o
-  fundo escuro — por isso o tema escuro é o padrão, o texto sobre o verde é
-  sempre escuro (#020617), e o verde entra como ACENTO contido (no máximo ~5%
-  da tela: estados ativos, ação primária, foco, indicadores). O corpo respira em
-  tons de ardósia; a cor faz o trabalho de hierarquia, não de decoração.
+  O ciano da marca (#1BB4D8) é o único acento sobre um fundo de tinta escura — o
+  tema escuro é o padrão (laboratório de IA), o texto sobre o ciano é sempre
+  escuro (#06232b), e o ciano entra contido (estados ativos, ação primária, foco,
+  indicadores). O corpo respira em tons neutros; a cor faz hierarquia, não decoração.
 */
 :root {
-  --marca: #37fc26;
-  --marca-forte: #22c55e;
-  --marca-texto: #041016;
-  --marca-halo: rgba(55, 252, 38, 0.16);
-  --apoio: #a78bfa;
+  --marca: #1bb4d8;
+  --marca-forte: #128daa;
+  --marca-texto: #06232b;
+  --marca-halo: rgba(27, 180, 216, 0.16);
+  --apoio: #5eead4;
 
   --fundo: #020617;
   --fundo-2: #060c1c;
@@ -31,7 +30,7 @@
   --perigo: #f87171;
   --info: #60a5fa;
 
-  --fonte-titulo: 'Poppins', system-ui, sans-serif;
+  --fonte-titulo: 'Space Grotesk', system-ui, sans-serif;
   --fonte-corpo: 'Inter', system-ui, sans-serif;
 
   --r-sm: 6px;
@@ -47,11 +46,11 @@
 }
 
 :root[data-tema='claro'] {
-  --marca: #16a34a;
-  --marca-forte: #15803d;
+  --marca: #0e7c99;
+  --marca-forte: #0b6076;
   --marca-texto: #ffffff;
-  --marca-halo: rgba(22, 163, 74, 0.12);
-  --apoio: #7c3aed;
+  --marca-halo: rgba(14, 124, 153, 0.12);
+  --apoio: #0891b2;
 
   --fundo: #f4f6fb;
   --fundo-2: #eef1f8;
@@ -110,44 +109,31 @@ a { color: inherit; }
   display: inline-flex;
   align-items: center;
 }
-/* ── Logo (marca 4med recriada em vetor) ─────────────────── */
+/* ── Logo Conect2AI (volante ciano + wordmark) ───────────── */
 .logo {
-  position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--logo-h, 32px) * 0.3);
   height: var(--logo-h, 32px);
   line-height: 1;
 }
-.logo-4 {
-  display: block;
-  font-family: var(--fonte-titulo);
-  font-weight: 800;
-  font-size: calc(var(--logo-h, 32px) * 1.34);
-  line-height: 0.86;
-  letter-spacing: -0.04em;
-  color: var(--marca);
+.logo-volante {
+  width: calc(var(--logo-h, 32px) * 0.94);
+  height: calc(var(--logo-h, 32px) * 0.94);
+  flex: none;
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 1.7;
+  stroke-linecap: round;
 }
-.logo-med {
-  position: absolute;
-  left: calc(var(--logo-h, 32px) * 0.02);
-  bottom: calc(var(--logo-h, 32px) * -0.08);
+.logo-volante-hub { fill: var(--marca); stroke: none; }
+.logo-texto {
   font-family: var(--fonte-titulo);
   font-weight: 700;
-  font-size: calc(var(--logo-h, 32px) * 0.40);
-  letter-spacing: 0.01em;
+  font-size: calc(var(--logo-h, 32px) * 0.6);
+  letter-spacing: 0.06em;
   color: var(--texto);
-  text-shadow: 0 1px 2px rgba(2, 6, 23, 0.55);
-}
-.logo-seta {
-  position: absolute;
-  top: calc(var(--logo-h, 32px) * 0.34);
-  left: calc(var(--logo-h, 32px) * 0.16);
-  width: calc(var(--logo-h, 32px) * 1.18);
-  height: auto;
-  stroke: #ffffff;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 1px 1.5px rgba(2, 6, 23, 0.6));
+  white-space: nowrap;
 }
 
 /* ── Estrutura do app ────────────────────────────────────── */

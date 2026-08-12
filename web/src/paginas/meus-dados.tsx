@@ -32,7 +32,7 @@ export function PaginaMeusDados() {
     const url = URL.createObjectURL(arquivo);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'meus-dados-4med.json';
+    link.download = 'meus-dados-conect2ai.json';
     link.click();
     URL.revokeObjectURL(url);
   }

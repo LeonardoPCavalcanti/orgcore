@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 type Tema = 'escuro' | 'claro';
 
-/** O escuro é o padrão: é o modo em que a identidade da 4med funciona. */
+/** O escuro é o padrão: é o modo em que a identidade da Conect2AI funciona. */
 export function AlternadorTema() {
   const [tema, setTema] = useState<Tema>(
     () => (localStorage.getItem('tema') as Tema | null) ?? 'escuro',

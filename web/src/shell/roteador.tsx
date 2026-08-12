@@ -1,4 +1,5 @@
 import { PaginaAuditoria } from '../paginas/auditoria';
+import { PaginaConteudo } from '../paginas/conteudo';
 import { PaginaConvidar } from '../paginas/convidar';
 import { PaginaDelegacoes } from '../paginas/delegacoes';
 import { PaginaMeusDados } from '../paginas/meus-dados';
@@ -13,7 +14,7 @@ function BoasVindas() {
   return (
     <section>
       <div className="pagina-cabecalho">
-        <h1>{primeiro ? `Bem-vindo, ${primeiro}` : 'Bem-vindo à intranet 4med'}</h1>
+        <h1>{primeiro ? `Bem-vindo, ${primeiro}` : 'Bem-vindo à intranet Conect2AI'}</h1>
         <p className="texto-fraco">Escolha por onde começar.</p>
       </div>
       {eu && eu.menu.length > 0 && (
@@ -53,6 +54,8 @@ export function Roteador({ caminho = window.location.pathname }: { caminho?: str
       return <PaginaAuditoria />;
     case '/delegacoes':
       return <PaginaDelegacoes />;
+    case '/conteudo':
+      return <PaginaConteudo />;
     case '/minha-conta':
       return <PaginaMeusDados />;
     case '/sessoes':
