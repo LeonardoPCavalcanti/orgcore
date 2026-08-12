@@ -29,13 +29,13 @@ jobs:
       DATABASE_URL: postgres://4med:desenvolvimento@localhost:5432/4med
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # A versão vem do campo "packageManager" do package.json (não repetir aqui,
       # senão o action reclama de versões duplicadas).
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
