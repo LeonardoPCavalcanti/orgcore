@@ -15,6 +15,9 @@ import { PERMISSAO_CRIAR as CONTEUDO_CRIAR } from '../modulos/conteudo/rotas';
 import { PERMISSAO_ANUNCIO as CONTEUDO_ANUNCIO } from '../modulos/conteudo/anuncio/rotas-anuncio';
 import { geradorFake } from '../modulos/conteudo/gerador/fake';
 import { criarCarrossel } from '../modulos/conteudo/servico';
+import { geradorAnuncioFake } from '../modulos/conteudo/anuncio/gerador/fake';
+import { criarAnuncio } from '../modulos/conteudo/anuncio/servico-anuncio';
+import { removedorPassthrough } from '../modulos/conteudo/anuncio/template/silhueta';
 
 const SENHA_DEMO = 'demonstracao 4med 2026';
 
@@ -125,5 +128,38 @@ export async function semearCarrosselDemo(): Promise<void> {
     autorId: analista.id,
     unidadeId: vinculo.unidadeId,
     gerador: geradorFake,
+  });
+}
+
+/**
+ * Um anúncio acadêmico de demonstração, mesma lógica de `semearCarrosselDemo`: usa o
+ * gerador FAKE e o removedor passthrough (determinístico, sem rede, sem baixar modelo),
+ * então o seed é reprodutível sem chave de LLM. Fica FORA de `semearDemonstracao` porque
+ * compor o PNG custa alguns segundos — o CLI de seed o chama à parte.
+ */
+export async function semearAnuncioDemo(): Promise<void> {
+  const [analista] = await db.select({ id: usuarios.id }).from(usuarios)
+    .where(eq(usuarios.email, 'analista@4med.com'));
+  if (!analista) return;
+  const [vinculo] = await db.select({ unidadeId: vinculos.unidadeId }).from(vinculos)
+    .where(eq(vinculos.usuarioId, analista.id));
+  if (!vinculo) return;
+
+  await criarAnuncio({
+    dados: {
+      tipo: 'artigo_aprovado',
+      titulo: 'Generative Language Models for Disease Treatment Recommendations: A Systematic Review',
+      pessoas: [
+        { nome: 'Sebastião Rogério', papel: 'Autor' },
+        { nome: 'Kayo Henrique', papel: 'Coautor' },
+        { nome: 'Estefani Pontes', papel: 'Coautora' },
+        { nome: 'Patrícia Endo', papel: 'Orientadora' },
+      ],
+      veiculo: 'Journal of Healthcare Informatics Research',
+    },
+    autorId: analista.id,
+    unidadeId: vinculo.unidadeId,
+    gerador: geradorAnuncioFake,
+    removedor: removedorPassthrough,
   });
 }
