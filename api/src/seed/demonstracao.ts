@@ -12,6 +12,7 @@ import { sincronizarPermissoes } from '../core/modulos/registro';
 import { manifestoNucleo } from '../core/manifesto';
 import { manifestoConteudo } from '../modulos/conteudo/manifesto';
 import { PERMISSAO_CRIAR as CONTEUDO_CRIAR } from '../modulos/conteudo/rotas';
+import { PERMISSAO_ANUNCIO as CONTEUDO_ANUNCIO } from '../modulos/conteudo/anuncio/rotas-anuncio';
 import { geradorFake } from '../modulos/conteudo/gerador/fake';
 import { criarCarrossel } from '../modulos/conteudo/servico';
 
@@ -47,8 +48,9 @@ export async function semearDemonstracao(): Promise<{
 
   await db.insert(papelPermissoes).values([
     { papelId: papelColaborador.id, permissaoChave: 'core.unidade.ler', alcance: 'proprio' },
-    // Marketing/conteúdo cria os próprios carrosséis (escopo próprio: cada um vê só o que é seu).
+    // Marketing/conteúdo cria os próprios carrosséis e anúncios (escopo próprio: cada um vê só o que é seu).
     { papelId: papelColaborador.id, permissaoChave: CONTEUDO_CRIAR, alcance: 'proprio' },
+    { papelId: papelColaborador.id, permissaoChave: CONTEUDO_ANUNCIO, alcance: 'proprio' },
     { papelId: papelGestor.id, permissaoChave: 'core.unidade.ler', alcance: 'subarvore' },
     { papelId: papelGestor.id, permissaoChave: 'core.auditoria.ler', alcance: 'subarvore' },
     { papelId: papelRh.id, permissaoChave: 'core.unidade.ler', alcance: 'global' },
