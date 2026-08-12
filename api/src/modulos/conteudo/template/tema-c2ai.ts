@@ -22,3 +22,9 @@ export const FONTE_CORPO = 'Inter';
 export const HANDLE = '@conect2ai';
 
 export const LADO = 1080;
+
+/**
+ * Formato retrato do anúncio acadêmico (4:5). O carrossel é quadrado (`LADO`); o
+ * anúncio é um card único mais alto, no formato de feed do Instagram.
+ */
+export const RETRATO = { largura: 1080, altura: 1350 } as const;
