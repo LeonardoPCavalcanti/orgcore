@@ -160,6 +160,9 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
       app.route({
         method: rota.metodo,
         url: rota.caminho,
+        // Rotas que recebem upload (fotos em base64) declaram um teto maior; as demais
+        // seguem o padrão de 1MB do Fastify. `undefined` deixa o default intacto.
+        ...(rota.bodyLimit !== undefined ? { bodyLimit: rota.bodyLimit } : {}),
         preHandler: async (req) => {
           if (rota.publica === true) return;
 

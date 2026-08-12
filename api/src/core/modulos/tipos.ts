@@ -28,6 +28,11 @@ export type DefinicaoRota = {
   publica?: boolean;
   /** Exige sessão válida, mas nenhuma permissão específica. Ex.: /auth/eu, sair. */
   autenticada?: boolean;
+  /**
+   * Teto do corpo em bytes para esta rota, quando maior que o padrão do Fastify (1MB).
+   * Ex.: criação de anúncio recebe as fotos como base64 no JSON. Ausente → padrão.
+   */
+  bodyLimit?: number;
   handler: HandlerRota;
 };
 
