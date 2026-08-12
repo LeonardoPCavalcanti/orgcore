@@ -50,6 +50,20 @@ describe('renderAnuncio', () => {
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
   });
 
+  it('compoe com fotos nas duas modalidades (moldura e silhueta)', async () => {
+    // 1x1 PNG transparente, suficiente para o satori embutir e decodificar.
+    const px = `data:image/png;base64,${
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    }`;
+    const png = await renderAnuncio(planoBase, [
+      { dataUri: px, recortado: false },
+      { dataUri: px, recortado: true },
+      null,
+      { dataUri: px, recortado: true },
+    ]);
+    expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
+  });
+
   it('compoe uma grade de 10 pessoas (duas fileiras)', async () => {
     const pessoas = Array.from({ length: 10 }, (_, i) => ({ nome: `Pessoa ${i + 1}`, papel: 'Autor' }));
     const plano: PlanoAnuncio = {

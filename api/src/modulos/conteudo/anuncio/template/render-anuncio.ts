@@ -23,6 +23,12 @@ function img(src: string, style: Estilo): Elemento {
   return { type: 'img', props: { style, src } as unknown as { style: Estilo } };
 }
 
+/**
+ * Foto já preparada para o render: o data URI dos bytes e se o fundo foi removido.
+ * `recortado` → silhueta sem moldura; caso contrário, headshot na moldura circular.
+ */
+export type FotoPessoa = { dataUri: string; recortado: boolean };
+
 const INICIAIS = (nome: string): string =>
   nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 
@@ -48,27 +54,40 @@ function seloVeiculo(texto: string): Elemento {
 }
 
 /**
- * Uma pessoa: círculo com anel ciano contendo a foto recortada (data URI) ou, na
- * falta dela, as iniciais sobre tinta. Abaixo, nome (Space Grotesk) e papel (Inter).
+ * O "retrato" de uma pessoa. Três casos, do mais rico ao mais simples:
+ *  - foto com fundo removido (`recortado`): silhueta sobre o gradiente, sem moldura,
+ *    como as referências;
+ *  - foto sem remoção de fundo: headshot dentro da moldura circular com anel ciano;
+ *  - sem foto: as iniciais em ciano sobre tinta, dentro da moldura circular.
  */
-function celulaPessoa(nome: string, papel: string, foto: string | null, diametro: number): Elemento {
-  const nomeFonte = diametro >= 180 ? 26 : 22;
+function retrato(nome: string, foto: FotoPessoa | null, diametro: number): Elemento {
+  if (foto?.recortado) {
+    return el('div', {
+      width: diametro + 20, height: diametro + 40, display: 'flex',
+      alignItems: 'flex-end', justifyContent: 'center',
+    }, [img(foto.dataUri, { width: diametro + 20, height: diametro + 40, objectFit: 'contain' })]);
+  }
   const moldura: Estilo = {
     width: diametro, height: diametro, borderRadius: 999, display: 'flex',
     alignItems: 'center', justifyContent: 'center', border: `5px solid ${cores.ciano}`,
     backgroundColor: cores.tinta, overflow: 'hidden',
   };
-  const conteudoFoto: Elemento = foto
-    ? img(foto, { width: diametro, height: diametro, objectFit: 'cover' })
+  const dentro: Elemento = foto
+    ? img(foto.dataUri, { width: diametro, height: diametro, objectFit: 'cover' })
     : el('div', {
         fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: diametro * 0.34,
         color: cores.ciano, display: 'flex',
       }, INICIAIS(nome) || '·');
+  return el('div', moldura, [dentro]);
+}
 
+/** Retrato da pessoa + nome (Space Grotesk) e papel (Inter) embaixo. */
+function celulaPessoa(nome: string, papel: string, foto: FotoPessoa | null, diametro: number): Elemento {
+  const nomeFonte = diametro >= 180 ? 26 : 22;
   return el('div', {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: diametro + 32,
   }, [
-    el('div', moldura, [conteudoFoto]),
+    retrato(nome, foto, diametro),
     el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }, [
       el('div', {
         fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: nomeFonte, color: cores.branco,
@@ -88,7 +107,7 @@ function fileiras<T>(itens: T[]): T[][] {
   return [itens.slice(0, porFileira), itens.slice(porFileira)];
 }
 
-function gradePessoas(plano: PlanoAnuncio, fotos: (string | null)[]): Elemento {
+function gradePessoas(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
   const total = plano.pessoas.length;
   const diametro = total <= 2 ? 220 : total <= 4 ? 180 : 150;
   const linhas = fileiras(plano.pessoas.map((p, i) => celulaPessoa(p.nome, p.papel, fotos[i] ?? null, diametro)));
@@ -128,7 +147,7 @@ function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento
   ]);
 }
 
-function raiz(plano: PlanoAnuncio, fotos: (string | null)[]): Elemento {
+function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
     el('div', {
@@ -158,9 +177,9 @@ function raiz(plano: PlanoAnuncio, fotos: (string | null)[]): Elemento {
 /**
  * Compõe o card do anúncio: monta o layout da marca, passa por satori (→ SVG) e por
  * resvg (→ PNG). Saída sempre 1080×1350 PNG. `fotos` alinha com `plano.pessoas` —
- * cada item é um data URI da foto recortada, ou null (vira placeholder com iniciais).
+ * cada item é a foto preparada (data URI + recortado), ou null (placeholder com iniciais).
  */
-export async function renderAnuncio(plano: PlanoAnuncio, fotos: (string | null)[]): Promise<Buffer> {
+export async function renderAnuncio(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Promise<Buffer> {
   const arvore = raiz(plano, fotos);
   const svg = await satori(arvore as never, { width: RETRATO.largura, height: RETRATO.altura, fonts: fontes });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: RETRATO.largura } }).render().asPng();
