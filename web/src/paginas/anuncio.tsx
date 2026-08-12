@@ -1,4 +1,4 @@
-import type { AnuncioResposta, AnuncioResumo, TipoAnuncio } from '@4med/contracts';
+import type { AnuncioResposta, AnuncioResumo, GrupoTabela, TipoAnuncio } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 
@@ -11,6 +11,7 @@ const TIPOS: { valor: TipoAnuncio; rotulo: string }[] = [
 type PessoaForm = { nome: string; papel: string; foto?: string };
 
 const pessoaVazia = (): PessoaForm => ({ nome: '', papel: '' });
+const grupoVazio = (): GrupoTabela => ({ titulo: '', colunas: ['Orientando', 'Orientador'], linhas: [['', '']] });
 
 function lerComoDataUri(arquivo: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,6 +33,7 @@ export function PaginaAnuncio() {
   const [dataRotulo, setDataRotulo] = useState('');
   const [localRotulo, setLocalRotulo] = useState('');
   const [pessoas, setPessoas] = useState<PessoaForm[]>([pessoaVazia()]);
+  const [grupos, setGrupos] = useState<GrupoTabela[]>([]);
   const [gerando, setGerando] = useState(false);
 
   const [atual, setAtual] = useState<AnuncioResposta | null>(null);
@@ -60,6 +62,20 @@ export function PaginaAnuncio() {
     }
   }
 
+  function alterarGrupo(i: number, campo: 'titulo', valor: string) {
+    setGrupos((gs) => gs.map((g, k) => (k === i ? { ...g, [campo]: valor } : g)));
+  }
+  function alterarColuna(i: number, col: 0 | 1, valor: string) {
+    setGrupos((gs) => gs.map((g, k) => (k === i
+      ? { ...g, colunas: (col === 0 ? [valor, g.colunas[1]] : [g.colunas[0], valor]) as [string, string] }
+      : g)));
+  }
+  function alterarCelula(i: number, j: number, col: 0 | 1, valor: string) {
+    setGrupos((gs) => gs.map((g, k) => (k === i
+      ? { ...g, linhas: g.linhas.map((l, m) => (m === j ? (col === 0 ? [valor, l[1]] : [l[0], valor]) as [string, string] : l)) }
+      : g)));
+  }
+
   async function gerar(evento: FormEvent) {
     evento.preventDefault();
     setErro('');
@@ -67,8 +83,18 @@ export function PaginaAnuncio() {
     const pessoasValidas = pessoas
       .filter((p) => p.nome.trim())
       .map((p) => ({ nome: p.nome.trim(), papel: p.papel.trim(), ...(p.foto ? { foto: p.foto } : {}) }));
+    // Só grupos com título e ao menos uma linha preenchida viram tabela.
+    const gruposValidos = grupos
+      .map((g) => ({
+        titulo: g.titulo.trim(),
+        colunas: [g.colunas[0].trim(), g.colunas[1].trim()] as [string, string],
+        linhas: g.linhas
+          .filter((l) => l[0].trim() || l[1].trim())
+          .map((l) => [l[0].trim(), l[1].trim()] as [string, string]),
+      }))
+      .filter((g) => g.titulo && g.linhas.length > 0);
     const corpo = {
-      tipo, titulo, pessoas: pessoasValidas,
+      tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos,
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
       ...(tipo === 'defesa' && dataRotulo.trim() ? { dataRotulo: dataRotulo.trim() } : {}),
       ...(tipo === 'defesa' && localRotulo.trim() ? { localRotulo: localRotulo.trim() } : {}),
@@ -80,6 +106,7 @@ export function PaginaAnuncio() {
       setAtual(anuncio);
       setTitulo('');
       setPessoas([pessoaVazia()]);
+      setGrupos([]);
       setVeiculo(''); setDataRotulo(''); setLocalRotulo('');
       carregar();
     } catch (e) {
@@ -207,6 +234,65 @@ export function PaginaAnuncio() {
               <div className="linha" style={{ gap: 8, marginTop: 8 }}>
                 <button type="button" className="botao botao--fantasma" disabled={pessoas.length >= 10}
                   onClick={() => setPessoas((a) => [...a, pessoaVazia()])}>Adicionar pessoa</button>
+              </div>
+            </div>
+
+            <div className="campo">
+              <span className="rotulo-campo">Tabelas de candidatos (opcional)</span>
+              <p className="texto-fraco" style={{ fontSize: 13, marginTop: -2 }}>
+                Preencha para o card virar a variante em tabela (ex.: Doutorado/Mestrado) — nesse
+                caso, as fotos não aparecem.
+              </p>
+              <div className="pilha" style={{ gap: 12 }}>
+                {grupos.map((g, i) => (
+                  <div key={i} className="card" style={{ padding: 0 }}>
+                    <div className="card-corpo pilha" style={{ gap: 8 }}>
+                      <div className="linha" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        <div className="campo" style={{ flex: '1 1 160px' }}>
+                          <label htmlFor={`grupo-titulo-${i}`}>Título</label>
+                          <input className="entrada" id={`grupo-titulo-${i}`} value={g.titulo}
+                            placeholder="DOUTORADO" onChange={(e) => alterarGrupo(i, 'titulo', e.target.value)} />
+                        </div>
+                        <div className="campo" style={{ flex: '1 1 140px' }}>
+                          <label htmlFor={`grupo-col0-${i}`}>Coluna 1</label>
+                          <input className="entrada" id={`grupo-col0-${i}`} value={g.colunas[0]}
+                            onChange={(e) => alterarColuna(i, 0, e.target.value)} />
+                        </div>
+                        <div className="campo" style={{ flex: '1 1 140px' }}>
+                          <label htmlFor={`grupo-col1-${i}`}>Coluna 2</label>
+                          <input className="entrada" id={`grupo-col1-${i}`} value={g.colunas[1]}
+                            onChange={(e) => alterarColuna(i, 1, e.target.value)} />
+                        </div>
+                        <button type="button" className="botao botao--fantasma" aria-label={`Remover tabela ${i + 1}`}
+                          onClick={() => setGrupos((gs) => gs.filter((_, k) => k !== i))}>Remover tabela</button>
+                      </div>
+                      {g.linhas.map((l, j) => (
+                        <div key={j} className="linha" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                          <div className="campo" style={{ flex: '1 1 160px' }}>
+                            <label htmlFor={`grupo-${i}-l${j}-c0`}>{g.colunas[0] || 'Coluna 1'}</label>
+                            <input className="entrada" id={`grupo-${i}-l${j}-c0`} value={l[0]}
+                              onChange={(e) => alterarCelula(i, j, 0, e.target.value)} />
+                          </div>
+                          <div className="campo" style={{ flex: '1 1 160px' }}>
+                            <label htmlFor={`grupo-${i}-l${j}-c1`}>{g.colunas[1] || 'Coluna 2'}</label>
+                            <input className="entrada" id={`grupo-${i}-l${j}-c1`} value={l[1]}
+                              onChange={(e) => alterarCelula(i, j, 1, e.target.value)} />
+                          </div>
+                          <button type="button" className="botao botao--fantasma" aria-label={`Remover linha ${j + 1} da tabela ${i + 1}`}
+                            onClick={() => setGrupos((gs) => gs.map((gr, k) => (k === i ? { ...gr, linhas: gr.linhas.filter((_, m) => m !== j) } : gr)))}>×</button>
+                        </div>
+                      ))}
+                      <div className="linha">
+                        <button type="button" className="botao botao--fantasma" disabled={g.linhas.length >= 8}
+                          onClick={() => setGrupos((gs) => gs.map((gr, k) => (k === i ? { ...gr, linhas: [...gr.linhas, ['', '']] } : gr)))}>Adicionar linha</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="linha" style={{ gap: 8, marginTop: 8 }}>
+                <button type="button" className="botao botao--fantasma" disabled={grupos.length >= 4}
+                  onClick={() => setGrupos((gs) => [...gs, grupoVazio()])}>Adicionar tabela</button>
               </div>
             </div>
 

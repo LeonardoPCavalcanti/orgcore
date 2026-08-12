@@ -17,6 +17,7 @@ const anuncio: AnuncioResposta = {
   veiculo: null, dataRotulo: null, localRotulo: null,
   imagemUrl: '/conteudo/anuncios/a1/imagem',
   pessoas: [{ id: 'p1', ordem: 0, nome: 'Júlia', papel: 'Autora', fotoUrl: null }],
+  grupos: [],
 };
 
 describe('PaginaAnuncio', () => {
@@ -95,6 +96,32 @@ describe('PaginaAnuncio', () => {
         tipo: 'artigo_aprovado', titulo: 'Modelos Generativos',
         pessoas: [{ nome: 'Júlia', papel: 'Autora' }],
       });
+    });
+  });
+
+  it('monta a variante tabela e envia os grupos', async () => {
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    fireEvent.change(screen.getByLabelText('Tipo de anúncio'), { target: { value: 'aprovados' } });
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Pós-Graduação 2026.2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar tabela' }));
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'DOUTORADO' } });
+    fireEvent.change(screen.getByLabelText('Orientando'), { target: { value: 'Gabriel Masson' } });
+    fireEvent.change(screen.getByLabelText('Orientador'), { target: { value: 'Patrícia Endo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+
+    await waitFor(() => {
+      const chamada = apiFetchMock.mock.calls.find(
+        ([url, opts]) => url === '/conteudo/anuncios' && (opts as { method?: string } | undefined)?.method === 'POST',
+      );
+      expect(chamada).toBeTruthy();
+      const corpo = JSON.parse((chamada![1] as { body: string }).body);
+      expect(corpo.grupos).toEqual([{
+        titulo: 'DOUTORADO', colunas: ['Orientando', 'Orientador'],
+        linhas: [['Gabriel Masson', 'Patrícia Endo']],
+      }]);
     });
   });
 
