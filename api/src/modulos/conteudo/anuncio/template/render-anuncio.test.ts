@@ -64,6 +64,22 @@ describe('renderAnuncio', () => {
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
   });
 
+  it('compoe a variante tabela (grupos com colunas e linhas)', async () => {
+    const plano: PlanoAnuncio = {
+      headline: { prefixo: 'CANDIDATOS', destaque: 'APROVADOS' },
+      titulo: 'Pós-Graduação Acadêmica em Engenharia de Computação 2026.2',
+      pessoas: [],
+    };
+    const grupos = [
+      { titulo: 'DOUTORADO', colunas: ['Orientando', 'Orientadora'] as [string, string],
+        linhas: [['Gabriel Masson', 'Patrícia Endo'] as [string, string]] },
+      { titulo: 'MESTRADO', colunas: ['Orientando', 'Orientador'] as [string, string],
+        linhas: [['Kevin Ribeiro', 'Maicon Lino'] as [string, string], ['Igor Azevedo', 'Raphael Dourado'] as [string, string]] },
+    ];
+    const png = await renderAnuncio(plano, [], grupos);
+    expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
+  });
+
   it('compoe uma grade de 10 pessoas (duas fileiras)', async () => {
     const pessoas = Array.from({ length: 10 }, (_, i) => ({ nome: `Pessoa ${i + 1}`, papel: 'Autor' }));
     const plano: PlanoAnuncio = {

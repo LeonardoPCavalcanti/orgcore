@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import type { PlanoAnuncio } from '@4med/contracts';
+import type { GrupoTabela, PlanoAnuncio } from '@4med/contracts';
 import satori from 'satori';
 import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, RETRATO } from '../../template/tema-c2ai';
 
@@ -118,6 +118,52 @@ function gradePessoas(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemen
   }, linha)));
 }
 
+// Uma célula de tabela (cabeçalho ou dado). A 2ª coluna ganha um filete ciano à
+// esquerda, fazendo as vezes do divisor vertical entre as colunas.
+function celulaTabela(texto: string, cor: string, tamanho: number, segunda: boolean): Elemento {
+  return el('div', {
+    flexGrow: 1, flexBasis: 0, display: 'flex', justifyContent: 'center', textAlign: 'center',
+    padding: '10px 12px', color: cor, fontSize: tamanho,
+    ...(segunda ? { borderLeft: `2px solid ${cores.cianoProfundo}` } : {}),
+  }, texto);
+}
+
+function linhaTabela(celulas: readonly [string, string], cor: string, tamanho: number, fonte: string, comTopo: boolean): Elemento {
+  return el('div', {
+    display: 'flex', flexDirection: 'row', fontFamily: fonte,
+    ...(comTopo ? { borderTop: `1px solid ${cores.tinta}` } : {}),
+  }, [
+    celulaTabela(celulas[0], cor, tamanho, false),
+    celulaTabela(celulas[1], cor, tamanho, true),
+  ]);
+}
+
+/** Um grupo (ex.: DOUTORADO): título com filetes, cabeçalho das colunas e as linhas. */
+function blocoTabela(grupo: GrupoTabela): Elemento {
+  return el('div', {
+    display: 'flex', flexDirection: 'column', width: 620,
+    border: `2px solid ${cores.cianoProfundo}`, borderRadius: 16, padding: 8,
+  }, [
+    el('div', { display: 'flex', alignItems: 'center', gap: 14, padding: '6px 12px 12px' }, [
+      el('div', { flexGrow: 1, height: 2, backgroundColor: cores.cianoProfundo, display: 'flex' }),
+      el('div', {
+        fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 30, letterSpacing: 2,
+        color: cores.branco, display: 'flex',
+      }, grupo.titulo.toUpperCase()),
+      el('div', { flexGrow: 1, height: 2, backgroundColor: cores.cianoProfundo, display: 'flex' }),
+    ]),
+    linhaTabela(grupo.colunas, cores.neutroClaro, 22, FONTE_CORPO, false),
+    ...grupo.linhas.map((linha) => linhaTabela(linha, cores.branco, 26, FONTE_TITULO, true)),
+  ]);
+}
+
+function tabelas(grupos: GrupoTabela[]): Elemento {
+  return el('div', {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26,
+    flexGrow: 1, justifyContent: 'center',
+  }, grupos.map(blocoTabela));
+}
+
 /** Headline em duas cores: prefixo branco + destaque na caixa ciano arredondada. */
 function headline(prefixo: string, destaque: string): Elemento {
   const tamanho = (prefixo.length + destaque.length) > 18 ? 74 : 92;
@@ -147,7 +193,7 @@ function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento
   ]);
 }
 
-function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
+function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[]): Elemento {
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
     el('div', {
@@ -169,7 +215,8 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
     backgroundImage: `radial-gradient(60% 45% at 50% 22%, ${cores.cianoProfundo}66 0%, ${cores.tintaFundo}00 70%), linear-gradient(160deg, ${cores.tinta} 0%, ${cores.tintaFundo} 100%)`,
   }, [
     el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, topo),
-    gradePessoas(plano, fotos),
+    // Variante tabela (candidatos) mostra os grupos; caso contrário, a grade de pessoas.
+    grupos.length > 0 ? tabelas(grupos) : gradePessoas(plano, fotos),
     el('div', { display: 'flex', flexDirection: 'column', gap: 22 }, rodapeBlocos),
   ]);
 }
@@ -179,8 +226,10 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
  * resvg (→ PNG). Saída sempre 1080×1350 PNG. `fotos` alinha com `plano.pessoas` —
  * cada item é a foto preparada (data URI + recortado), ou null (placeholder com iniciais).
  */
-export async function renderAnuncio(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Promise<Buffer> {
-  const arvore = raiz(plano, fotos);
+export async function renderAnuncio(
+  plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[] = [],
+): Promise<Buffer> {
+  const arvore = raiz(plano, fotos, grupos);
   const svg = await satori(arvore as never, { width: RETRATO.largura, height: RETRATO.altura, fonts: fontes });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: RETRATO.largura } }).render().asPng();
   return Buffer.from(png);
