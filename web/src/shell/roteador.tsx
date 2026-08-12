@@ -1,4 +1,5 @@
 import { PaginaAuditoria } from '../paginas/auditoria';
+import { PaginaConteudo } from '../paginas/conteudo';
 import { PaginaConvidar } from '../paginas/convidar';
 import { PaginaDelegacoes } from '../paginas/delegacoes';
 import { PaginaMeusDados } from '../paginas/meus-dados';
@@ -53,6 +54,8 @@ export function Roteador({ caminho = window.location.pathname }: { caminho?: str
       return <PaginaAuditoria />;
     case '/delegacoes':
       return <PaginaDelegacoes />;
+    case '/conteudo':
+      return <PaginaConteudo />;
     case '/minha-conta':
       return <PaginaMeusDados />;
     case '/sessoes':
