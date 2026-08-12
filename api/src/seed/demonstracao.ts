@@ -34,7 +34,7 @@ export async function semearDemonstracao(): Promise<{
   await limparBanco();
   await sincronizarPermissoes([manifestoNucleo, manifestoConteudo]);
 
-  const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+  const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
   const marketing = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
   const comercial = await criarUnidade({ nome: 'Comercial', tipo: 'diretoria', paiId: empresa.id });
   const social = await criarUnidade({ nome: 'Social Media', tipo: 'equipe', paiId: marketing.id });

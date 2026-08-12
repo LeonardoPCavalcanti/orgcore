@@ -13,7 +13,7 @@ function BoasVindas() {
   return (
     <section>
       <div className="pagina-cabecalho">
-        <h1>{primeiro ? `Bem-vindo, ${primeiro}` : 'Bem-vindo à intranet 4med'}</h1>
+        <h1>{primeiro ? `Bem-vindo, ${primeiro}` : 'Bem-vindo à intranet Conect2AI'}</h1>
         <p className="texto-fraco">Escolha por onde começar.</p>
       </div>
       {eu && eu.menu.length > 0 && (

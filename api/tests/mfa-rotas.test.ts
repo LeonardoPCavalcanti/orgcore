@@ -50,7 +50,7 @@ describe('rotas de cadastro do segundo fator', () => {
     expect(resp.statusCode).toBe(401);
   });
 
-  it('preparar devolve segredo e uma URI otpauth com o emissor 4med', async () => {
+  it('preparar devolve segredo e uma URI otpauth com o emissor Conect2AI', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
     const { cookie, csrf } = await logar('diretor@4med.com');
@@ -63,7 +63,7 @@ describe('rotas de cadastro do segundo fator', () => {
     const corpo = resp.json();
     expect(corpo.segredo).toBeTruthy();
     expect(corpo.otpauth).toMatch(/^otpauth:\/\/totp\//);
-    expect(corpo.otpauth).toContain('4med');
+    expect(corpo.otpauth).toContain('Conect2AI');
   });
 
   it('ciclo completo pela API: preparar, ativar, e o proximo login passa a exigir o desafio', async () => {

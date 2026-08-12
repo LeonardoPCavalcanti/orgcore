@@ -49,7 +49,7 @@ describe('PATCH /organograma/:id', () => {
     await semearDemonstracao();
     const cred = await entrar('rh@4med.com');
     const unidades = await listarUnidades(cred);
-    const empresa = unidades.find((u) => u.nome === '4med')!;
+    const empresa = unidades.find((u) => u.nome === 'Conect2AI')!;
     const social = unidades.find((u) => u.nome === 'Social Media')!;
 
     const resp = await mover(cred, social.id, empresa.id);
@@ -62,7 +62,7 @@ describe('PATCH /organograma/:id', () => {
     await semearDemonstracao();
     const cred = await entrar('rh@4med.com');
     const unidades = await listarUnidades(cred);
-    const empresa = unidades.find((u) => u.nome === '4med')!;
+    const empresa = unidades.find((u) => u.nome === 'Conect2AI')!;
     const social = unidades.find((u) => u.nome === 'Social Media')!;
 
     const resp = await mover(cred, empresa.id, social.id);
