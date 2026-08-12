@@ -13,11 +13,13 @@
     "@4med/contracts": "workspace:*",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^10.0.1",
+    "@resvg/resvg-js": "^2.6.2",
     "argon2": "^0.45.1",
     "drizzle-orm": "^0.38.0",
     "fastify": "^5.2.0",
     "otplib": "^12.0.1",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "satori": "^0.29.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0",
