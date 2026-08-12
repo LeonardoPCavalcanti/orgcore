@@ -9,6 +9,8 @@ import { gerarHash } from '../core/auth/senha';
 import { limparBanco } from '../core/db/limpar';
 import { sincronizarPermissoes } from '../core/modulos/registro';
 import { manifestoNucleo } from '../core/manifesto';
+import { manifestoConteudo } from '../modulos/conteudo/manifesto';
+import { PERMISSAO_CRIAR as CONTEUDO_CRIAR } from '../modulos/conteudo/rotas';
 
 const SENHA_DEMO = 'demonstracao 4med 2026';
 
@@ -27,7 +29,7 @@ export async function semearDemonstracao(): Promise<{
   // Idempotente: parte sempre de um banco limpo, então pode rodar quantas vezes quiser
   // durante a preparação da apresentação.
   await limparBanco();
-  await sincronizarPermissoes([manifestoNucleo]);
+  await sincronizarPermissoes([manifestoNucleo, manifestoConteudo]);
 
   const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
   const marketing = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
@@ -42,6 +44,8 @@ export async function semearDemonstracao(): Promise<{
 
   await db.insert(papelPermissoes).values([
     { papelId: papelColaborador.id, permissaoChave: 'core.unidade.ler', alcance: 'proprio' },
+    // Marketing/conteúdo cria os próprios carrosséis (escopo próprio: cada um vê só o que é seu).
+    { papelId: papelColaborador.id, permissaoChave: CONTEUDO_CRIAR, alcance: 'proprio' },
     { papelId: papelGestor.id, permissaoChave: 'core.unidade.ler', alcance: 'subarvore' },
     { papelId: papelGestor.id, permissaoChave: 'core.auditoria.ler', alcance: 'subarvore' },
     { papelId: papelRh.id, permissaoChave: 'core.unidade.ler', alcance: 'global' },
