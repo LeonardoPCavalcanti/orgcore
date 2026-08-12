@@ -54,6 +54,29 @@ describe('novoAnuncio', () => {
     expect(r.veiculo).toBe('CBIS 2026');
     expect(r.localRotulo).toBe('9h · Google Meet');
   });
+
+  it('grupos padrao vazio quando ausente', () => {
+    expect(novoAnuncio.parse({ tipo: 'aprovados', titulo: 'Candidatos 2026', pessoas: [] }).grupos).toEqual([]);
+  });
+
+  it('aceita a variante tabela (grupos com colunas e linhas)', () => {
+    const r = novoAnuncio.parse({
+      tipo: 'aprovados', titulo: 'Pós-Graduação 2026.2', pessoas: [],
+      grupos: [{
+        titulo: 'DOUTORADO', colunas: ['Orientando', 'Orientadora'],
+        linhas: [['Gabriel Masson', 'Patrícia Endo']],
+      }],
+    });
+    expect(r.grupos).toHaveLength(1);
+    expect(r.grupos[0]!.linhas[0]).toEqual(['Gabriel Masson', 'Patrícia Endo']);
+  });
+
+  it('rejeita grupo sem linhas', () => {
+    expect(() => novoAnuncio.parse({
+      tipo: 'aprovados', titulo: 'titulo valido', pessoas: [],
+      grupos: [{ titulo: 'MESTRADO', colunas: ['a', 'b'], linhas: [] }],
+    })).toThrow();
+  });
 });
 
 describe('planoAnuncio', () => {
@@ -96,6 +119,7 @@ describe('anuncioResposta', () => {
       veiculo: null, dataRotulo: null, localRotulo: null,
       imagemUrl: '/conteudo/anuncios/x/imagem',
       pessoas: [pessoa],
+      grupos: [],
     });
     expect(completo.pessoas).toHaveLength(1);
     expect(completo.imagemUrl).toContain('/imagem');

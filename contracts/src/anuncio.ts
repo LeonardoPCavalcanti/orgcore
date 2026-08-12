@@ -20,14 +20,29 @@ export const pessoaEntrada = z.object({
 export type PessoaEntrada = z.infer<typeof pessoaEntrada>;
 
 /**
+ * Grupo de uma tabela de aprovados (variante sem fotos): um título (ex.: "DOUTORADO"),
+ * duas colunas (ex.: "Orientando"/"Orientador") e as linhas de pares. É texto puro e
+ * estruturado — passa direto pelo serviço, sem ir para a IA (que não deve reescrevê-lo).
+ */
+export const grupoTabela = z.object({
+  titulo: z.string().trim().min(1).max(40),
+  colunas: z.tuple([z.string().trim().max(30), z.string().trim().max(30)]),
+  linhas: z.array(z.tuple([z.string().trim().max(60), z.string().trim().max(60)])).min(1).max(8),
+});
+export type GrupoTabela = z.infer<typeof grupoTabela>;
+
+/**
  * Entrada do POST /conteudo/anuncios. O usuário descreve tipo + título + pessoas; a
  * IA (fake ou LLM) transforma isso na cópia final. Veículo/data/local são opcionais
  * (data/local só faz sentido em `defesa`, mas o contrato não força — a tela decide).
+ * `grupos` é a variante "tabela" (candidatos aprovados): quando presente, o card mostra
+ * as tabelas no lugar da grade de pessoas.
  */
 export const novoAnuncio = z.object({
   tipo: tipoAnuncio,
   titulo: z.string().trim().min(3).max(300),
   pessoas: z.array(pessoaEntrada).max(10).default([]),
+  grupos: z.array(grupoTabela).max(4).default([]),
   veiculo: z.string().trim().max(120).optional(),
   dataRotulo: z.string().trim().max(60).optional(),
   localRotulo: z.string().trim().max(120).optional(),
@@ -78,7 +93,7 @@ export const anuncioResumo = z.object({
 });
 export type AnuncioResumo = z.infer<typeof anuncioResumo>;
 
-/** Detalhe completo: o resumo + headline + veículo/data/local + a URL da arte + pessoas. */
+/** Detalhe completo: o resumo + headline + veículo/data/local + a URL da arte + pessoas + grupos. */
 export const anuncioResposta = anuncioResumo.extend({
   headline: z.object({ prefixo: z.string(), destaque: z.string() }),
   veiculo: z.string().nullable(),
@@ -86,5 +101,6 @@ export const anuncioResposta = anuncioResumo.extend({
   localRotulo: z.string().nullable(),
   imagemUrl: z.string(),
   pessoas: z.array(pessoaResposta),
+  grupos: z.array(grupoTabela),
 });
 export type AnuncioResposta = z.infer<typeof anuncioResposta>;
