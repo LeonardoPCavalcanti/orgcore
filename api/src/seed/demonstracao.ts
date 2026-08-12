@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { db } from '../core/db/client';
 import { dataDeHoje } from '../core/db/fuso';
 import {
@@ -11,6 +12,8 @@ import { sincronizarPermissoes } from '../core/modulos/registro';
 import { manifestoNucleo } from '../core/manifesto';
 import { manifestoConteudo } from '../modulos/conteudo/manifesto';
 import { PERMISSAO_CRIAR as CONTEUDO_CRIAR } from '../modulos/conteudo/rotas';
+import { geradorFake } from '../modulos/conteudo/gerador/fake';
+import { criarCarrossel } from '../modulos/conteudo/servico';
 
 const SENHA_DEMO = 'demonstracao 4med 2026';
 
@@ -97,4 +100,28 @@ export async function semearDemonstracao(): Promise<{
   return {
     acessos: pessoas.map((p) => ({ email: p.email, senha: SENHA_DEMO, cargo: p.cargo.nome })),
   };
+}
+
+/**
+ * Um carrossel de demonstração já pronto, para a tela de Conteúdo não abrir vazia
+ * na apresentação. Usa o gerador FAKE de propósito: determinístico e sem rede,
+ * então o seed é reprodutível mesmo sem chave de LLM. Fica FORA de
+ * `semearDemonstracao` (chamado por toda a suíte de testes) porque compor os PNGs
+ * custa alguns segundos — o CLI de seed a chama à parte, os testes não pagam por isso.
+ */
+export async function semearCarrosselDemo(): Promise<void> {
+  const [analista] = await db.select({ id: usuarios.id }).from(usuarios)
+    .where(eq(usuarios.email, 'analista@4med.com'));
+  if (!analista) return;
+  const [vinculo] = await db.select({ unidadeId: vinculos.unidadeId }).from(vinculos)
+    .where(eq(vinculos.usuarioId, analista.id));
+  if (!vinculo) return;
+
+  await criarCarrossel({
+    tema: 'Edge AI em veículos conectados',
+    quantidadeSlides: 6,
+    autorId: analista.id,
+    unidadeId: vinculo.unidadeId,
+    gerador: geradorFake,
+  });
 }

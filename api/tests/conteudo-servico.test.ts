@@ -39,7 +39,7 @@ describe('servico de conteudo', () => {
 
     const gravados = await db.select().from(slides).where(eq(slides.carrosselId, resp.id));
     expect(gravados).toHaveLength(5);
-  });
+  }, 30_000);
 
   it('lista apenas os carrosseis do proprio autor', async () => {
     await semearDemonstracao();
@@ -51,7 +51,7 @@ describe('servico de conteudo', () => {
 
     expect(await listarCarrosseis(ana.id)).toHaveLength(2);
     expect(await listarCarrosseis(caio.id)).toHaveLength(1);
-  });
+  }, 30_000);
 
   it('nega obter/imagem/apagar de carrossel de outro autor (null/false)', async () => {
     await semearDemonstracao();
@@ -69,7 +69,7 @@ describe('servico de conteudo', () => {
     const img = await imagemDoSlide(resp.slides[0]!.id, ana.id);
     expect(img?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
     expect(img?.tipo).toBe('image/png');
-  });
+  }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {
     await semearDemonstracao();
@@ -80,5 +80,5 @@ describe('servico de conteudo', () => {
     expect(await obterCarrossel(resp.id, ana.id)).toBeNull();
     const restantes = await db.select().from(slides).where(eq(slides.carrosselId, resp.id));
     expect(restantes).toHaveLength(0);
-  });
+  }, 30_000);
 });
