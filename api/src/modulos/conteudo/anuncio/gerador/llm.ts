@@ -33,6 +33,7 @@ function prompt(entrada: NovoAnuncio): { system: string; user: string } {
   ].join(' ');
   const pessoas = entrada.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
   const extra = [
+    entrada.destaque ? `Use EXATAMENTE "${entrada.destaque.toUpperCase()}" como a palavra em destaque.` : '',
     entrada.veiculo ? `Veículo: ${entrada.veiculo}.` : '',
     entrada.dataRotulo ? `Data: ${entrada.dataRotulo}.` : '',
     entrada.localRotulo ? `Local: ${entrada.localRotulo}.` : '',

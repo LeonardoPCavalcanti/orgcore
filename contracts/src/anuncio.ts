@@ -43,6 +43,10 @@ export const novoAnuncio = z.object({
   titulo: z.string().trim().min(3).max(300),
   pessoas: z.array(pessoaEntrada).max(10).default([]),
   grupos: z.array(grupoTabela).max(4).default([]),
+  // Sobrepõe a palavra em destaque da headline (padrão vem do tipo). Ex.: na defesa,
+  // "DOUTORADO" no lugar do "MESTRADO" padrão. Opcional — sem `.default`, para não
+  // virar campo obrigatório no tipo inferido.
+  destaque: z.string().trim().max(30).optional(),
   veiculo: z.string().trim().max(120).optional(),
   dataRotulo: z.string().trim().max(60).optional(),
   localRotulo: z.string().trim().max(120).optional(),

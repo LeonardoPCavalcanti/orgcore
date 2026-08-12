@@ -125,6 +125,26 @@ describe('PaginaAnuncio', () => {
     });
   });
 
+  it('na defesa, o nivel Doutorado vai como destaque', async () => {
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    fireEvent.change(screen.getByLabelText('Tipo de anúncio'), { target: { value: 'defesa' } });
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Defesa de Doutorado' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Gabriel' } });
+    fireEvent.change(screen.getByLabelText('Nível'), { target: { value: 'DOUTORADO' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+
+    await waitFor(() => {
+      const chamada = apiFetchMock.mock.calls.find(
+        ([url, opts]) => url === '/conteudo/anuncios' && (opts as { method?: string } | undefined)?.method === 'POST',
+      );
+      expect(chamada).toBeTruthy();
+      expect(JSON.parse((chamada![1] as { body: string }).body).destaque).toBe('DOUTORADO');
+    });
+  });
+
   it('mostra alerta quando a geracao falha', async () => {
     const { ErroApi } = await vi.importActual<typeof import('../api')>('../api');
     apiFetchMock

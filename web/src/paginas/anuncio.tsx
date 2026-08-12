@@ -30,6 +30,7 @@ export function PaginaAnuncio() {
   const [tipo, setTipo] = useState<TipoAnuncio>('artigo_aprovado');
   const [titulo, setTitulo] = useState('');
   const [veiculo, setVeiculo] = useState('');
+  const [destaque, setDestaque] = useState('');
   const [dataRotulo, setDataRotulo] = useState('');
   const [localRotulo, setLocalRotulo] = useState('');
   const [pessoas, setPessoas] = useState<PessoaForm[]>([pessoaVazia()]);
@@ -96,6 +97,7 @@ export function PaginaAnuncio() {
     const corpo = {
       tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos,
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
+      ...(tipo === 'defesa' && destaque ? { destaque } : {}),
       ...(tipo === 'defesa' && dataRotulo.trim() ? { dataRotulo: dataRotulo.trim() } : {}),
       ...(tipo === 'defesa' && localRotulo.trim() ? { localRotulo: localRotulo.trim() } : {}),
     };
@@ -107,7 +109,7 @@ export function PaginaAnuncio() {
       setTitulo('');
       setPessoas([pessoaVazia()]);
       setGrupos([]);
-      setVeiculo(''); setDataRotulo(''); setLocalRotulo('');
+      setVeiculo(''); setDestaque(''); setDataRotulo(''); setLocalRotulo('');
       carregar();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível gerar o anúncio');
@@ -193,6 +195,14 @@ export function PaginaAnuncio() {
 
             {ehDefesa && (
               <div className="linha" style={{ gap: 12, flexWrap: 'wrap' }}>
+                <div className="campo" style={{ flex: '0 0 170px' }}>
+                  <label htmlFor="nivel">Nível</label>
+                  <select className="entrada" id="nivel" value={destaque || 'MESTRADO'}
+                    onChange={(e) => setDestaque(e.target.value)}>
+                    <option value="MESTRADO">Mestrado</option>
+                    <option value="DOUTORADO">Doutorado</option>
+                  </select>
+                </div>
                 <div className="campo" style={{ flex: '0 0 200px' }}>
                   <label htmlFor="data">Data (opcional)</label>
                   <input className="entrada" id="data" value={dataRotulo}

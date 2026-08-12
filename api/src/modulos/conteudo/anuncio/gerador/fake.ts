@@ -19,8 +19,12 @@ export const HEADLINES: Record<TipoAnuncio, PlanoAnuncio['headline']> = {
  */
 export const geradorAnuncioFake: GeradorDeAnuncio = {
   async compor(entrada: NovoAnuncio): Promise<PlanoAnuncio> {
+    const padrao = HEADLINES[entrada.tipo];
+    const destaque = entrada.destaque?.trim();
     const plano: PlanoAnuncio = {
-      headline: HEADLINES[entrada.tipo],
+      // O destaque do usuário (ex.: DOUTORADO) sobrepõe o padrão do tipo; o prefixo
+      // continua vindo do tipo.
+      headline: destaque ? { prefixo: padrao.prefixo, destaque: destaque.toUpperCase() } : padrao,
       titulo: entrada.titulo.trim(),
       pessoas: entrada.pessoas.map((p) => ({ nome: p.nome, papel: p.papel })),
     };

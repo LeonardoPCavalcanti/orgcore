@@ -71,6 +71,15 @@ describe('novoAnuncio', () => {
     expect(r.grupos[0]!.linhas[0]).toEqual(['Gabriel Masson', 'Patrícia Endo']);
   });
 
+  it('aceita destaque opcional (ex.: DOUTORADO)', () => {
+    const r = novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa de Doutorado', pessoas: [], destaque: 'DOUTORADO' });
+    expect(r.destaque).toBe('DOUTORADO');
+  });
+
+  it('destaque ausente fica undefined (usa o padrao do tipo)', () => {
+    expect(novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [] }).destaque).toBeUndefined();
+  });
+
   it('rejeita grupo sem linhas', () => {
     expect(() => novoAnuncio.parse({
       tipo: 'aprovados', titulo: 'titulo valido', pessoas: [],

@@ -33,6 +33,11 @@ describe('geradorAnuncioFake', () => {
     expect(await geradorAnuncioFake.compor(base)).toEqual(await geradorAnuncioFake.compor(base));
   });
 
+  it('destaque do usuario sobrepoe o padrao do tipo (mestrado -> doutorado)', async () => {
+    const p = await geradorAnuncioFake.compor({ ...base, tipo: 'defesa', destaque: 'doutorado' });
+    expect(p.headline).toEqual({ prefixo: 'DEFESA DE', destaque: 'DOUTORADO' });
+  });
+
   it('repassa veiculo, data e local quando presentes', async () => {
     const p = await geradorAnuncioFake.compor({
       ...base, tipo: 'defesa', veiculo: 'PPGEC', dataRotulo: '07 DE AGOSTO', localRotulo: '9h · Google Meet',
