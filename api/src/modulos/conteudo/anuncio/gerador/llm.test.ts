@@ -44,6 +44,19 @@ describe('geradorAnuncioLLM', () => {
     expect(String(init.body)).toContain('modelo-teste');
   });
 
+  it('injeta os exemplos aprovados como few-shot (turnos user/assistant)', async () => {
+    const fetchFake: FetchLike = vi.fn(async () => respostaOpenAI(planoValido));
+    await geradorAnuncioLLM({ ...cfgBase, fetchImpl: fetchFake }).compor(entrada, [{
+      entrada: { tipo: 'artigo_aprovado', titulo: 'Exemplo Aprovado Anterior', pessoas: [{ nome: 'Ana', papel: 'Autora' }] },
+      saida: { headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' }, titulo: 'Exemplo Aprovado Anterior', legenda: 'Legenda modelo.\n\n#Conect2AI' },
+    }]);
+    const [, init] = (fetchFake as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]!;
+    const corpo = JSON.parse(String(init.body)) as { messages: { role: string; content: unknown }[] };
+    expect(corpo.messages.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(String(init.body)).toContain('Exemplo Aprovado Anterior');
+    expect(String(init.body)).toContain('Legenda modelo');
+  });
+
   it('com visao, manda as fotos como image_url', async () => {
     const fetchFake: FetchLike = vi.fn(async () => respostaOpenAI(planoValido));
     await geradorAnuncioLLM({ ...cfgBase, visao: true, fetchImpl: fetchFake }).compor(entrada);

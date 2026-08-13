@@ -1,6 +1,6 @@
 import { planoAnuncio } from '@4med/contracts';
 import { ErroHttp } from '../../../../core/erros';
-import type { GeradorDeAnuncio, NovoAnuncio, PlanoAnuncio } from './tipos';
+import type { ExemploFewShot, GeradorDeAnuncio, NovoAnuncio, PlanoAnuncio } from './tipos';
 
 /** Forma HTTP mínima — o `fetch` nativo e um dublê de teste satisfazem a mesma. */
 export type RespostaHttp = { ok: boolean; status: number; text(): Promise<string> };
@@ -32,6 +32,8 @@ function prompt(entrada: NovoAnuncio): { system: string; user: string } {
     'Instagram em português do Brasil, sem emojis, curta, terminando com de 3 a 5 hashtags',
     'relevantes incluindo #Conect2AI), e opcionalmente "veiculo", "dataRotulo" e',
     '"localRotulo". Não invente pessoas: use as fornecidas.',
+    'Se houver trocas anteriores nesta conversa, são exemplos APROVADOS pelo usuário:',
+    'siga o mesmo tom, o formato da headline e o estilo da legenda.',
   ].join(' ');
   const pessoas = entrada.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
   const extra = [
@@ -56,6 +58,24 @@ function conteudoUsuario(user: string, entrada: NovoAnuncio, comVisao: boolean):
   ];
 }
 
+// Transforma cada exemplo aprovado num par de turnos user→assistant (few-shot). O
+// "assistant" repete a saída no MESMO shape que pedimos, ensinando o formato pelo exemplo.
+type Turno = { role: 'user' | 'assistant'; content: string };
+function turnosExemplo(exemplos: ExemploFewShot[]): Turno[] {
+  return exemplos.flatMap((ex): Turno[] => {
+    const pessoas = ex.entrada.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
+    return [
+      { role: 'user', content: `Tipo: ${ex.entrada.tipo}. Título: ${ex.entrada.titulo}. Pessoas: ${pessoas || 'nenhuma'}.` },
+      { role: 'assistant', content: JSON.stringify({
+        headline: ex.saida.headline,
+        titulo: ex.saida.titulo,
+        pessoas: ex.entrada.pessoas.map((p) => ({ nome: p.nome, papel: p.papel })),
+        legenda: ex.saida.legenda,
+      }) },
+    ];
+  });
+}
+
 function extrairConteudo(corpoBruto: string): unknown {
   const corpo = JSON.parse(corpoBruto) as { choices?: { message?: { content?: string } }[] };
   const conteudo = corpo.choices?.[0]?.message?.content;
@@ -63,7 +83,9 @@ function extrairConteudo(corpoBruto: string): unknown {
   return JSON.parse(conteudo);
 }
 
-async function chamarUmaVez(cfg: ConfigLLMAnuncio, entrada: NovoAnuncio, comVisao: boolean): Promise<PlanoAnuncio> {
+async function chamarUmaVez(
+  cfg: ConfigLLMAnuncio, entrada: NovoAnuncio, comVisao: boolean, exemplos: ExemploFewShot[],
+): Promise<PlanoAnuncio> {
   const fetchImpl = cfg.fetchImpl ?? (fetch as unknown as FetchLike);
   const { system, user } = prompt(entrada);
   const controlador = new AbortController();
@@ -77,6 +99,7 @@ async function chamarUmaVez(cfg: ConfigLLMAnuncio, entrada: NovoAnuncio, comVisa
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
+          ...turnosExemplo(exemplos),
           { role: 'user', content: conteudoUsuario(user, entrada, comVisao) },
         ],
       }),
@@ -99,14 +122,14 @@ async function chamarUmaVez(cfg: ConfigLLMAnuncio, entrada: NovoAnuncio, comVisa
 export function geradorAnuncioLLM(cfg: ConfigLLMAnuncio): GeradorDeAnuncio {
   return {
     modelo: cfg.modelo,
-    async compor(entrada) {
+    async compor(entrada, exemplos = []) {
       try {
-        return await chamarUmaVez(cfg, entrada, cfg.visao === true);
+        return await chamarUmaVez(cfg, entrada, cfg.visao === true, exemplos);
       } catch (primeira) {
         if (primeira instanceof ErroHttp && primeira.codigo !== 'geracao_indisponivel') throw primeira;
         try {
           // Retry sempre SEM visão: é o caminho mais robusto (degrada a foto).
-          return await chamarUmaVez(cfg, entrada, false);
+          return await chamarUmaVez(cfg, entrada, false, exemplos);
         } catch {
           throw indisponivel();
         }

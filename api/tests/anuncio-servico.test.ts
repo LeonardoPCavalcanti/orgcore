@@ -6,8 +6,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { anuncioPessoas } from '../src/modulos/conteudo/anuncio/db/schema/anuncio';
 import { geradorAnuncioFake } from '../src/modulos/conteudo/anuncio/gerador/fake';
 import {
-  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exportarCorpusAnuncios,
-  fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exemplosAprovados,
+  exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from '../src/modulos/conteudo/anuncio/servico-anuncio';
 import { removedorPassthrough } from '../src/modulos/conteudo/anuncio/template/silhueta';
 import { semearDemonstracao } from '../src/seed/demonstracao';
@@ -119,6 +119,27 @@ describe('servico de anuncio', () => {
     const caio = await autor('coordenador@4med.com');
     const resp = await criar(ana);
     expect(await avaliarAnuncio(resp.id, caio.id, { avaliacao: 'reprovado' })).toBeNull();
+  }, 30_000);
+
+  it('few-shot: exemplosAprovados traz so os aprovados do mesmo tipo do autor', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const caio = await autor('coordenador@4med.com');
+
+    const bom = await criar(ana, { tipo: 'artigo_aprovado', titulo: 'Peça Boa Aprovada' });
+    await avaliarAnuncio(bom.id, ana.id, { avaliacao: 'aprovado' });
+    const ruim = await criar(ana, { tipo: 'artigo_aprovado', titulo: 'Peça Reprovada' });
+    await avaliarAnuncio(ruim.id, ana.id, { avaliacao: 'reprovado' });
+    const outroTipo = await criar(ana, { tipo: 'defesa', titulo: 'Defesa Aprovada' });
+    await avaliarAnuncio(outroTipo.id, ana.id, { avaliacao: 'aprovado' });
+    const doOutro = await criar(caio, { tipo: 'artigo_aprovado', titulo: 'Do Caio' });
+    await avaliarAnuncio(doOutro.id, caio.id, { avaliacao: 'aprovado' });
+
+    const exemplos = await exemplosAprovados(ana.id, 'artigo_aprovado');
+    expect(exemplos).toHaveLength(1);
+    expect(exemplos[0]!.entrada.titulo).toBe('Peça Boa Aprovada');
+    expect(exemplos[0]!.saida.headline.destaque).toBe('APROVADO');
+    expect(exemplos[0]!.saida.legenda).toContain('#Conect2AI');
   }, 30_000);
 
   it('exporta o corpus (entrada snapshot -> saida + recompensa) escopado ao autor', async () => {

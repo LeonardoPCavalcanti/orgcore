@@ -8,7 +8,7 @@ import { db } from '../../../core/db/client';
 import { ErroHttp } from '../../../core/erros';
 import { TEMPLATE_C2AI } from '../template/tema-c2ai';
 import { anuncioAvaliacoes, anuncioPessoas, anuncios, type EntradaSnapshot } from './db/schema/anuncio';
-import type { GeradorDeAnuncio } from './gerador/tipos';
+import type { ExemploFewShot, GeradorDeAnuncio } from './gerador/tipos';
 import {
   type FotoPessoa, renderAnuncio,
 } from './template/render-anuncio';
@@ -54,7 +54,10 @@ type PessoaComposta = {
  * pesada (recorte + render) acontece ANTES da transação, para não segurar a conexão.
  */
 export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<AnuncioResposta> {
-  const plano = await entrada.gerador.compor(entrada.dados);
+  // Few-shot: peças do mesmo tipo já APROVADAS pelo autor viram exemplo de estilo. O
+  // fake ignora; o LLM segue. É o primeiro uso concreto do sinal de recompensa.
+  const exemplos = await exemplosAprovados(entrada.autorId, entrada.dados.tipo);
+  const plano = await entrada.gerador.compor(entrada.dados, exemplos);
 
   // Recorta as fotos na ORDEM do plano. Sem foto → null (placeholder de iniciais).
   const compostas: PessoaComposta[] = await Promise.all(plano.pessoas.map(async (p, i) => {
@@ -265,6 +268,50 @@ export async function exportarCorpusAnuncios(autorId: string): Promise<ItemCorpu
 /** Serializa o corpus em JSONL (uma linha JSON por item) — formato padrão de treino. */
 export function corpusParaJsonl(itens: ItemCorpus[]): string {
   return itens.map((i) => JSON.stringify(i)).join('\n');
+}
+
+/**
+ * Peças do próprio autor, do MESMO tipo, que receberam avaliação "aprovado" — as mais
+ * recentes primeiro, deduplicadas por anúncio. Alimentam o few-shot da próxima geração.
+ * Ignora snapshots vazios (linhas anteriores à Fase 1, sem `entrada` gravada).
+ */
+export async function exemplosAprovados(
+  autorId: string, tipo: TipoAnuncio, limite = 3,
+): Promise<ExemploFewShot[]> {
+  const linhas = await db.select({
+    anuncioId: anuncios.id, entrada: anuncios.entrada, prefixo: anuncios.headlinePrefixo,
+    destaque: anuncios.headlineDestaque, titulo: anuncios.titulo, legenda: anuncios.legenda,
+  }).from(anuncios)
+    .innerJoin(anuncioAvaliacoes, eq(anuncioAvaliacoes.anuncioId, anuncios.id))
+    .where(and(
+      eq(anuncios.autorId, autorId),
+      eq(anuncios.tipo, tipo),
+      eq(anuncioAvaliacoes.avaliacao, 'aprovado'),
+    ))
+    .orderBy(desc(anuncioAvaliacoes.criadoEm))
+    .limit(limite * 3);
+
+  const vistos = new Set<string>();
+  const exemplos: ExemploFewShot[] = [];
+  for (const l of linhas) {
+    if (vistos.has(l.anuncioId)) continue;
+    vistos.add(l.anuncioId);
+    const e = l.entrada;
+    if (!e?.titulo || !Array.isArray(e.pessoas)) continue; // snapshot legado/vazio
+    exemplos.push({
+      entrada: {
+        tipo,
+        titulo: e.titulo,
+        pessoas: e.pessoas.map((p) => ({ nome: p.nome, papel: p.papel })),
+        ...(e.veiculo ? { veiculo: e.veiculo } : {}),
+        ...(e.dataRotulo ? { dataRotulo: e.dataRotulo } : {}),
+        ...(e.localRotulo ? { localRotulo: e.localRotulo } : {}),
+      },
+      saida: { headline: { prefixo: l.prefixo, destaque: l.destaque }, titulo: l.titulo, legenda: l.legenda },
+    });
+    if (exemplos.length >= limite) break;
+  }
+  return exemplos;
 }
 
 /** Bytes do card, só se for do autor. Fora do escopo → null. */
