@@ -9,10 +9,18 @@ import {
   apagarAnuncio, avaliarAnuncio, corpusParaJsonl, corpusParaKto, corpusParaSft, criarAnuncio,
   exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from './servico-anuncio';
-import { criarMelhorador } from './template/melhorador';
-import { criarRemovedor } from './template/silhueta';
+import { criarMelhorador, melhoradorPassthrough } from './template/melhorador';
+import { criarRemovedor, removedorPassthrough } from './template/silhueta';
 
 export const PERMISSAO_ANUNCIO = 'conteudo.anuncio.criar';
+
+// Pipeline de imagem ligado por env — os pacotes nativos (`@imgly`, `sharp`) são pesados
+// e opcionais. Sem as flags (padrão em teste/CI), roda o passthrough: determinístico e
+// sem tocar em binário nativo nenhum. Com elas ligadas (produção do Leo), usa o real.
+const recortarFundo = (): typeof removedorPassthrough =>
+  process.env.RECORTE_FUNDO === 'true' ? criarRemovedor() : removedorPassthrough;
+const realcarFoto = (): typeof melhoradorPassthrough =>
+  process.env.REALCE_FOTO === 'true' ? criarMelhorador() : melhoradorPassthrough;
 
 // As fotos chegam como base64 no JSON, que estoura o limite padrão de 1MB do Fastify.
 // ~12MB cobre até 10 fotos com folga (o serviço ainda limita cada foto por tamanho).
@@ -32,7 +40,7 @@ export const rotasAnuncio: DefinicaoRota[] = [
 
       const anuncio = await criarAnuncio({
         dados, autorId: contexto.usuarioId, unidadeId,
-        gerador: criarGeradorAnuncio(), removedor: criarRemovedor(), melhorador: criarMelhorador(),
+        gerador: criarGeradorAnuncio(), removedor: recortarFundo(), melhorador: realcarFoto(),
       });
 
       await registrarAuditoria({
