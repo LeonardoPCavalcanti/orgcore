@@ -162,6 +162,18 @@ describe('rotas de anuncio', () => {
     expect(JSON.parse(kto.body.trim())).toMatchObject({ label: true });
   }, 30_000);
 
+  it('lista provedores de IA (vazio sem chaves) e aceita o refresh', async () => {
+    await semearDemonstracao();
+    const ana = await entrar('analista@4med.com');
+    const lista = await app.inject({ method: 'GET', url: '/conteudo/ia/provedores', cookies: comCsrf(ana).cookies });
+    expect(lista.statusCode).toBe(200);
+    expect(Array.isArray(lista.json())).toBe(true); // [] no gate (sem chaves)
+
+    const ref = await app.inject({ method: 'PATCH', url: '/conteudo/ia/provedores/atualizar', ...comCsrf(ana), payload: { forcar: true } });
+    expect(ref.statusCode).toBe(200);
+    expect(Array.isArray(ref.json())).toBe(true);
+  });
+
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
     const rh = await entrar('rh@4med.com');

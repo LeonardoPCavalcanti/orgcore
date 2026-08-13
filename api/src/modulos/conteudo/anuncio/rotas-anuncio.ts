@@ -4,6 +4,7 @@ import { registrarAuditoria } from '../../../core/auditoria/registro';
 import { naoEncontrado } from '../../../core/erros';
 import type { DefinicaoRota } from '../../../core/modulos/tipos';
 import { exigirAutenticacao } from '../../../core/requisicao';
+import { criarClientePadrao } from '../../../core/llm';
 import { criarGeradorAnuncio } from './gerador';
 import {
   apagarAnuncio, avaliarAnuncio, corpusParaJsonl, corpusParaKto, corpusParaSft, criarAnuncio,
@@ -29,6 +30,26 @@ const LIMITE_CORPO = 12 * 1024 * 1024;
 const idDeUuid = z.string().uuid();
 
 export const rotasAnuncio: DefinicaoRota[] = [
+  {
+    // Status dos provedores de IA (cota estimada) para o seletor. Sem provedor ativo → [].
+    metodo: 'GET', caminho: '/conteudo/ia/provedores', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req) => {
+      exigirAutenticacao(req);
+      const cliente = criarClientePadrao();
+      return cliente ? cliente.provedores() : [];
+    },
+  },
+  {
+    // Reforça a coleta das cotas. `forcar` (botão manual) ignora o throttle de 5 min.
+    metodo: 'PATCH', caminho: '/conteudo/ia/provedores/atualizar', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req) => {
+      exigirAutenticacao(req);
+      const cliente = criarClientePadrao();
+      if (!cliente) return [];
+      const forcar = (req.body as { forcar?: boolean } | undefined)?.forcar === true;
+      return cliente.atualizarCotas(forcar);
+    },
+  },
   {
     metodo: 'POST', caminho: '/conteudo/anuncios', permissao: PERMISSAO_ANUNCIO, bodyLimit: LIMITE_CORPO,
     handler: async (req, resp) => {
