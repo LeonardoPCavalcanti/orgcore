@@ -178,6 +178,21 @@ function headline(prefixo: string, destaque: string): Elemento {
   ]);
 }
 
+/**
+ * Faixa de logos das instituições parceiras, no rodapé. Cada logo vai dentro de um
+ * chip claro (fundo branco arredondado) para garantir legibilidade de qualquer marca,
+ * inclusive as transparentes de cor. Altura fixa, largura por proporção (objectFit).
+ */
+function faixaLogos(logos: string[]): Elemento {
+  return el('div', {
+    display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
+    justifyContent: 'center', gap: 16,
+  }, logos.map((src) => el('div', {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: cores.branco, borderRadius: 14, padding: '10px 18px', height: 76,
+  }, [img(src, { height: 48, objectFit: 'contain' })])));
+}
+
 /** Selo de data/local (defesa): dia grande + horário/local menores. */
 function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento {
   return el('div', {
@@ -193,7 +208,7 @@ function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento
   ]);
 }
 
-function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[]): Elemento {
+function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[], logos: string[]): Elemento {
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
     el('div', {
@@ -202,6 +217,7 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTa
     }, plano.titulo),
   ];
   if (plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
+  if (logos.length > 0) rodapeBlocos.push(faixaLogos(logos));
 
   const topo: Elemento[] = [marca()];
   if (plano.veiculo) topo.push(seloVeiculo(plano.veiculo));
@@ -227,9 +243,9 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTa
  * cada item é a foto preparada (data URI + recortado), ou null (placeholder com iniciais).
  */
 export async function renderAnuncio(
-  plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[] = [],
+  plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[] = [], logos: string[] = [],
 ): Promise<Buffer> {
-  const arvore = raiz(plano, fotos, grupos);
+  const arvore = raiz(plano, fotos, grupos, logos);
   const svg = await satori(arvore as never, { width: RETRATO.largura, height: RETRATO.altura, fonts: fontes });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: RETRATO.largura } }).render().asPng();
   return Buffer.from(png);

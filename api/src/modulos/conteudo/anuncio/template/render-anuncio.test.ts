@@ -80,6 +80,14 @@ describe('renderAnuncio', () => {
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
   });
 
+  it('compoe com a faixa de logos parceiros no rodape', async () => {
+    const px = `data:image/png;base64,${
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    }`;
+    const png = await renderAnuncio(planoBase, planoBase.pessoas.map(() => null), [], [px, px]);
+    expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1350 });
+  });
+
   it('compoe uma grade de 10 pessoas (duas fileiras)', async () => {
     const pessoas = Array.from({ length: 10 }, (_, i) => ({ nome: `Pessoa ${i + 1}`, papel: 'Autor' }));
     const plano: PlanoAnuncio = {

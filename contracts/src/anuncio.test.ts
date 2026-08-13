@@ -59,6 +59,18 @@ describe('novoAnuncio', () => {
     expect(novoAnuncio.parse({ tipo: 'aprovados', titulo: 'Candidatos 2026', pessoas: [] }).grupos).toEqual([]);
   });
 
+  it('logos padrao vazio quando ausente e aceita data URIs', () => {
+    expect(novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [] }).logos).toEqual([]);
+    const r = novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [], logos: [fotoMinima] });
+    expect(r.logos).toEqual([fotoMinima]);
+  });
+
+  it('rejeita logo que nao e data URI e mais de 6 logos', () => {
+    expect(() => novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [], logos: ['http://x/logo.png'] })).toThrow();
+    const sete = Array.from({ length: 7 }, () => fotoMinima);
+    expect(() => novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [], logos: sete })).toThrow();
+  });
+
   it('aceita a variante tabela (grupos com colunas e linhas)', () => {
     const r = novoAnuncio.parse({
       tipo: 'aprovados', titulo: 'Pós-Graduação 2026.2', pessoas: [],

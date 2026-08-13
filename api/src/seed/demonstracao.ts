@@ -156,6 +156,7 @@ export async function semearAnuncioDemo(): Promise<void> {
         { nome: 'Patrícia Endo', papel: 'Orientadora' },
       ],
       grupos: [],
+      logos: [],
       veiculo: 'Journal of Healthcare Informatics Research',
     },
     autorId: analista.id,

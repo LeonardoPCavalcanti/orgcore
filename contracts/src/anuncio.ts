@@ -43,6 +43,10 @@ export const novoAnuncio = z.object({
   titulo: z.string().trim().min(3).max(300),
   pessoas: z.array(pessoaEntrada).max(10).default([]),
   grupos: z.array(grupoTabela).max(4).default([]),
+  // Logos de instituições parceiras (lab/universidade/programa), como data URIs. Ficam
+  // numa faixa clara no rodapé do card. São marca, não cópia: passam direto para o
+  // render sem tocar na IA (que não deve inventá-las nem reescrevê-las).
+  logos: z.array(z.string().startsWith('data:')).max(6).default([]),
   // Sobrepõe a palavra em destaque da headline (padrão vem do tipo). Ex.: na defesa,
   // "DOUTORADO" no lugar do "MESTRADO" padrão. Opcional — sem `.default`, para não
   // virar campo obrigatório no tipo inferido.

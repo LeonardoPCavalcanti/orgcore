@@ -33,6 +33,7 @@ const dados = (over: Partial<NovoAnuncio> = {}): NovoAnuncio => ({
   titulo: 'Assistente Inteligente baseado em LLM',
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }],
   grupos: [],
+  logos: [],
   ...over,
 });
 

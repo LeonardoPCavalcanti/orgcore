@@ -35,6 +35,7 @@ export function PaginaAnuncio() {
   const [localRotulo, setLocalRotulo] = useState('');
   const [pessoas, setPessoas] = useState<PessoaForm[]>([pessoaVazia()]);
   const [grupos, setGrupos] = useState<GrupoTabela[]>([]);
+  const [logos, setLogos] = useState<string[]>([]);
   const [gerando, setGerando] = useState(false);
 
   const [atual, setAtual] = useState<AnuncioResposta | null>(null);
@@ -60,6 +61,18 @@ export function PaginaAnuncio() {
       alterarPessoa(indice, 'foto', await lerComoDataUri(arquivo));
     } catch {
       setErro('Não foi possível ler a foto');
+    }
+  }
+
+  async function adicionarLogos(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(evento.target.files ?? []);
+    evento.target.value = ''; // permite reescolher o mesmo arquivo depois
+    if (arquivos.length === 0) return;
+    try {
+      const novos = await Promise.all(arquivos.map(lerComoDataUri));
+      setLogos((atuais) => [...atuais, ...novos].slice(0, 6));
+    } catch {
+      setErro('Não foi possível ler os logos');
     }
   }
 
@@ -96,6 +109,7 @@ export function PaginaAnuncio() {
       .filter((g) => g.titulo && g.linhas.length > 0);
     const corpo = {
       tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos,
+      ...(logos.length ? { logos } : {}),
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
       ...(tipo === 'defesa' && destaque ? { destaque } : {}),
       ...(tipo === 'defesa' && dataRotulo.trim() ? { dataRotulo: dataRotulo.trim() } : {}),
@@ -109,6 +123,7 @@ export function PaginaAnuncio() {
       setTitulo('');
       setPessoas([pessoaVazia()]);
       setGrupos([]);
+      setLogos([]);
       setVeiculo(''); setDestaque(''); setDataRotulo(''); setLocalRotulo('');
       carregar();
     } catch (e) {
@@ -304,6 +319,30 @@ export function PaginaAnuncio() {
                 <button type="button" className="botao botao--fantasma" disabled={grupos.length >= 4}
                   onClick={() => setGrupos((gs) => [...gs, grupoVazio()])}>Adicionar tabela</button>
               </div>
+            </div>
+
+            <div className="campo">
+              <span className="rotulo-campo">Logos parceiros (opcional)</span>
+              <p className="texto-fraco" style={{ fontSize: 13, marginTop: -2 }}>
+                Marcas de laboratório, universidade ou programa — até 6. Aparecem numa faixa
+                clara no rodapé do card.
+              </p>
+              {logos.length > 0 && (
+                <div className="linha" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {logos.map((src, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+                      borderRadius: 8, padding: '6px 8px', border: '1px solid var(--borda)',
+                    }}>
+                      <img src={src} alt={`Logo ${i + 1}`} style={{ height: 28, objectFit: 'contain' }} />
+                      <button type="button" className="botao botao--fantasma" aria-label={`Remover logo ${i + 1}`}
+                        onClick={() => setLogos((ls) => ls.filter((_, k) => k !== i))}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input className="entrada" id="logos" type="file" accept="image/*" multiple
+                disabled={logos.length >= 6} onChange={adicionarLogos} />
             </div>
 
             <div className="linha">

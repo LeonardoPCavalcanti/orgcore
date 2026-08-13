@@ -125,6 +125,18 @@ describe('PaginaAnuncio', () => {
     });
   });
 
+  it('oferece o campo de logos parceiros (multiplos arquivos)', async () => {
+    apiFetchMock.mockResolvedValueOnce([]);
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    expect(screen.getByText('Logos parceiros (opcional)')).toBeInTheDocument();
+    const input = document.getElementById('logos') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.multiple).toBe(true);
+    expect(input.accept).toBe('image/*');
+  });
+
   it('na defesa, o nivel Doutorado vai como destaque', async () => {
     apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);

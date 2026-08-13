@@ -16,6 +16,7 @@ const entrada: NovoAnuncio = {
   titulo: 'assistente inteligente baseado em llm',
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora', foto: PX }],
   grupos: [],
+  logos: [],
 };
 
 function respostaOpenAI(conteudo: unknown): RespostaHttp {

@@ -72,7 +72,13 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
   // `grupos` (variante tabela) NÃO passa pela IA: é dado estruturado do usuário que a
   // IA não deve reescrever. Vai direto do formulário para o render e o armazenamento.
   const grupos = entrada.dados.grupos;
-  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos);
+  // Logos parceiros: também marca, não cópia. Valida cada um (formato + teto de bytes)
+  // e assa direto na arte — não persistimos separado, já ficam no PNG do card.
+  const logos = entrada.dados.logos.map((uri) => {
+    decodificarDataUri(uri);
+    return uri;
+  });
+  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos, logos);
 
   const anuncioId = randomUUID();
   const [criado] = await db.transaction(async (tx) => {
