@@ -59,7 +59,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
   // Few-shot: peças do mesmo tipo já APROVADAS pelo autor viram exemplo de estilo. O
   // fake ignora; o LLM segue. É o primeiro uso concreto do sinal de recompensa.
   const exemplos = await exemplosAprovados(entrada.autorId, entrada.dados.tipo);
-  const plano = await entrada.gerador.compor(entrada.dados, exemplos);
+  const { plano, modelo, provedorSolicitado } = await entrada.gerador.compor(entrada.dados, exemplos);
 
   // Recorta as fotos na ORDEM do plano. Sem foto → null (placeholder de iniciais).
   const compostas: PessoaComposta[] = await Promise.all(plano.pessoas.map(async (p, i) => {
@@ -118,7 +118,8 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       dataRotulo: plano.dataRotulo ?? null,
       localRotulo: plano.localRotulo ?? null,
       legenda: plano.legenda ?? '',
-      modelo: entrada.gerador.modelo,
+      modelo,
+      provedorSolicitado,
       entrada: entradaSnapshot,
       grupos,
       imagem: imagemCard,
@@ -145,7 +146,8 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     localRotulo: plano.localRotulo ?? null,
     imagemUrl: urlImagem(anuncioId),
     legenda: plano.legenda ?? '',
-    modelo: entrada.gerador.modelo,
+    modelo,
+    provedorSolicitado,
     pessoas: compostas.map((c): PessoaResposta => ({
       id: c.id, ordem: c.ordem, nome: c.nome, papel: c.papel,
       fotoUrl: c.foto ? urlFoto(c.id) : null,
@@ -187,6 +189,7 @@ export async function obterAnuncio(id: string, autorId: string): Promise<Anuncio
     imagemUrl: urlImagem(anuncio.id),
     legenda: anuncio.legenda,
     modelo: anuncio.modelo,
+    provedorSolicitado: anuncio.provedorSolicitado,
     pessoas: pessoas.map((p): PessoaResposta => ({
       id: p.id, ordem: p.ordem, nome: p.nome, papel: p.papel,
       fotoUrl: p.temFoto ? urlFoto(p.id) : null,

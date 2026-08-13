@@ -45,6 +45,9 @@ export const anuncios = pgTable('anuncios', {
   grupos: jsonb('grupos').$type<GrupoTabela[]>().notNull().default([]),
   // Proveniência: qual gerador produziu a peça ("fake" ou id do modelo do LLM).
   modelo: text('modelo').notNull().default('fake'),
+  // Id do provedor que o usuário pediu (null quando não escolheu). Difere de `modelo`
+  // quando houve failover.
+  provedorSolicitado: text('provedor_solicitado'),
   // Snapshot TEXTUAL da entrada que gerou a peça (sem os bytes das fotos — só um
   // booleano `temFoto` por pessoa). Fecha o par `entrada → saída` do corpus de treino,
   // sem carregar rostos nem estourar a linha.

@@ -1,4 +1,4 @@
-import type { GeradorDeAnuncio, NovoAnuncio, PlanoAnuncio, TipoAnuncio } from './tipos';
+import type { GeradorDeAnuncio, NovoAnuncio, PlanoAnuncio, ResultadoGeracao, TipoAnuncio } from './tipos';
 
 /**
  * Headline padrão por tipo — o par (prefixo branco, destaque na caixa ciano). O LLM
@@ -44,8 +44,7 @@ function legendaFake(entrada: NovoAnuncio): string {
  * a headline vem do tipo, o título é limpo e as pessoas são ecoadas.
  */
 export const geradorAnuncioFake: GeradorDeAnuncio = {
-  modelo: 'fake',
-  async compor(entrada: NovoAnuncio): Promise<PlanoAnuncio> {
+  async compor(entrada: NovoAnuncio): Promise<ResultadoGeracao> {
     const padrao = HEADLINES[entrada.tipo];
     const destaque = entrada.destaque?.trim();
     const plano: PlanoAnuncio = {
@@ -59,6 +58,6 @@ export const geradorAnuncioFake: GeradorDeAnuncio = {
     if (entrada.veiculo) plano.veiculo = entrada.veiculo;
     if (entrada.dataRotulo) plano.dataRotulo = entrada.dataRotulo;
     if (entrada.localRotulo) plano.localRotulo = entrada.localRotulo;
-    return plano;
+    return { plano, modelo: 'fake', provedorSolicitado: entrada.provedor ?? null };
   },
 };

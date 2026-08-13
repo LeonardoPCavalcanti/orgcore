@@ -24,12 +24,21 @@ export type ExemploFewShot = {
   saida: { headline: { prefixo: string; destaque: string }; titulo: string; legenda: string };
 };
 
+/**
+ * Saída do gerador: o plano + a proveniência (id do provedor real que atendeu) + o
+ * provedor que o usuário pediu (para a tela avisar de failover).
+ */
+export type ResultadoGeracao = {
+  plano: PlanoAnuncio;
+  modelo: string;
+  provedorSolicitado: string | null;
+};
+
 export interface GeradorDeAnuncio {
-  /** Identifica o gerador na proveniência da peça: "fake" ou o id do modelo do LLM. */
-  readonly modelo: string;
   /**
    * `exemplos` são peças APROVADAS pelo usuário, injetadas como few-shot. O fake as
-   * ignora (é determinístico); o LLM as usa como referência de estilo.
+   * ignora (é determinístico); o LLM as usa como referência de estilo. O provedor
+   * real usado (e o solicitado) voltam no resultado.
    */
-  compor(entrada: NovoAnuncio, exemplos?: ExemploFewShot[]): Promise<PlanoAnuncio>;
+  compor(entrada: NovoAnuncio, exemplos?: ExemploFewShot[]): Promise<ResultadoGeracao>;
 }
