@@ -9,5 +9,7 @@ export type { NovoAnuncio, PlanoAnuncio, TipoAnuncio } from '@4med/contracts';
  * o caminho de visão); a saída é o `PlanoAnuncio` já com a headline em duas partes.
  */
 export interface GeradorDeAnuncio {
+  /** Identifica o gerador na proveniência da peça: "fake" ou o id do modelo do LLM. */
+  readonly modelo: string;
   compor(entrada: NovoAnuncio): Promise<PlanoAnuncio>;
 }

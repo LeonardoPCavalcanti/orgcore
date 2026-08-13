@@ -1,4 +1,4 @@
-import type { AnuncioResposta, AnuncioResumo, GrupoTabela, TipoAnuncio } from '@4med/contracts';
+import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, TipoAnuncio } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 
@@ -40,6 +40,7 @@ export function PaginaAnuncio() {
 
   const [atual, setAtual] = useState<AnuncioResposta | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [avaliado, setAvaliado] = useState<AvaliacaoAnuncio | null>(null);
 
   const carregar = useCallback(() => {
     setCarregando(true);
@@ -121,6 +122,7 @@ export function PaginaAnuncio() {
         method: 'POST', body: JSON.stringify(corpo),
       });
       setAtual(anuncio);
+      setAvaliado(null);
       setTitulo('');
       setPessoas([pessoaVazia()]);
       setGrupos([]);
@@ -138,6 +140,7 @@ export function PaginaAnuncio() {
     setErro('');
     try {
       setAtual(await apiFetch<AnuncioResposta>(`/conteudo/anuncios/${id}`));
+      setAvaliado(null);
     } catch {
       setErro('Não foi possível abrir o anúncio');
     }
@@ -151,6 +154,18 @@ export function PaginaAnuncio() {
       carregar();
     } catch {
       setErro('Não foi possível apagar o anúncio');
+    }
+  }
+
+  async function avaliar(avaliacao: AvaliacaoAnuncio) {
+    if (!atual) return;
+    try {
+      await apiFetch(`/conteudo/anuncios/${atual.id}/feedback`, {
+        method: 'PATCH', body: JSON.stringify({ avaliacao }),
+      });
+      setAvaliado(avaliacao);
+    } catch {
+      setErro('Não foi possível registrar a avaliação');
     }
   }
 
@@ -394,6 +409,19 @@ export function PaginaAnuncio() {
                 <button type="button" className="botao botao--fantasma" onClick={copiarLegenda}>
                   {copiado ? 'Legenda copiada' : 'Copiar legenda'}
                 </button>
+              )}
+            </div>
+            <div className="linha" style={{ gap: 10, justifyContent: 'center', alignItems: 'center' }}>
+              {avaliado ? (
+                <span className="texto-fraco" role="status">
+                  Avaliação registrada: {avaliado === 'aprovado' ? 'aprovado' : 'reprovado'}. Obrigado — isso ajuda a IA a melhorar.
+                </span>
+              ) : (
+                <>
+                  <span className="texto-fraco" style={{ fontSize: 13 }}>Este resultado ficou bom?</span>
+                  <button type="button" className="botao botao--fantasma" onClick={() => avaliar('aprovado')}>Aprovar</button>
+                  <button type="button" className="botao botao--fantasma" onClick={() => avaliar('reprovado')}>Reprovar</button>
+                </>
               )}
             </div>
           </div>

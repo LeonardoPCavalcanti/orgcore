@@ -6,7 +6,7 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { anuncioPessoas } from '../src/modulos/conteudo/anuncio/db/schema/anuncio';
 import { geradorAnuncioFake } from '../src/modulos/conteudo/anuncio/gerador/fake';
 import {
-  apagarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from '../src/modulos/conteudo/anuncio/servico-anuncio';
 import { removedorPassthrough } from '../src/modulos/conteudo/anuncio/template/silhueta';
 import { semearDemonstracao } from '../src/seed/demonstracao';
@@ -98,6 +98,26 @@ describe('servico de anuncio', () => {
     expect(resp.legenda).toContain('Modelos Generativos para Recomendação Clínica');
     const obtido = await obterAnuncio(resp.id, ana.id);
     expect(obtido?.legenda).toBe(resp.legenda);
+  }, 30_000);
+
+  it('marca o modelo gerador e registra a avaliacao (sinal de recompensa)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const resp = await criar(ana);
+    expect(resp.modelo).toBe('fake');
+
+    const av = await avaliarAnuncio(resp.id, ana.id, { avaliacao: 'aprovado', nota: 5 });
+    expect(av?.avaliacao).toBe('aprovado');
+    expect(av?.nota).toBe(5);
+    expect(av?.anuncioId).toBe(resp.id);
+  }, 30_000);
+
+  it('nega avaliar anuncio de outro autor (fora do escopo -> null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const caio = await autor('coordenador@4med.com');
+    const resp = await criar(ana);
+    expect(await avaliarAnuncio(resp.id, caio.id, { avaliacao: 'reprovado' })).toBeNull();
   }, 30_000);
 
   it('lista apenas os anuncios do proprio autor', async () => {

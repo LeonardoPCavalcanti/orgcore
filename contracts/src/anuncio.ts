@@ -84,6 +84,34 @@ export const planoAnuncio = z.object({
 export type PlanoAnuncio = z.infer<typeof planoAnuncio>;
 
 /**
+ * Avaliação de um anúncio gerado — o SINAL DE RECOMPENSA do futuro aprendizado por
+ * preferência. `aprovado`/`reprovado` é o rótulo mínimo (postaria ou não); `nota` (1–5)
+ * e `comentario` são graus e justificativa opcionais. Cada avaliação é um evento
+ * append-only (ver `feedbackAnuncio`), formando a trilha de preferência por anúncio.
+ */
+export const avaliacaoAnuncio = z.enum(['aprovado', 'reprovado']);
+export type AvaliacaoAnuncio = z.infer<typeof avaliacaoAnuncio>;
+
+/** Entrada do PATCH /conteudo/anuncios/:id/feedback. */
+export const feedbackAnuncio = z.object({
+  avaliacao: avaliacaoAnuncio,
+  nota: z.number().int().min(1).max(5).optional(),
+  comentario: z.string().trim().max(500).optional(),
+});
+export type FeedbackAnuncio = z.infer<typeof feedbackAnuncio>;
+
+/** Um evento de avaliação já registrado (devolvido pelo PATCH de feedback). */
+export const avaliacaoResposta = z.object({
+  id: z.string().uuid(),
+  anuncioId: z.string().uuid(),
+  avaliacao: avaliacaoAnuncio,
+  nota: z.number().int().nullable(),
+  comentario: z.string().nullable(),
+  criadoEm: z.string(),
+});
+export type AvaliacaoResposta = z.infer<typeof avaliacaoResposta>;
+
+/**
  * Pessoa numa resposta: sem os bytes da foto. A foto recortada, quando existe, vem
  * por rota binária dedicada (`fotoUrl`), nunca embutida no JSON.
  */
@@ -113,6 +141,9 @@ export const anuncioResposta = anuncioResumo.extend({
   localRotulo: z.string().nullable(),
   imagemUrl: z.string(),
   legenda: z.string(),
+  // Qual gerador produziu a peça (ex.: "fake", "llama-3.1-8b-instant"). Metadado de
+  // proveniência: junto com a avaliação, forma o par (modelo → recompensa) do aprendizado.
+  modelo: z.string(),
   pessoas: z.array(pessoaResposta),
   grupos: z.array(grupoTabela),
 });

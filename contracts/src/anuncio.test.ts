@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  anuncioResposta, anuncioResumo, novoAnuncio, planoAnuncio, pessoaResposta,
+  anuncioResposta, anuncioResumo, feedbackAnuncio, novoAnuncio, planoAnuncio, pessoaResposta,
 } from './anuncio';
 
 const fotoMinima = 'data:image/png;base64,aGVsbG8=';
@@ -147,10 +147,27 @@ describe('anuncioResposta', () => {
       veiculo: null, dataRotulo: null, localRotulo: null,
       imagemUrl: '/conteudo/anuncios/x/imagem',
       legenda: 'Novo artigo aprovado.\n\n#Conect2AI',
+      modelo: 'fake',
       pessoas: [pessoa],
       grupos: [],
     });
     expect(completo.pessoas).toHaveLength(1);
     expect(completo.imagemUrl).toContain('/imagem');
+    expect(completo.modelo).toBe('fake');
+  });
+});
+
+describe('feedbackAnuncio', () => {
+  it('aceita avaliacao com nota e comentario opcionais', () => {
+    expect(feedbackAnuncio.parse({ avaliacao: 'aprovado' }).avaliacao).toBe('aprovado');
+    const r = feedbackAnuncio.parse({ avaliacao: 'reprovado', nota: 2, comentario: '  headline fraca  ' });
+    expect(r.nota).toBe(2);
+    expect(r.comentario).toBe('headline fraca');
+  });
+
+  it('rejeita avaliacao fora do enum e nota fora de 1..5', () => {
+    expect(() => feedbackAnuncio.parse({ avaliacao: 'talvez' })).toThrow();
+    expect(() => feedbackAnuncio.parse({ avaliacao: 'aprovado', nota: 6 })).toThrow();
+    expect(() => feedbackAnuncio.parse({ avaliacao: 'aprovado', nota: 0 })).toThrow();
   });
 });

@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { AnuncioResposta, AnuncioResumo, NovoAnuncio, PessoaResposta, TipoAnuncio } from '@4med/contracts';
+import type {
+  AnuncioResposta, AnuncioResumo, AvaliacaoResposta, FeedbackAnuncio, NovoAnuncio, PessoaResposta, TipoAnuncio,
+} from '@4med/contracts';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../../../core/db/client';
 import { ErroHttp } from '../../../core/erros';
 import { TEMPLATE_C2AI } from '../template/tema-c2ai';
-import { anuncioPessoas, anuncios } from './db/schema/anuncio';
+import { anuncioAvaliacoes, anuncioPessoas, anuncios } from './db/schema/anuncio';
 import type { GeradorDeAnuncio } from './gerador/tipos';
 import {
   type FotoPessoa, renderAnuncio,
@@ -94,6 +96,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       dataRotulo: plano.dataRotulo ?? null,
       localRotulo: plano.localRotulo ?? null,
       legenda: plano.legenda ?? '',
+      modelo: entrada.gerador.modelo,
       grupos,
       imagem: imagemCard,
       imagemTipo: 'image/png',
@@ -119,6 +122,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     localRotulo: plano.localRotulo ?? null,
     imagemUrl: urlImagem(anuncioId),
     legenda: plano.legenda ?? '',
+    modelo: entrada.gerador.modelo,
     pessoas: compostas.map((c): PessoaResposta => ({
       id: c.id, ordem: c.ordem, nome: c.nome, papel: c.papel,
       fotoUrl: c.foto ? urlFoto(c.id) : null,
@@ -159,11 +163,43 @@ export async function obterAnuncio(id: string, autorId: string): Promise<Anuncio
     localRotulo: anuncio.localRotulo,
     imagemUrl: urlImagem(anuncio.id),
     legenda: anuncio.legenda,
+    modelo: anuncio.modelo,
     pessoas: pessoas.map((p): PessoaResposta => ({
       id: p.id, ordem: p.ordem, nome: p.nome, papel: p.papel,
       fotoUrl: p.temFoto ? urlFoto(p.id) : null,
     })),
     grupos: anuncio.grupos,
+  };
+}
+
+/**
+ * Registra uma avaliação (sinal de recompensa) sobre um anúncio do próprio autor.
+ * Fora do escopo (anúncio de outro autor ou inexistente) → null (a rota faz 404). É
+ * append-only: sempre insere um evento novo, preservando a trilha de preferência.
+ */
+export async function avaliarAnuncio(
+  anuncioId: string, autorId: string, feedback: FeedbackAnuncio,
+): Promise<AvaliacaoResposta | null> {
+  const [dono] = await db.select({ id: anuncios.id }).from(anuncios)
+    .where(and(eq(anuncios.id, anuncioId), eq(anuncios.autorId, autorId)));
+  if (!dono) return null;
+
+  const [criada] = await db.insert(anuncioAvaliacoes).values({
+    id: randomUUID(),
+    anuncioId,
+    autorId,
+    avaliacao: feedback.avaliacao,
+    nota: feedback.nota ?? null,
+    comentario: feedback.comentario ?? null,
+  }).returning();
+
+  return {
+    id: criada!.id,
+    anuncioId: criada!.anuncioId,
+    avaliacao: criada!.avaliacao as AvaliacaoResposta['avaliacao'],
+    nota: criada!.nota,
+    comentario: criada!.comentario,
+    criadoEm: criada!.criadoEm.toISOString(),
   };
 }
 

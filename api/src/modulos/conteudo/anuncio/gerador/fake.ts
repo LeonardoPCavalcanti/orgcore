@@ -44,6 +44,7 @@ function legendaFake(entrada: NovoAnuncio): string {
  * a headline vem do tipo, o título é limpo e as pessoas são ecoadas.
  */
 export const geradorAnuncioFake: GeradorDeAnuncio = {
+  modelo: 'fake',
   async compor(entrada: NovoAnuncio): Promise<PlanoAnuncio> {
     const padrao = HEADLINES[entrada.tipo];
     const destaque = entrada.destaque?.trim();

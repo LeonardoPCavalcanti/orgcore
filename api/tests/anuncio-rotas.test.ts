@@ -103,6 +103,29 @@ describe('rotas de anuncio', () => {
     expect(apagar.statusCode).toBe(404);
   }, 30_000);
 
+  it('registra feedback do dono e audita; de outro autor da 404', async () => {
+    await semearDemonstracao();
+    const ana = await entrar('analista@4med.com');
+    const caio = await entrar('coordenador@4med.com');
+    const anuncio = (await gerar(ana)).json() as RespAnuncio;
+
+    const ok = await app.inject({
+      method: 'PATCH', url: `/conteudo/anuncios/${anuncio.id}/feedback`, ...comCsrf(ana),
+      payload: { avaliacao: 'aprovado', nota: 5 },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ avaliacao: 'aprovado', nota: 5, anuncioId: anuncio.id });
+
+    const auditada = await db.select().from(logAuditoria).where(eq(logAuditoria.acao, 'conteudo.anuncio.avaliado'));
+    expect(auditada).toHaveLength(1);
+
+    const alheio = await app.inject({
+      method: 'PATCH', url: `/conteudo/anuncios/${anuncio.id}/feedback`, ...comCsrf(caio),
+      payload: { avaliacao: 'reprovado' },
+    });
+    expect(alheio.statusCode).toBe(404);
+  }, 30_000);
+
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
     const rh = await entrar('rh@4med.com');

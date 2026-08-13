@@ -23,9 +23,26 @@ export const anuncios = pgTable('anuncios', {
   localRotulo: text('local_rotulo'),
   legenda: text('legenda').notNull().default(''),
   grupos: jsonb('grupos').$type<GrupoTabela[]>().notNull().default([]),
+  // Proveniência: qual gerador produziu a peça ("fake" ou id do modelo do LLM).
+  modelo: text('modelo').notNull().default('fake'),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
   template: text('template').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Trilha append-only de avaliações de cada anúncio — o sinal de recompensa que
+ * alimenta o aprendizado por preferência. Um anúncio pode ter várias avaliações ao
+ * longo do tempo; nunca se atualiza/apaga uma linha (só insere), preservando o histórico.
+ */
+export const anuncioAvaliacoes = pgTable('anuncio_avaliacoes', {
+  id: uuid('id').primaryKey(),
+  anuncioId: uuid('anuncio_id').notNull().references(() => anuncios.id, { onDelete: 'cascade' }),
+  autorId: uuid('autor_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  avaliacao: text('avaliacao').notNull(),
+  nota: integer('nota'),
+  comentario: text('comentario'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -41,3 +58,4 @@ export const anuncioPessoas = pgTable('anuncio_pessoas', {
 
 export type Anuncio = typeof anuncios.$inferSelect;
 export type AnuncioPessoa = typeof anuncioPessoas.$inferSelect;
+export type AnuncioAvaliacao = typeof anuncioAvaliacoes.$inferSelect;

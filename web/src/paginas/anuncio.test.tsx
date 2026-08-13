@@ -17,6 +17,7 @@ const anuncio: AnuncioResposta = {
   veiculo: null, dataRotulo: null, localRotulo: null,
   imagemUrl: '/conteudo/anuncios/a1/imagem',
   legenda: 'Novo artigo aprovado. Modelos Generativos.\n\n#Conect2AI',
+  modelo: 'fake',
   pessoas: [{ id: 'p1', ordem: 0, nome: 'Júlia', papel: 'Autora', fotoUrl: null }],
   grupos: [],
 };
@@ -142,6 +143,29 @@ describe('PaginaAnuncio', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copiar legenda' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(anuncio.legenda));
     expect(await screen.findByRole('button', { name: 'Legenda copiada' })).toBeInTheDocument();
+  });
+
+  it('avalia o resultado (Aprovar) e registra o feedback', async () => {
+    apiFetchMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(anuncio)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'av1', anuncioId: 'a1', avaliacao: 'aprovado', nota: null, comentario: null, criadoEm: 'x' });
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Modelos Generativos' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Júlia' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar' }));
+    await waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        '/conteudo/anuncios/a1/feedback',
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    expect(await screen.findByText(/Avaliação registrada: aprovado/)).toBeInTheDocument();
   });
 
   it('oferece o campo de logos parceiros (multiplos arquivos)', async () => {

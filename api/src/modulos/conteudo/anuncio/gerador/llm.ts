@@ -98,6 +98,7 @@ async function chamarUmaVez(cfg: ConfigLLMAnuncio, entrada: NovoAnuncio, comVisa
  */
 export function geradorAnuncioLLM(cfg: ConfigLLMAnuncio): GeradorDeAnuncio {
   return {
+    modelo: cfg.modelo,
     async compor(entrada) {
       try {
         return await chamarUmaVez(cfg, entrada, cfg.visao === true);

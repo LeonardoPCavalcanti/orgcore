@@ -1,4 +1,4 @@
-import { novoAnuncio } from '@4med/contracts';
+import { feedbackAnuncio, novoAnuncio } from '@4med/contracts';
 import { z } from 'zod';
 import { registrarAuditoria } from '../../../core/auditoria/registro';
 import { naoEncontrado } from '../../../core/erros';
@@ -6,7 +6,7 @@ import type { DefinicaoRota } from '../../../core/modulos/tipos';
 import { exigirAutenticacao } from '../../../core/requisicao';
 import { criarGeradorAnuncio } from './gerador';
 import {
-  apagarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from './servico-anuncio';
 import { criarRemovedor } from './template/silhueta';
 
@@ -81,6 +81,28 @@ export const rotasAnuncio: DefinicaoRota[] = [
       const foto = await fotoDaPessoa(id.data, contexto.usuarioId);
       if (!foto) throw naoEncontrado();
       return resp.header('content-type', foto.tipo).send(foto.bytes);
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/conteudo/anuncios/:id/feedback', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      const id = idDeUuid.safeParse((req.params as { id: string }).id);
+      if (!id.success) throw naoEncontrado();
+      const feedback = feedbackAnuncio.parse(req.body);
+
+      const avaliacao = await avaliarAnuncio(id.data, contexto.usuarioId, feedback);
+      if (!avaliacao) throw naoEncontrado();
+
+      const unidadeId = contexto.permissoes.get(PERMISSAO_ANUNCIO)?.unidades[0] ?? null;
+      await registrarAuditoria({
+        atorId: contexto.usuarioId, acao: 'conteudo.anuncio.avaliado', recursoTipo: 'conteudo',
+        recursoId: id.data, unidadeId, ip: req.ip,
+        agente: String(req.headers['user-agent'] ?? ''), delegacaoId: contexto.delegacaoId,
+        depois: { avaliacao: feedback.avaliacao },
+      });
+
+      return avaliacao;
     },
   },
   {
