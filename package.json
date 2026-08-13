@@ -8,7 +8,8 @@
     "test": "pnpm run typecheck && pnpm run lint && pnpm -r test",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "banco": "docker compose up -d postgres"
+    "banco": "docker compose up -d postgres",
+    "dev": "pnpm -r --parallel --if-present run dev"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
