@@ -39,6 +39,7 @@ export function PaginaAnuncio() {
   const [gerando, setGerando] = useState(false);
 
   const [atual, setAtual] = useState<AnuncioResposta | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   const carregar = useCallback(() => {
     setCarregando(true);
@@ -150,6 +151,17 @@ export function PaginaAnuncio() {
       carregar();
     } catch {
       setErro('Não foi possível apagar o anúncio');
+    }
+  }
+
+  async function copiarLegenda() {
+    if (!atual?.legenda) return;
+    try {
+      await navigator.clipboard.writeText(atual.legenda);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      setErro('Não foi possível copiar a legenda');
     }
   }
 
@@ -368,8 +380,21 @@ export function PaginaAnuncio() {
                 style={{ width: 'min(380px, 80vw)', aspectRatio: '1080 / 1350', borderRadius: 'var(--r-md)', border: '1px solid var(--borda)' }}
               />
             </div>
+            {atual.legenda && (
+              <div className="campo">
+                <span className="rotulo-campo">Legenda para o Instagram</span>
+                <pre className="entrada" style={{
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+                }}>{atual.legenda}</pre>
+              </div>
+            )}
             <div className="linha" style={{ gap: 8, justifyContent: 'center' }}>
               <button type="button" className="botao" onClick={baixar}>Baixar imagem</button>
+              {atual.legenda && (
+                <button type="button" className="botao botao--fantasma" onClick={copiarLegenda}>
+                  {copiado ? 'Legenda copiada' : 'Copiar legenda'}
+                </button>
+              )}
             </div>
           </div>
         </div>

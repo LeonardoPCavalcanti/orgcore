@@ -39,6 +39,15 @@ describe('geradorAnuncioFake', () => {
     expect(p.headline).toEqual({ prefixo: 'DEFESA DE', destaque: 'DOUTORADO' });
   });
 
+  it('gera uma legenda deterministica com titulo, pessoas e hashtags', async () => {
+    const p = await geradorAnuncioFake.compor(base);
+    expect(p.legenda).toContain('Novo artigo aprovado.');
+    expect(p.legenda).toContain('Assistente Inteligente baseado em LLM');
+    expect(p.legenda).toContain('Júlia Didra e Flávio Lins');
+    expect(p.legenda).toContain('#Conect2AI');
+    expect(p.legenda).toBe((await geradorAnuncioFake.compor(base)).legenda);
+  });
+
   it('repassa veiculo, data e local quando presentes', async () => {
     const p = await geradorAnuncioFake.compor({
       ...base, tipo: 'defesa', veiculo: 'PPGEC', dataRotulo: '07 DE AGOSTO', localRotulo: '9h · Google Meet',

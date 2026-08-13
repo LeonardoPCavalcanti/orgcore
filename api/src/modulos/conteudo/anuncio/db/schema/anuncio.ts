@@ -21,6 +21,7 @@ export const anuncios = pgTable('anuncios', {
   veiculo: text('veiculo'),
   dataRotulo: text('data_rotulo'),
   localRotulo: text('local_rotulo'),
+  legenda: text('legenda').notNull().default(''),
   grupos: jsonb('grupos').$type<GrupoTabela[]>().notNull().default([]),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),

@@ -76,6 +76,10 @@ export const planoAnuncio = z.object({
   veiculo: z.string().optional(),
   dataRotulo: z.string().optional(),
   localRotulo: z.string().optional(),
+  // Legenda pronta para o Instagram (com hashtags no fim). É cópia, então a IA escreve —
+  // opcional aqui para tolerar o modelo que a omita; o serviço cai em '' nesse caso. Não
+  // vai desenhada no card, só acompanha o post. Teto do Instagram é 2200 caracteres.
+  legenda: z.string().max(2200).optional(),
 });
 export type PlanoAnuncio = z.infer<typeof planoAnuncio>;
 
@@ -108,6 +112,7 @@ export const anuncioResposta = anuncioResumo.extend({
   dataRotulo: z.string().nullable(),
   localRotulo: z.string().nullable(),
   imagemUrl: z.string(),
+  legenda: z.string(),
   pessoas: z.array(pessoaResposta),
   grupos: z.array(grupoTabela),
 });

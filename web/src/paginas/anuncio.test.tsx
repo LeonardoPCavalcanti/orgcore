@@ -16,6 +16,7 @@ const anuncio: AnuncioResposta = {
   headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' },
   veiculo: null, dataRotulo: null, localRotulo: null,
   imagemUrl: '/conteudo/anuncios/a1/imagem',
+  legenda: 'Novo artigo aprovado. Modelos Generativos.\n\n#Conect2AI',
   pessoas: [{ id: 'p1', ordem: 0, nome: 'Júlia', papel: 'Autora', fotoUrl: null }],
   grupos: [],
 };
@@ -123,6 +124,24 @@ describe('PaginaAnuncio', () => {
         linhas: [['Gabriel Masson', 'Patrícia Endo']],
       }]);
     });
+  });
+
+  it('mostra a legenda gerada e copia para a area de transferencia', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Modelos Generativos' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Júlia' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+
+    expect(await screen.findByText('Legenda para o Instagram')).toBeInTheDocument();
+    expect(screen.getByText(/Novo artigo aprovado/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar legenda' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(anuncio.legenda));
+    expect(await screen.findByRole('button', { name: 'Legenda copiada' })).toBeInTheDocument();
   });
 
   it('oferece o campo de logos parceiros (multiplos arquivos)', async () => {

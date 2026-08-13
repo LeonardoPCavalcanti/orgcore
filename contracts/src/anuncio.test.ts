@@ -117,6 +117,13 @@ describe('planoAnuncio', () => {
     })).toThrow();
   });
 
+  it('aceita legenda opcional e rejeita legenda acima de 2200 caracteres', () => {
+    const base = { headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' }, titulo: 'titulo valido', pessoas: [] };
+    expect(planoAnuncio.parse({ ...base, legenda: 'Legenda pronta.\n\n#Conect2AI' }).legenda).toContain('#Conect2AI');
+    expect(planoAnuncio.parse(base).legenda).toBeUndefined();
+    expect(() => planoAnuncio.parse({ ...base, legenda: 'x'.repeat(2201) })).toThrow();
+  });
+
   it('rejeita mais de 10 pessoas', () => {
     const onze = Array.from({ length: 11 }, (_, i) => ({ nome: `P${i}`, papel: '' }));
     expect(() => planoAnuncio.parse({
@@ -139,6 +146,7 @@ describe('anuncioResposta', () => {
       headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' },
       veiculo: null, dataRotulo: null, localRotulo: null,
       imagemUrl: '/conteudo/anuncios/x/imagem',
+      legenda: 'Novo artigo aprovado.\n\n#Conect2AI',
       pessoas: [pessoa],
       grupos: [],
     });

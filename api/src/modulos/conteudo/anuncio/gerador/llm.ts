@@ -28,8 +28,10 @@ function prompt(entrada: NovoAnuncio): { system: string; user: string } {
     'Responda SOMENTE com um objeto JSON com as chaves:',
     '"headline" (objeto com "prefixo" e "destaque", ambos em CAIXA ALTA e curtos,',
     'ex.: prefixo "ARTIGO" e destaque "APROVADO"), "titulo" (o título do trabalho,',
-    'limpo), "pessoas" (array de {"nome","papel"}), e opcionalmente "veiculo",',
-    '"dataRotulo" e "localRotulo". Não invente pessoas: use as fornecidas.',
+    'limpo), "pessoas" (array de {"nome","papel"}), "legenda" (uma legenda pronta para o',
+    'Instagram em português do Brasil, sem emojis, curta, terminando com de 3 a 5 hashtags',
+    'relevantes incluindo #Conect2AI), e opcionalmente "veiculo", "dataRotulo" e',
+    '"localRotulo". Não invente pessoas: use as fornecidas.',
   ].join(' ');
   const pessoas = entrada.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
   const extra = [

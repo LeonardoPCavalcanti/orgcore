@@ -89,6 +89,17 @@ describe('servico de anuncio', () => {
     expect(obtido?.grupos[0]!.linhas[0]).toEqual(['Gabriel Masson', 'Patrícia Endo']);
   }, 30_000);
 
+  it('gera, guarda e devolve a legenda do post', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const resp = await criar(ana, { titulo: 'Modelos Generativos para Recomendação Clínica' });
+
+    expect(resp.legenda).toContain('#Conect2AI');
+    expect(resp.legenda).toContain('Modelos Generativos para Recomendação Clínica');
+    const obtido = await obterAnuncio(resp.id, ana.id);
+    expect(obtido?.legenda).toBe(resp.legenda);
+  }, 30_000);
+
   it('lista apenas os anuncios do proprio autor', async () => {
     await semearDemonstracao();
     const ana = await autor('analista@4med.com');

@@ -93,6 +93,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       veiculo: plano.veiculo ?? null,
       dataRotulo: plano.dataRotulo ?? null,
       localRotulo: plano.localRotulo ?? null,
+      legenda: plano.legenda ?? '',
       grupos,
       imagem: imagemCard,
       imagemTipo: 'image/png',
@@ -117,6 +118,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     dataRotulo: plano.dataRotulo ?? null,
     localRotulo: plano.localRotulo ?? null,
     imagemUrl: urlImagem(anuncioId),
+    legenda: plano.legenda ?? '',
     pessoas: compostas.map((c): PessoaResposta => ({
       id: c.id, ordem: c.ordem, nome: c.nome, papel: c.papel,
       fotoUrl: c.foto ? urlFoto(c.id) : null,
@@ -156,6 +158,7 @@ export async function obterAnuncio(id: string, autorId: string): Promise<Anuncio
     dataRotulo: anuncio.dataRotulo,
     localRotulo: anuncio.localRotulo,
     imagemUrl: urlImagem(anuncio.id),
+    legenda: anuncio.legenda,
     pessoas: pessoas.map((p): PessoaResposta => ({
       id: p.id, ordem: p.ordem, nome: p.nome, papel: p.papel,
       fotoUrl: p.temFoto ? urlFoto(p.id) : null,
