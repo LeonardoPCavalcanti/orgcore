@@ -180,16 +180,16 @@ export function PaginaAnuncio() {
     }
   }
 
-  async function baixarCorpus() {
+  async function baixarTreino(caminho: string, arquivo: string) {
     setErro('');
     try {
-      const resp = await fetch(urlDaApi('/conteudo/anuncios/corpus.jsonl'), { credentials: 'include' });
+      const resp = await fetch(urlDaApi(caminho), { credentials: 'include' });
       const texto = await resp.text();
       const blob = new Blob([texto], { type: 'application/x-ndjson' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'conect2ai-corpus.jsonl';
+      link.download = arquivo;
       link.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -452,13 +452,24 @@ export function PaginaAnuncio() {
           <div className="card-corpo"><div className="vazio">Nenhum anúncio ainda. Gere o primeiro acima.</div></div>
         ) : (
           <>
-          <div className="card-corpo entre" style={{ paddingBottom: 0 }}>
-            <span className="texto-fraco" style={{ fontSize: 13 }}>
+          <div className="card-corpo" style={{ paddingBottom: 0 }}>
+            <p className="texto-fraco" style={{ fontSize: 13, margin: '0 0 8px' }}>
               As avaliações alimentam a melhoria da IA. Exporte os pares entrada→saída para treino.
-            </span>
-            <button type="button" className="botao botao--fantasma" onClick={baixarCorpus}>
-              Baixar dados de treino (JSONL)
-            </button>
+            </p>
+            <div className="linha" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="botao botao--fantasma"
+                onClick={() => baixarTreino('/conteudo/anuncios/corpus.jsonl', 'conect2ai-corpus.jsonl')}>
+                Corpus completo (JSONL)
+              </button>
+              <button type="button" className="botao botao--fantasma"
+                onClick={() => baixarTreino('/conteudo/anuncios/treino/sft.jsonl', 'conect2ai-sft.jsonl')}>
+                Dataset SFT (aprovados)
+              </button>
+              <button type="button" className="botao botao--fantasma"
+                onClick={() => baixarTreino('/conteudo/anuncios/treino/kto.jsonl', 'conect2ai-kto.jsonl')}>
+                Dataset KTO (preferência)
+              </button>
+            </div>
           </div>
           <div className="tabela-wrap">
             <table className="tabela">

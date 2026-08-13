@@ -6,8 +6,8 @@ import type { DefinicaoRota } from '../../../core/modulos/tipos';
 import { exigirAutenticacao } from '../../../core/requisicao';
 import { criarGeradorAnuncio } from './gerador';
 import {
-  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exportarCorpusAnuncios,
-  fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, corpusParaKto, corpusParaSft, criarAnuncio,
+  exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from './servico-anuncio';
 import { criarMelhorador } from './template/melhorador';
 import { criarRemovedor } from './template/silhueta';
@@ -60,6 +60,26 @@ export const rotasAnuncio: DefinicaoRota[] = [
       const { contexto } = exigirAutenticacao(req);
       const itens = await exportarCorpusAnuncios(contexto.usuarioId);
       return resp.header('content-type', 'application/x-ndjson; charset=utf-8').send(corpusParaJsonl(itens));
+    },
+  },
+  {
+    // Dataset pronto para fine-tuning supervisionado (SFT) — só os aprovados, em formato
+    // de mensagens compatível com a TRL. Estático antes de `:id`.
+    metodo: 'GET', caminho: '/conteudo/anuncios/treino/sft.jsonl', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req, resp) => {
+      const { contexto } = exigirAutenticacao(req);
+      const itens = await exportarCorpusAnuncios(contexto.usuarioId);
+      return resp.header('content-type', 'application/x-ndjson; charset=utf-8').send(corpusParaSft(itens));
+    },
+  },
+  {
+    // Dataset pronto para preferência binária (KTO) — todos os avaliados, {prompt,
+    // completion, label}. Casa com o Aprovar/Reprovar.
+    metodo: 'GET', caminho: '/conteudo/anuncios/treino/kto.jsonl', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req, resp) => {
+      const { contexto } = exigirAutenticacao(req);
+      const itens = await exportarCorpusAnuncios(contexto.usuarioId);
+      return resp.header('content-type', 'application/x-ndjson; charset=utf-8').send(corpusParaKto(itens));
     },
   },
   {

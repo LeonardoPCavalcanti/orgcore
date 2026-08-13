@@ -6,8 +6,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { anuncioPessoas } from '../src/modulos/conteudo/anuncio/db/schema/anuncio';
 import { geradorAnuncioFake } from '../src/modulos/conteudo/anuncio/gerador/fake';
 import {
-  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exemplosAprovados,
-  exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, corpusParaKto, corpusParaSft, criarAnuncio,
+  exemplosAprovados, exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from '../src/modulos/conteudo/anuncio/servico-anuncio';
 import { melhoradorPassthrough } from '../src/modulos/conteudo/anuncio/template/melhorador';
 import { removedorPassthrough } from '../src/modulos/conteudo/anuncio/template/silhueta';
@@ -190,6 +190,30 @@ describe('servico de anuncio', () => {
     const jsonl = corpusParaJsonl(corpus);
     expect(jsonl.split('\n')).toHaveLength(1);
     expect(() => JSON.parse(jsonl)).not.toThrow();
+  }, 30_000);
+
+  it('formata datasets de treino: SFT (so aprovados) e KTO (avaliados com label)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const bom = await criar(ana, { titulo: 'Peça Aprovada para Treino' });
+    await avaliarAnuncio(bom.id, ana.id, { avaliacao: 'aprovado' });
+    const mau = await criar(ana, { titulo: 'Peça Reprovada para Treino' });
+    await avaliarAnuncio(mau.id, ana.id, { avaliacao: 'reprovado' });
+    await criar(ana, { titulo: 'Peça Sem Avaliação' }); // não entra em nenhum dataset
+
+    const corpus = await exportarCorpusAnuncios(ana.id);
+
+    const sft = corpusParaSft(corpus).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    expect(sft).toHaveLength(1);
+    expect(sft[0].messages.map((m: { role: string }) => m.role)).toEqual(['system', 'user', 'assistant']);
+    expect(sft[0].messages[1].content).toContain('Peça Aprovada para Treino');
+    expect(JSON.parse(sft[0].messages[2].content).legenda).toContain('#Conect2AI');
+
+    const kto = corpusParaKto(corpus).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    expect(kto).toHaveLength(2);
+    const porLabel = Object.fromEntries(kto.map((k: { label: boolean; prompt: string }) => [k.label, k.prompt]));
+    expect(porLabel['true']).toContain('Peça Aprovada para Treino');
+    expect(porLabel['false']).toContain('Peça Reprovada para Treino');
   }, 30_000);
 
   it('lista apenas os anuncios do proprio autor', async () => {

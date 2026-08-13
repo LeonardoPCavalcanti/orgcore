@@ -275,6 +275,61 @@ export function corpusParaJsonl(itens: ItemCorpus[]): string {
   return itens.map((i) => JSON.stringify(i)).join('\n');
 }
 
+// System usado nos datasets de treino — o mesmo papel do gerador, condensado, para o
+// modelo treinado aprender a responder o card como JSON.
+const SISTEMA_TREINO =
+  'Você é o social media da Conect2AI. Responda SOMENTE com um JSON com "headline" '
+  + '(objeto {"prefixo","destaque"} em CAIXA ALTA), "titulo" e "legenda" (pronta para o '
+  + 'Instagram, sem emojis, com hashtags incluindo #Conect2AI).';
+
+/** Descreve a entrada de um item em texto — o "prompt" dos datasets de treino. */
+function entradaParaTexto(e: EntradaSnapshot): string {
+  const pessoas = e.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
+  const extra = [
+    e.veiculo ? `Veículo: ${e.veiculo}.` : '',
+    e.dataRotulo ? `Data: ${e.dataRotulo}.` : '',
+    e.localRotulo ? `Local: ${e.localRotulo}.` : '',
+  ].filter(Boolean).join(' ');
+  return `Tipo: ${e.tipo}. Título: ${e.titulo}. Pessoas: ${pessoas || 'nenhuma'}. ${extra}`.trim();
+}
+
+const saidaParaJson = (i: ItemCorpus): string =>
+  JSON.stringify({ headline: i.saida.headline, titulo: i.saida.titulo, legenda: i.saida.legenda });
+
+/**
+ * Dataset de SFT (fine-tuning supervisionado): só os APROVADOS, como conversas
+ * system→user→assistant. Ensina o modelo a IMITAR o que o usuário validou. Formato de
+ * mensagens compatível com o `SFTTrainer` da TRL.
+ */
+export function corpusParaSft(itens: ItemCorpus[]): string {
+  return itens
+    .filter((i) => i.avaliacao === 'aprovado')
+    .map((i) => JSON.stringify({
+      messages: [
+        { role: 'system', content: SISTEMA_TREINO },
+        { role: 'user', content: entradaParaTexto(i.entrada) },
+        { role: 'assistant', content: saidaParaJson(i) },
+      ],
+    }))
+    .join('\n');
+}
+
+/**
+ * Dataset de KTO (preferência a partir de sinal binário): todos os itens AVALIADOS, com
+ * `label` verdadeiro/falso vindo de aprovado/reprovado. É o formato `{prompt, completion,
+ * label}` do `KTOTrainer` da TRL — casa direto com o nosso Aprovar/Reprovar, sem pares.
+ */
+export function corpusParaKto(itens: ItemCorpus[]): string {
+  return itens
+    .filter((i) => i.avaliacao !== null)
+    .map((i) => JSON.stringify({
+      prompt: entradaParaTexto(i.entrada),
+      completion: saidaParaJson(i),
+      label: i.avaliacao === 'aprovado',
+    }))
+    .join('\n');
+}
+
 /**
  * Peças do próprio autor, do MESMO tipo, que receberam avaliação "aprovado" — as mais
  * recentes primeiro, deduplicadas por anúncio. Alimentam o few-shot da próxima geração.

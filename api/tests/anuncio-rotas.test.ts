@@ -143,6 +143,25 @@ describe('rotas de anuncio', () => {
     expect(item.modelo).toBe('fake');
   }, 30_000);
 
+  it('exporta datasets de treino SFT e KTO nas rotas dedicadas', async () => {
+    await semearDemonstracao();
+    const ana = await entrar('analista@4med.com');
+    const anuncio = (await gerar(ana)).json() as RespAnuncio;
+    await app.inject({
+      method: 'PATCH', url: `/conteudo/anuncios/${anuncio.id}/feedback`, ...comCsrf(ana),
+      payload: { avaliacao: 'aprovado' },
+    });
+
+    const sft = await app.inject({ method: 'GET', url: '/conteudo/anuncios/treino/sft.jsonl', cookies: comCsrf(ana).cookies });
+    expect(sft.statusCode).toBe(200);
+    expect(sft.headers['content-type']).toContain('ndjson');
+    expect(JSON.parse(sft.body.trim()).messages).toBeTruthy();
+
+    const kto = await app.inject({ method: 'GET', url: '/conteudo/anuncios/treino/kto.jsonl', cookies: comCsrf(ana).cookies });
+    expect(kto.statusCode).toBe(200);
+    expect(JSON.parse(kto.body.trim())).toMatchObject({ label: true });
+  }, 30_000);
+
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
     const rh = await entrar('rh@4med.com');
