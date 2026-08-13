@@ -9,6 +9,7 @@ import {
   apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exemplosAprovados,
   exportarCorpusAnuncios, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from '../src/modulos/conteudo/anuncio/servico-anuncio';
+import { melhoradorPassthrough } from '../src/modulos/conteudo/anuncio/template/melhorador';
 import { removedorPassthrough } from '../src/modulos/conteudo/anuncio/template/silhueta';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -41,7 +42,7 @@ const dados = (over: Partial<NovoAnuncio> = {}): NovoAnuncio => ({
 const criar = (a: { id: string; unidadeId: number }, over: Partial<NovoAnuncio> = {}) =>
   criarAnuncio({
     dados: dados(over), autorId: a.id, unidadeId: a.unidadeId,
-    gerador: geradorAnuncioFake, removedor: removedorPassthrough,
+    gerador: geradorAnuncioFake, removedor: removedorPassthrough, melhorador: melhoradorPassthrough,
   });
 
 describe('servico de anuncio', () => {
@@ -67,6 +68,26 @@ describe('servico de anuncio', () => {
     expect(pessoa.fotoUrl).toBe(`/conteudo/anuncios/pessoas/${pessoa.id}/foto`);
     const foto = await fotoDaPessoa(pessoa.id, ana.id);
     expect(foto?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('roda o melhorador ANTES do recorte, alimentando-o com a foto tratada', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const ordem: string[] = [];
+    let recebidoPeloRecorte: Buffer | null = null;
+    const melhorador = {
+      melhorar: async (f: Buffer) => { ordem.push('melhorar'); return { png: Buffer.concat([f, Buffer.from('+')]), melhorada: true }; },
+    };
+    const removedor = {
+      remover: async (f: Buffer) => { ordem.push('remover'); recebidoPeloRecorte = f; return { png: f, recortado: false }; },
+    };
+    await criarAnuncio({
+      dados: { tipo: 'artigo_aprovado', titulo: 'Foto tratada no fluxo', pessoas: [{ nome: 'Ana', papel: 'Autora', foto: PX }], grupos: [], logos: [] },
+      autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorAnuncioFake, removedor, melhorador,
+    });
+    expect(ordem).toEqual(['melhorar', 'remover']);
+    expect(recebidoPeloRecorte).not.toBeNull();
+    expect((recebidoPeloRecorte as unknown as Buffer).subarray(-1).toString()).toBe('+');
   }, 30_000);
 
   it('sem foto, a pessoa fica com fotoUrl null', async () => {

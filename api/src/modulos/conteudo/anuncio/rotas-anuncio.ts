@@ -9,6 +9,7 @@ import {
   apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exportarCorpusAnuncios,
   fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from './servico-anuncio';
+import { criarMelhorador } from './template/melhorador';
 import { criarRemovedor } from './template/silhueta';
 
 export const PERMISSAO_ANUNCIO = 'conteudo.anuncio.criar';
@@ -31,7 +32,7 @@ export const rotasAnuncio: DefinicaoRota[] = [
 
       const anuncio = await criarAnuncio({
         dados, autorId: contexto.usuarioId, unidadeId,
-        gerador: criarGeradorAnuncio(), removedor: criarRemovedor(),
+        gerador: criarGeradorAnuncio(), removedor: criarRemovedor(), melhorador: criarMelhorador(),
       });
 
       await registrarAuditoria({

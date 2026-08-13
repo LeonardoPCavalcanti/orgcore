@@ -17,6 +17,7 @@ import { geradorFake } from '../modulos/conteudo/gerador/fake';
 import { criarCarrossel } from '../modulos/conteudo/servico';
 import { geradorAnuncioFake } from '../modulos/conteudo/anuncio/gerador/fake';
 import { criarAnuncio } from '../modulos/conteudo/anuncio/servico-anuncio';
+import { melhoradorPassthrough } from '../modulos/conteudo/anuncio/template/melhorador';
 import { removedorPassthrough } from '../modulos/conteudo/anuncio/template/silhueta';
 
 const SENHA_DEMO = 'demonstracao 4med 2026';
@@ -163,5 +164,6 @@ export async function semearAnuncioDemo(): Promise<void> {
     unidadeId: vinculo.unidadeId,
     gerador: geradorAnuncioFake,
     removedor: removedorPassthrough,
+    melhorador: melhoradorPassthrough,
   });
 }

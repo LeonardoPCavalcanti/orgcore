@@ -12,6 +12,7 @@ import type { ExemploFewShot, GeradorDeAnuncio } from './gerador/tipos';
 import {
   type FotoPessoa, renderAnuncio,
 } from './template/render-anuncio';
+import { type MelhoradorDeFoto } from './template/melhorador';
 import { paraDataUri, type RemovedorDeFundo } from './template/silhueta';
 
 const urlImagem = (anuncioId: string) => `/conteudo/anuncios/${anuncioId}/imagem`;
@@ -36,6 +37,7 @@ export type EntradaCriarAnuncio = {
   unidadeId: number;
   gerador: GeradorDeAnuncio;
   removedor: RemovedorDeFundo;
+  melhorador: MelhoradorDeFoto;
 };
 
 type PessoaComposta = {
@@ -67,7 +69,10 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       return { id: randomUUID(), ordem: i, nome: p.nome, papel: p.papel, foto: null, fotoTipo: null, render: null };
     }
     const { bytes } = decodificarDataUri(uri);
-    const { png, recortado } = await entrada.removedor.remover(bytes);
+    // Fluxo de imagem: realce leve (opt-in) ANTES do recorte de fundo, para o recorte
+    // acontecer sobre uma foto já mais limpa/maior. Ambos caem no passthrough sozinhos.
+    const { png: tratada } = await entrada.melhorador.melhorar(bytes);
+    const { png, recortado } = await entrada.removedor.remover(tratada);
     return {
       id: randomUUID(), ordem: i, nome: p.nome, papel: p.papel,
       foto: png, fotoTipo: 'image/png',
