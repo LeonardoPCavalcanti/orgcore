@@ -3,3 +3,4 @@ export * from './auth';
 export * from './delegacao';
 export * from './conteudo';
 export * from './anuncio';
+export * from './ia';

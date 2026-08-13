@@ -47,6 +47,9 @@ export const novoAnuncio = z.object({
   // numa faixa clara no rodapé do card. São marca, não cópia: passam direto para o
   // render sem tocar na IA (que não deve inventá-las nem reescrevê-las).
   logos: z.array(z.string().startsWith('data:')).max(6).default([]),
+  // Provedor de IA escolhido pelo usuário (id do catálogo). Roteamento, não cópia —
+  // opcional; o cliente decide o failover a partir daqui.
+  provedor: z.string().trim().max(40).optional(),
   // Sobrepõe a palavra em destaque da headline (padrão vem do tipo). Ex.: na defesa,
   // "DOUTORADO" no lugar do "MESTRADO" padrão. Opcional — sem `.default`, para não
   // virar campo obrigatório no tipo inferido.
@@ -141,9 +144,11 @@ export const anuncioResposta = anuncioResumo.extend({
   localRotulo: z.string().nullable(),
   imagemUrl: z.string(),
   legenda: z.string(),
-  // Qual gerador produziu a peça (ex.: "fake", "llama-3.1-8b-instant"). Metadado de
+  // Id do provedor real que produziu a peça (ex.: "fake", "groq"). Metadado de
   // proveniência: junto com a avaliação, forma o par (modelo → recompensa) do aprendizado.
   modelo: z.string(),
+  // Id do provedor que o usuário pediu (ou null). Difere de `modelo` quando houve failover.
+  provedorSolicitado: z.string().nullable(),
   pessoas: z.array(pessoaResposta),
   grupos: z.array(grupoTabela),
 });

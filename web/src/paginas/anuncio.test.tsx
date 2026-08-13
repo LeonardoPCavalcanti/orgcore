@@ -18,6 +18,7 @@ const anuncio: AnuncioResposta = {
   imagemUrl: '/conteudo/anuncios/a1/imagem',
   legenda: 'Novo artigo aprovado. Modelos Generativos.\n\n#Conect2AI',
   modelo: 'fake',
+  provedorSolicitado: null,
   pessoas: [{ id: 'p1', ordem: 0, nome: 'Júlia', papel: 'Autora', fotoUrl: null }],
   grupos: [],
 };

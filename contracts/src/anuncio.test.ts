@@ -59,6 +59,11 @@ describe('novoAnuncio', () => {
     expect(novoAnuncio.parse({ tipo: 'aprovados', titulo: 'Candidatos 2026', pessoas: [] }).grupos).toEqual([]);
   });
 
+  it('aceita provedor opcional', () => {
+    expect(novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [] }).provedor).toBeUndefined();
+    expect(novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [], provedor: 'groq' }).provedor).toBe('groq');
+  });
+
   it('logos padrao vazio quando ausente e aceita data URIs', () => {
     expect(novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [] }).logos).toEqual([]);
     const r = novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa X', pessoas: [], logos: [fotoMinima] });
@@ -148,6 +153,7 @@ describe('anuncioResposta', () => {
       imagemUrl: '/conteudo/anuncios/x/imagem',
       legenda: 'Novo artigo aprovado.\n\n#Conect2AI',
       modelo: 'fake',
+      provedorSolicitado: null,
       pessoas: [pessoa],
       grupos: [],
     });
