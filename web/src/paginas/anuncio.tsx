@@ -180,6 +180,23 @@ export function PaginaAnuncio() {
     }
   }
 
+  async function baixarCorpus() {
+    setErro('');
+    try {
+      const resp = await fetch(urlDaApi('/conteudo/anuncios/corpus.jsonl'), { credentials: 'include' });
+      const texto = await resp.text();
+      const blob = new Blob([texto], { type: 'application/x-ndjson' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'conect2ai-corpus.jsonl';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErro('Não foi possível baixar os dados de treino');
+    }
+  }
+
   async function baixar() {
     if (!atual) return;
     try {
@@ -434,6 +451,15 @@ export function PaginaAnuncio() {
         ) : lista.length === 0 ? (
           <div className="card-corpo"><div className="vazio">Nenhum anúncio ainda. Gere o primeiro acima.</div></div>
         ) : (
+          <>
+          <div className="card-corpo entre" style={{ paddingBottom: 0 }}>
+            <span className="texto-fraco" style={{ fontSize: 13 }}>
+              As avaliações alimentam a melhoria da IA. Exporte os pares entrada→saída para treino.
+            </span>
+            <button type="button" className="botao botao--fantasma" onClick={baixarCorpus}>
+              Baixar dados de treino (JSONL)
+            </button>
+          </div>
           <div className="tabela-wrap">
             <table className="tabela">
               <thead>
@@ -455,6 +481,7 @@ export function PaginaAnuncio() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </section>

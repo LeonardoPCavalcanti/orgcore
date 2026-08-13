@@ -31,6 +31,12 @@ describe('PaginaAnuncio', () => {
     expect(await screen.findByText('Modelos Generativos')).toBeInTheDocument();
   });
 
+  it('mostra o botao de exportar corpus quando ha anuncios', async () => {
+    apiFetchMock.mockResolvedValueOnce([{ id: 'a1', tipo: 'artigo_aprovado', titulo: 'Modelos Generativos', criadoEm: '2026-08-12T10:00:00Z' }]);
+    render(<PaginaAnuncio />);
+    expect(await screen.findByRole('button', { name: /Baixar dados de treino/ })).toBeInTheDocument();
+  });
+
   it('mostra o estado vazio quando nao ha anuncios', async () => {
     apiFetchMock.mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);

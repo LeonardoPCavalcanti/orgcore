@@ -6,7 +6,8 @@ import type { DefinicaoRota } from '../../../core/modulos/tipos';
 import { exigirAutenticacao } from '../../../core/requisicao';
 import { criarGeradorAnuncio } from './gerador';
 import {
-  apagarAnuncio, avaliarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exportarCorpusAnuncios,
+  fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from './servico-anuncio';
 import { criarRemovedor } from './template/silhueta';
 
@@ -48,6 +49,16 @@ export const rotasAnuncio: DefinicaoRota[] = [
     handler: async (req) => {
       const { contexto } = exigirAutenticacao(req);
       return listarAnuncios(contexto.usuarioId);
+    },
+  },
+  {
+    // Corpus de treino (JSONL) dos anúncios do próprio autor: pares entrada→saída +
+    // modelo + recompensa. Rota estática antes de `:id` para não ser capturada como id.
+    metodo: 'GET', caminho: '/conteudo/anuncios/corpus.jsonl', permissao: PERMISSAO_ANUNCIO,
+    handler: async (req, resp) => {
+      const { contexto } = exigirAutenticacao(req);
+      const itens = await exportarCorpusAnuncios(contexto.usuarioId);
+      return resp.header('content-type', 'application/x-ndjson; charset=utf-8').send(corpusParaJsonl(itens));
     },
   },
   {

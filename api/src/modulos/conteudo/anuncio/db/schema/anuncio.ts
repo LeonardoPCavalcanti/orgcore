@@ -1,7 +1,27 @@
-import type { GrupoTabela } from '@4med/contracts';
+import type { GrupoTabela, TipoAnuncio } from '@4med/contracts';
+import { sql } from 'drizzle-orm';
 import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { usuarios } from '../../../../../core/db/schema/acesso';
 import { unidades } from '../../../../../core/db/schema/organograma';
+
+/**
+ * O que a IA recebeu para gerar a peça, em texto puro (sem os bytes das fotos). Guardar
+ * isso por linha fecha o par `entrada → saída` que o treino futuro precisa. `temFoto` e
+ * `logos` (contagem) preservam o sinal de que havia imagem, sem carregar a imagem.
+ */
+export type EntradaSnapshot = {
+  tipo: TipoAnuncio;
+  titulo: string;
+  pessoas: { nome: string; papel: string; temFoto: boolean }[];
+  grupos: GrupoTabela[];
+  destaque?: string;
+  veiculo?: string;
+  dataRotulo?: string;
+  localRotulo?: string;
+  logos: number;
+};
+
+const sqlVazio = sql`'{}'::jsonb`;
 
 /** `bytea` → `Buffer` nos dois sentidos (o driver `pg` já entrega/aceita `Buffer`). */
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -25,6 +45,10 @@ export const anuncios = pgTable('anuncios', {
   grupos: jsonb('grupos').$type<GrupoTabela[]>().notNull().default([]),
   // Proveniência: qual gerador produziu a peça ("fake" ou id do modelo do LLM).
   modelo: text('modelo').notNull().default('fake'),
+  // Snapshot TEXTUAL da entrada que gerou a peça (sem os bytes das fotos — só um
+  // booleano `temFoto` por pessoa). Fecha o par `entrada → saída` do corpus de treino,
+  // sem carregar rostos nem estourar a linha.
+  entrada: jsonb('entrada').$type<EntradaSnapshot>().notNull().default(sqlVazio),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
   template: text('template').notNull(),

@@ -6,7 +6,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { anuncioPessoas } from '../src/modulos/conteudo/anuncio/db/schema/anuncio';
 import { geradorAnuncioFake } from '../src/modulos/conteudo/anuncio/gerador/fake';
 import {
-  apagarAnuncio, avaliarAnuncio, criarAnuncio, fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
+  apagarAnuncio, avaliarAnuncio, corpusParaJsonl, criarAnuncio, exportarCorpusAnuncios,
+  fotoDaPessoa, imagemDoAnuncio, listarAnuncios, obterAnuncio,
 } from '../src/modulos/conteudo/anuncio/servico-anuncio';
 import { removedorPassthrough } from '../src/modulos/conteudo/anuncio/template/silhueta';
 import { semearDemonstracao } from '../src/seed/demonstracao';
@@ -118,6 +119,35 @@ describe('servico de anuncio', () => {
     const caio = await autor('coordenador@4med.com');
     const resp = await criar(ana);
     expect(await avaliarAnuncio(resp.id, caio.id, { avaliacao: 'reprovado' })).toBeNull();
+  }, 30_000);
+
+  it('exporta o corpus (entrada snapshot -> saida + recompensa) escopado ao autor', async () => {
+    await semearDemonstracao();
+    const ana = await autor('analista@4med.com');
+    const caio = await autor('coordenador@4med.com');
+    const resp = await criar(ana, {
+      titulo: 'Redes Neurais para Diagnóstico', pessoas: [{ nome: 'Júlia', papel: 'Autora', foto: PX }],
+      veiculo: 'CBIS 2026',
+    });
+    await avaliarAnuncio(resp.id, ana.id, { avaliacao: 'aprovado' });
+    await criar(caio); // ruído de outro autor: não deve vazar
+
+    const corpus = await exportarCorpusAnuncios(ana.id);
+    expect(corpus).toHaveLength(1);
+    const item = corpus[0]!;
+    expect(item.entrada.titulo).toBe('Redes Neurais para Diagnóstico');
+    expect(item.entrada.pessoas[0]).toEqual({ nome: 'Júlia', papel: 'Autora', temFoto: true });
+    expect(item.entrada.veiculo).toBe('CBIS 2026');
+    expect(item.saida.headline.destaque).toBe('APROVADO');
+    expect(item.saida.legenda).toContain('#Conect2AI');
+    expect(item.modelo).toBe('fake');
+    expect(item.avaliacao).toBe('aprovado');
+    // sem bytes de foto no snapshot
+    expect(JSON.stringify(item.entrada)).not.toContain('data:image');
+
+    const jsonl = corpusParaJsonl(corpus);
+    expect(jsonl.split('\n')).toHaveLength(1);
+    expect(() => JSON.parse(jsonl)).not.toThrow();
   }, 30_000);
 
   it('lista apenas os anuncios do proprio autor', async () => {

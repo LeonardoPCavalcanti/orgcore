@@ -126,6 +126,23 @@ describe('rotas de anuncio', () => {
     expect(alheio.statusCode).toBe(404);
   }, 30_000);
 
+  it('exporta o corpus JSONL do proprio autor (sem vazar de outro)', async () => {
+    await semearDemonstracao();
+    const ana = await entrar('analista@4med.com');
+    const caio = await entrar('coordenador@4med.com');
+    await gerar(ana, { veiculo: 'CBIS 2026' });
+    await gerar(caio); // ruído
+
+    const resp = await app.inject({ method: 'GET', url: '/conteudo/anuncios/corpus.jsonl', cookies: comCsrf(ana).cookies });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.headers['content-type']).toContain('ndjson');
+    const linhas = resp.body.trim().split('\n');
+    expect(linhas).toHaveLength(1);
+    const item = JSON.parse(linhas[0]!);
+    expect(item.entrada.veiculo).toBe('CBIS 2026');
+    expect(item.modelo).toBe('fake');
+  }, 30_000);
+
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
     const rh = await entrar('rh@4med.com');

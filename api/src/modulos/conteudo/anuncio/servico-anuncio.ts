@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  AnuncioResposta, AnuncioResumo, AvaliacaoResposta, FeedbackAnuncio, NovoAnuncio, PessoaResposta, TipoAnuncio,
+  AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, AvaliacaoResposta, FeedbackAnuncio,
+  NovoAnuncio, PessoaResposta, TipoAnuncio,
 } from '@4med/contracts';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../../core/db/client';
 import { ErroHttp } from '../../../core/erros';
 import { TEMPLATE_C2AI } from '../template/tema-c2ai';
-import { anuncioAvaliacoes, anuncioPessoas, anuncios } from './db/schema/anuncio';
+import { anuncioAvaliacoes, anuncioPessoas, anuncios, type EntradaSnapshot } from './db/schema/anuncio';
 import type { GeradorDeAnuncio } from './gerador/tipos';
 import {
   type FotoPessoa, renderAnuncio,
@@ -82,6 +83,19 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
   });
   const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos, logos);
 
+  // Snapshot textual da ENTRADA (sem bytes de foto) — o outro lado do par de treino.
+  const entradaSnapshot: EntradaSnapshot = {
+    tipo: entrada.dados.tipo,
+    titulo: entrada.dados.titulo,
+    pessoas: entrada.dados.pessoas.map((p) => ({ nome: p.nome, papel: p.papel, temFoto: !!p.foto })),
+    grupos,
+    logos: logos.length,
+    ...(entrada.dados.destaque ? { destaque: entrada.dados.destaque } : {}),
+    ...(entrada.dados.veiculo ? { veiculo: entrada.dados.veiculo } : {}),
+    ...(entrada.dados.dataRotulo ? { dataRotulo: entrada.dados.dataRotulo } : {}),
+    ...(entrada.dados.localRotulo ? { localRotulo: entrada.dados.localRotulo } : {}),
+  };
+
   const anuncioId = randomUUID();
   const [criado] = await db.transaction(async (tx) => {
     const linha = await tx.insert(anuncios).values({
@@ -97,6 +111,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       localRotulo: plano.localRotulo ?? null,
       legenda: plano.legenda ?? '',
       modelo: entrada.gerador.modelo,
+      entrada: entradaSnapshot,
       grupos,
       imagem: imagemCard,
       imagemTipo: 'image/png',
@@ -201,6 +216,55 @@ export async function avaliarAnuncio(
     comentario: criada!.comentario,
     criadoEm: criada!.criadoEm.toISOString(),
   };
+}
+
+/**
+ * Um item do corpus de treino: o par `entrada → saída`, o modelo que gerou e a última
+ * avaliação (recompensa). É a unidade que o treino/otimização futura consome.
+ */
+export type ItemCorpus = {
+  entrada: EntradaSnapshot;
+  saida: { headline: { prefixo: string; destaque: string }; titulo: string; legenda: string };
+  modelo: string;
+  avaliacao: AvaliacaoAnuncio | null;
+  criadoEm: string;
+};
+
+/**
+ * Exporta o corpus dos anúncios do próprio autor: para cada peça, o par entrada→saída,
+ * o modelo e a avaliação mais recente. Base do aprendizado por preferência (few-shot,
+ * SFT, DPO). Nunca inclui bytes de foto — só o snapshot textual da entrada.
+ */
+export async function exportarCorpusAnuncios(autorId: string): Promise<ItemCorpus[]> {
+  const linhas = await db.select({
+    id: anuncios.id, entrada: anuncios.entrada, prefixo: anuncios.headlinePrefixo,
+    destaque: anuncios.headlineDestaque, titulo: anuncios.titulo, legenda: anuncios.legenda,
+    modelo: anuncios.modelo, criadoEm: anuncios.criadoEm,
+  }).from(anuncios).where(eq(anuncios.autorId, autorId)).orderBy(desc(anuncios.criadoEm));
+  if (linhas.length === 0) return [];
+
+  // Avaliação mais recente por anúncio: como vêm em ordem decrescente, a primeira vista
+  // de cada `anuncioId` é a última no tempo.
+  const avaliacoes = await db.select({
+    anuncioId: anuncioAvaliacoes.anuncioId, avaliacao: anuncioAvaliacoes.avaliacao,
+  }).from(anuncioAvaliacoes)
+    .where(inArray(anuncioAvaliacoes.anuncioId, linhas.map((l) => l.id)))
+    .orderBy(desc(anuncioAvaliacoes.criadoEm));
+  const ultima = new Map<string, string>();
+  for (const a of avaliacoes) if (!ultima.has(a.anuncioId)) ultima.set(a.anuncioId, a.avaliacao);
+
+  return linhas.map((l) => ({
+    entrada: l.entrada,
+    saida: { headline: { prefixo: l.prefixo, destaque: l.destaque }, titulo: l.titulo, legenda: l.legenda },
+    modelo: l.modelo,
+    avaliacao: (ultima.get(l.id) ?? null) as AvaliacaoAnuncio | null,
+    criadoEm: l.criadoEm.toISOString(),
+  }));
+}
+
+/** Serializa o corpus em JSONL (uma linha JSON por item) — formato padrão de treino. */
+export function corpusParaJsonl(itens: ItemCorpus[]): string {
+  return itens.map((i) => JSON.stringify(i)).join('\n');
 }
 
 /** Bytes do card, só se for do autor. Fora do escopo → null. */
