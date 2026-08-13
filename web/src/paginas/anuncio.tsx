@@ -1,4 +1,4 @@
-import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, TipoAnuncio } from '@4med/contracts';
+import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, ProvedorStatus, TipoAnuncio } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 
@@ -38,6 +38,9 @@ export function PaginaAnuncio() {
   const [logos, setLogos] = useState<string[]>([]);
   const [gerando, setGerando] = useState(false);
 
+  const [provedores, setProvedores] = useState<ProvedorStatus[]>([]);
+  const [provedor, setProvedor] = useState('');
+
   const [atual, setAtual] = useState<AnuncioResposta | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [avaliado, setAvaliado] = useState<AvaliacaoAnuncio | null>(null);
@@ -51,6 +54,27 @@ export function PaginaAnuncio() {
   }, []);
 
   useEffect(carregar, [carregar]);
+
+  useEffect(() => {
+    apiFetch<ProvedorStatus[]>('/conteudo/ia/provedores')
+      .then((ps) => {
+        const lista = Array.isArray(ps) ? ps : [];
+        setProvedores(lista);
+        if (lista[0]) setProvedor((p) => p || lista[0]!.id);
+      })
+      .catch(() => {});
+  }, []);
+
+  const atualizarCotas = useCallback((forcar: boolean) => {
+    apiFetch<ProvedorStatus[]>('/conteudo/ia/provedores/atualizar', { method: 'PATCH', body: JSON.stringify({ forcar }) })
+      .then((ps) => setProvedores(Array.isArray(ps) ? ps : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => atualizarCotas(false), 5 * 60_000);
+    return () => clearInterval(t);
+  }, [atualizarCotas]);
 
   function alterarPessoa(indice: number, campo: keyof PessoaForm, valor: string) {
     setPessoas((atuais) => atuais.map((p, i) => (i === indice ? { ...p, [campo]: valor } : p)));
@@ -111,6 +135,7 @@ export function PaginaAnuncio() {
       .filter((g) => g.titulo && g.linhas.length > 0);
     const corpo = {
       tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos,
+      ...(provedor ? { provedor } : {}),
       ...(logos.length ? { logos } : {}),
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
       ...(tipo === 'defesa' && destaque ? { destaque } : {}),
@@ -230,6 +255,29 @@ export function PaginaAnuncio() {
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="card-corpo">
           <form className="form" onSubmit={gerar}>
+            {provedores.length > 0 && (
+              <div className="campo">
+                <label htmlFor="provedor">Modelo de IA</label>
+                <div className="linha" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select className="entrada" id="provedor" value={provedor} style={{ flex: '0 0 240px' }}
+                    onChange={(e) => setProvedor(e.target.value)}>
+                    {provedores.map((p) => <option key={p.id} value={p.id}>{p.nome} — {p.percentual}%</option>)}
+                  </select>
+                  <button type="button" className="botao botao--fantasma" onClick={() => atualizarCotas(true)}>Atualizar cotas</button>
+                </div>
+                <div className="pilha" style={{ gap: 4, marginTop: 6 }}>
+                  {provedores.map((p) => (
+                    <div key={p.id} className="linha" style={{ gap: 8, alignItems: 'center', fontSize: 12 }}>
+                      <span style={{ flex: '0 0 120px' }}>{p.nome}</span>
+                      <span style={{ flex: 1, height: 6, background: 'var(--borda, #e0e0e0)', borderRadius: 999 }}>
+                        <span style={{ display: 'block', width: `${p.percentual}%`, height: 6, background: '#1BB4D8', borderRadius: 999 }} />
+                      </span>
+                      <span>{p.percentual}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="linha" style={{ gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div className="campo" style={{ flex: '0 0 260px' }}>
                 <label htmlFor="tipo">Tipo de anúncio</label>
@@ -405,6 +453,11 @@ export function PaginaAnuncio() {
               <h2>{atual.titulo}</h2>
               <span className="selo selo--marca">{atual.headline.prefixo} {atual.headline.destaque}</span>
             </div>
+            <p className="texto-fraco" style={{ fontSize: 13, margin: 0 }}>
+              gerado por {atual.modelo}
+              {atual.provedorSolicitado && atual.provedorSolicitado !== atual.modelo
+                ? ` — «${atual.provedorSolicitado}» estava no limite` : ''}
+            </p>
             <div className="linha" style={{ justifyContent: 'center' }}>
               <img
                 src={urlDaApi(atual.imagemUrl)}

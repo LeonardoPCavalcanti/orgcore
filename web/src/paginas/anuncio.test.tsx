@@ -24,12 +24,39 @@ const anuncio: AnuncioResposta = {
 };
 
 describe('PaginaAnuncio', () => {
-  beforeEach(() => apiFetchMock.mockReset());
+  // Default resolvido para chamadas além da fila (ex.: GET /conteudo/ia/provedores no
+  // mount) — sem isso, o mock devolve undefined e o `.then` quebra.
+  beforeEach(() => { apiFetchMock.mockReset(); apiFetchMock.mockResolvedValue([]); });
 
   it('lista os anuncios do autor ao montar', async () => {
     apiFetchMock.mockResolvedValueOnce([{ id: 'a1', tipo: 'artigo_aprovado', titulo: 'Modelos Generativos', criadoEm: '2026-08-12T10:00:00Z' }]);
     render(<PaginaAnuncio />);
     expect(await screen.findByText('Modelos Generativos')).toBeInTheDocument();
+  });
+
+  it('lista provedores com % e envia o escolhido; mostra o modelo usado', async () => {
+    apiFetchMock
+      .mockResolvedValueOnce([]) // carga inicial de anuncios
+      .mockResolvedValueOnce([ // GET provedores
+        { id: 'groq', nome: 'Groq', modelo: 'llama', percentual: 80, disponivel: true, atualizadoEm: null },
+        { id: 'gemini', nome: 'Gemini', modelo: 'flash', percentual: 40, disponivel: true, atualizadoEm: null },
+      ])
+      .mockResolvedValueOnce({ ...anuncio, modelo: 'gemini', provedorSolicitado: 'groq' }) // POST
+      .mockResolvedValueOnce([]); // recarga
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+    expect(await screen.findByText('Groq — 80%')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Modelo de IA'), { target: { value: 'groq' } });
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Modelos Generativos' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Júlia' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+
+    await waitFor(() => {
+      const chamada = apiFetchMock.mock.calls.find(([url, opts]) => url === '/conteudo/anuncios' && (opts as { method?: string } | undefined)?.method === 'POST');
+      expect(JSON.parse((chamada![1] as { body: string }).body).provedor).toBe('groq');
+    });
+    expect(await screen.findByText(/gerado por gemini/i)).toBeInTheDocument();
   });
 
   it('oferece exportar corpus e datasets de treino (SFT/KTO) quando ha anuncios', async () => {
@@ -71,6 +98,7 @@ describe('PaginaAnuncio', () => {
   it('gera um anuncio e mostra o preview com a headline', async () => {
     apiFetchMock
       .mockResolvedValueOnce([]) // carga inicial
+      .mockResolvedValueOnce([]) // GET provedores (mount)
       .mockResolvedValueOnce(anuncio) // POST
       .mockResolvedValueOnce([{ id: 'a1', tipo: 'artigo_aprovado', titulo: 'Modelos Generativos', criadoEm: '2026-08-12T10:00:00Z' }]); // recarga
     render(<PaginaAnuncio />);
@@ -88,7 +116,7 @@ describe('PaginaAnuncio', () => {
   });
 
   it('envia o corpo com tipo, titulo e pessoas validas', async () => {
-    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
 
@@ -111,7 +139,7 @@ describe('PaginaAnuncio', () => {
   });
 
   it('monta a variante tabela e envia os grupos', async () => {
-    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
 
@@ -139,7 +167,7 @@ describe('PaginaAnuncio', () => {
   it('mostra a legenda gerada e copia para a area de transferencia', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
 
@@ -157,6 +185,7 @@ describe('PaginaAnuncio', () => {
   it('avalia o resultado (Aprovar) e registra o feedback', async () => {
     apiFetchMock
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]) // GET provedores (mount)
       .mockResolvedValueOnce(anuncio)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ id: 'av1', anuncioId: 'a1', avaliacao: 'aprovado', nota: null, comentario: null, criadoEm: 'x' });
@@ -190,7 +219,7 @@ describe('PaginaAnuncio', () => {
   });
 
   it('na defesa, o nivel Doutorado vai como destaque', async () => {
-    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
 
@@ -213,6 +242,7 @@ describe('PaginaAnuncio', () => {
     const { ErroApi } = await vi.importActual<typeof import('../api')>('../api');
     apiFetchMock
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]) // GET provedores (mount)
       .mockRejectedValueOnce(new ErroApi(503, 'geracao_indisponivel', 'A geração por IA está indisponível no momento.'));
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
