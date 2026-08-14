@@ -24,9 +24,9 @@ describe('seed de demonstracao', () => {
   it('o analista enxerga menos unidades que o diretor', async () => {
     await semearDemonstracao();
     const [analista] = await db.select().from(usuarios)
-      .where(eq(usuarios.email, 'analista@4med.com'));
+      .where(eq(usuarios.email, 'aluno@conect2ai.com'));
     const [diretor] = await db.select().from(usuarios)
-      .where(eq(usuarios.email, 'diretor@4med.com'));
+      .where(eq(usuarios.email, 'admin@conect2ai.com'));
 
     const ctxAnalista = await resolverContexto(analista!.id);
     const ctxDiretor = await resolverContexto(diretor!.id);
@@ -39,7 +39,7 @@ describe('seed de demonstracao', () => {
 
   it('o RH tem alcance global', async () => {
     await semearDemonstracao();
-    const [rh] = await db.select().from(usuarios).where(eq(usuarios.email, 'rh@4med.com'));
+    const [rh] = await db.select().from(usuarios).where(eq(usuarios.email, 'secretaria@conect2ai.com'));
     const ctx = await resolverContexto(rh!.id);
     expect(ctx.permissoes.get('core.unidade.ler')?.alcance).toBe('global');
   });

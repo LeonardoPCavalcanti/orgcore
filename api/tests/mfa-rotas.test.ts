@@ -53,7 +53,7 @@ describe('rotas de cadastro do segundo fator', () => {
   it('preparar devolve segredo e uma URI otpauth com o emissor Conect2AI', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/mfa/preparar',
@@ -69,7 +69,7 @@ describe('rotas de cadastro do segundo fator', () => {
   it('ciclo completo pela API: preparar, ativar, e o proximo login passa a exigir o desafio', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const primeiro = await logar('diretor@4med.com');
+    const primeiro = await logar('diretor@conect2ai.com');
     // Sem MFA ainda: entra direto, sessao nao pendente.
     expect(primeiro.resp.json().exigeMfa).toBe(false);
 
@@ -95,7 +95,7 @@ describe('rotas de cadastro do segundo fator', () => {
     expect(trilha[0]?.atorId).toBe(c.diretor.id);
 
     // Proximo login: agora a conta tem MFA, entao nasce pendente.
-    const segundo = await logar('diretor@4med.com');
+    const segundo = await logar('diretor@conect2ai.com');
     expect(segundo.resp.json().exigeMfa).toBe(true);
     const preso = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: segundo.cookie } });
     expect(preso.statusCode).toBe(401);
@@ -120,7 +120,7 @@ describe('rotas de cadastro do segundo fator', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     const { codigosRecuperacao } = await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
     // Confirma o desafio (com um codigo de recuperacao) para ter uma sessao NAO
     // pendente — sem isso, o preHandler barra em mfa_pendente antes da guarda 409.
     const conf = await app.inject({
@@ -141,7 +141,7 @@ describe('rotas de cadastro do segundo fator', () => {
   it('ativar com codigo curto demais devolve 422 entrada_invalida', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/mfa/ativar',
@@ -155,7 +155,7 @@ describe('rotas de cadastro do segundo fator', () => {
   it('ativar com codigo de formato valido, porem errado, devolve 422 codigo_invalido', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
     await app.inject({
       method: 'POST', url: '/auth/mfa/preparar',
       cookies: { sessao: cookie, csrf }, headers: { 'x-csrf-token': csrf },
@@ -173,7 +173,7 @@ describe('rotas de cadastro do segundo fator', () => {
   it('preparar e mutacao: sem o token csrf e recusada', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/mfa/preparar', cookies: { sessao: cookie, csrf },

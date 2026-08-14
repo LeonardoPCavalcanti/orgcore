@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/LeonardoPCavalcanti/orgcore/actions/workflows/ci.yml/badge.svg)](https://github.com/LeonardoPCavalcanti/orgcore/actions/workflows/ci.yml)
 
-**Núcleo de uma intranet corporativa modular** — identidade, autorização por organograma e trilha de auditoria, para uma organização única. Concebido como protótipo para a 4med (agência de marketing médico), mas construído como produto real: front e back separados, contratos tipados compartilhados e um sistema de módulos sobre o qual novas áreas (Pessoas, Documentos, Tarefas, Conteúdo) entram sem tocar no núcleo.
+**Núcleo de uma intranet corporativa modular** — identidade, autorização por organograma e trilha de auditoria, para uma organização única. Concebido como protótipo de intranet corporativa, mas construído como produto real: front e back separados, contratos tipados compartilhados e um sistema de módulos sobre o qual novas áreas (Pessoas, Documentos, Tarefas, Conteúdo) entram sem tocar no núcleo.
 
 Não é um SaaS multiempresa. É a fundação de acesso e auditoria de uma empresa só — a camada em que todo o resto se apoia.
 
@@ -119,14 +119,14 @@ Abra `http://localhost:5173`.
 
 ### Credenciais de demonstração
 
-Todas usam a senha **`demonstracao 4med 2026`**. Cada uma enxerga um recorte diferente do organograma:
+Todas usam a senha **`demonstracao conect2ai 2026`**. Cada uma enxerga um recorte diferente do organograma:
 
 | E-mail | Cargo | Alcance |
 |--------|-------|---------|
-| `analista@4med.com` | Analista de Marketing | próprio (só a equipe dele) |
-| `coordenador@4med.com` | Coordenador de Conteúdo | subárvore |
-| `diretor@4med.com` | Diretor de Marketing | subárvore de Marketing (não vê Comercial) |
-| `rh@4med.com` | Analista de RH | global |
+| `aluno@conect2ai.com` | Aluno | próprio (só a equipe dele) |
+| `supervisor@conect2ai.com` | Supervisor | subárvore |
+| `admin@conect2ai.com` | Administrador | subárvore de Marketing (não vê Comercial) |
+| `secretaria@conect2ai.com` | Secretaria | global |
 
 Abra dois navegadores lado a lado (o analista e o diretor) para ver a diferença de escopo na prática.
 

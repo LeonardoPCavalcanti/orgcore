@@ -9,7 +9,7 @@ import { manifestoNucleo } from '../src/core/manifesto';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 let app: FastifyInstance;
 
 beforeAll(async () => {
@@ -90,13 +90,13 @@ const DELEGACAO_INEXISTENTE = '00000000-0000-4000-8000-000000000000';
 
 const CASOS = [
   { permissao: 'core.unidade.ler', metodo: 'GET' as const, url: '/organograma',
-    permitidos: ['analista', 'coordenador', 'diretor', 'rh'] },
+    permitidos: ['aluno', 'supervisor', 'admin', 'secretaria'] },
   { permissao: 'core.unidade.administrar', metodo: 'POST' as const, url: '/organograma',
-    permitidos: ['rh'] },
+    permitidos: ['secretaria'] },
   { permissao: 'core.auditoria.ler', metodo: 'GET' as const, url: '/auditoria',
-    permitidos: ['coordenador', 'diretor', 'rh'] },
+    permitidos: ['supervisor', 'admin', 'secretaria'] },
   { permissao: 'core.convite.administrar', metodo: 'POST' as const, url: '/auth/convites',
-    permitidos: ['rh'] },
+    permitidos: ['secretaria'] },
   // Delegação: NENHUM cargo do seed carrega `core.delegacao.criar` — nem o rh, que
   // tem alcance global mas não a permissão de delegar. Logo todos são barrados nas
   // três rotas. O caminho POSITIVO (quem TEM a permissão cria, lista e revoga por
@@ -109,9 +109,9 @@ const CASOS = [
     url: `/delegacoes/${DELEGACAO_INEXISTENTE}`, permitidos: [] as string[] },
 ];
 
-const TODOS = ['analista', 'coordenador', 'diretor', 'rh'] as const;
+const TODOS = ['aluno', 'supervisor', 'admin', 'secretaria'] as const;
 const MUTANTES = new Set(['POST', 'PATCH', 'DELETE']);
-const email = (papel: string) => `${papel}@4med.com`;
+const email = (papel: string) => `${papel}@conect2ai.com`;
 
 describe('matriz de autorizacao', () => {
   for (const caso of CASOS) {
@@ -162,7 +162,7 @@ async function corpoValido(url: string): Promise<Record<string, unknown>> {
     const [unidade] = await db.select({ id: unidades.id }).from(unidades).limit(1);
     const [cargo] = await db.select({ id: cargos.id }).from(cargos).limit(1);
     return {
-      email: `convidado-${randomUUID()}@4med.com`,
+      email: `convidado-${randomUUID()}@conect2ai.com`,
       nome: 'Convidado',
       unidadeId: unidade?.id ?? 1,
       cargoId: cargo?.id ?? randomUUID(),

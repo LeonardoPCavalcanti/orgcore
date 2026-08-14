@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { montarArvore, ArvoreUnidades } from './organograma';
 
 const plano = [
-  { id: 1, paiId: null, nome: '4med', tipo: 'empresa', caminho: '/1/', ativo: true },
+  { id: 1, paiId: null, nome: 'Conect2AI', tipo: 'empresa', caminho: '/1/', ativo: true },
   { id: 2, paiId: 1, nome: 'Marketing', tipo: 'diretoria', caminho: '/1/2/', ativo: true },
   { id: 3, paiId: 2, nome: 'Social', tipo: 'equipe', caminho: '/1/2/3/', ativo: true },
 ];

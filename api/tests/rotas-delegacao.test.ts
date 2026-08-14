@@ -11,7 +11,7 @@ import { PERMISSAO_CRIAR } from '../src/core/rbac/delegacoes';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 let app: FastifyInstance;
 
 beforeAll(async () => {
@@ -64,9 +64,9 @@ async function darPermissaoDeDelegar(email: string): Promise<void> {
 describe('rotas de delegacao', () => {
   it('cria, lista com nomes resolvidos e revoga por HTTP', async () => {
     await semearDemonstracao();
-    await darPermissaoDeDelegar('diretor@4med.com');
-    const analistaId = await idPorEmail('analista@4med.com');
-    const cred = await entrar('diretor@4med.com');
+    await darPermissaoDeDelegar('admin@conect2ai.com');
+    const analistaId = await idPorEmail('aluno@conect2ai.com');
+    const cred = await entrar('admin@conect2ai.com');
     const cabecalhos = { 'x-csrf-token': cred.csrf };
     const cookies = { sessao: cred.sessao, csrf: cred.csrf };
 
@@ -87,7 +87,7 @@ describe('rotas de delegacao', () => {
     expect(corpo).toHaveLength(1);
     expect(corpo[0]).toMatchObject({
       id, motivo: 'ferias', papel: 'concedida',
-      paraUsuarioNome: 'Ana Ribeiro', deUsuarioNome: 'Dario Alves', revogadaEm: null,
+      paraUsuarioNome: 'Aluno', deUsuarioNome: 'Administrador', revogadaEm: null,
     });
 
     const revogada = await app.inject({
@@ -101,11 +101,11 @@ describe('rotas de delegacao', () => {
 
   it('destinatario ve a delegacao recebida, sem botao de revogar por parte dele', async () => {
     await semearDemonstracao();
-    await darPermissaoDeDelegar('diretor@4med.com');
-    await darPermissaoDeDelegar('analista@4med.com');
-    const analistaId = await idPorEmail('analista@4med.com');
+    await darPermissaoDeDelegar('admin@conect2ai.com');
+    await darPermissaoDeDelegar('aluno@conect2ai.com');
+    const analistaId = await idPorEmail('aluno@conect2ai.com');
 
-    const credDiretor = await entrar('diretor@4med.com');
+    const credDiretor = await entrar('admin@conect2ai.com');
     await app.inject({
       method: 'POST', url: '/delegacoes',
       cookies: { sessao: credDiretor.sessao, csrf: credDiretor.csrf },
@@ -113,21 +113,21 @@ describe('rotas de delegacao', () => {
       payload: { paraUsuarioId: analistaId, inicio: hoje(), fim: daquiA(7), motivo: 'ferias' },
     });
 
-    const credAnalista = await entrar('analista@4med.com');
+    const credAnalista = await entrar('aluno@conect2ai.com');
     const lista = await app.inject({
       method: 'GET', url: '/delegacoes',
       cookies: { sessao: credAnalista.sessao, csrf: credAnalista.csrf },
     });
     const corpo = lista.json() as Array<Record<string, unknown>>;
     expect(corpo).toHaveLength(1);
-    expect(corpo[0]).toMatchObject({ papel: 'recebida', deUsuarioNome: 'Dario Alves' });
+    expect(corpo[0]).toMatchObject({ papel: 'recebida', deUsuarioNome: 'Administrador' });
   });
 
   it('recusa criacao com fim anterior ao inicio (422 delegacao_invalida)', async () => {
     await semearDemonstracao();
-    await darPermissaoDeDelegar('diretor@4med.com');
-    const analistaId = await idPorEmail('analista@4med.com');
-    const cred = await entrar('diretor@4med.com');
+    await darPermissaoDeDelegar('admin@conect2ai.com');
+    const analistaId = await idPorEmail('aluno@conect2ai.com');
+    const cred = await entrar('admin@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/delegacoes',
@@ -140,8 +140,8 @@ describe('rotas de delegacao', () => {
 
   it('revogar id inexistente devolve 404, nunca 403', async () => {
     await semearDemonstracao();
-    await darPermissaoDeDelegar('diretor@4med.com');
-    const cred = await entrar('diretor@4med.com');
+    await darPermissaoDeDelegar('admin@conect2ai.com');
+    const cred = await entrar('admin@conect2ai.com');
 
     const resp = await app.inject({
       method: 'DELETE', url: `/delegacoes/${randomUUID()}`,

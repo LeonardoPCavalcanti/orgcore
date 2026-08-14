@@ -12,7 +12,7 @@ import { PERMISSAO_CRIAR } from '../src/modulos/conteudo/rotas';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 const ASSINATURA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 let app: FastifyInstance;
 
@@ -65,8 +65,8 @@ async function gerar(cred: Credenciais, tema = 'Edge AI em veiculos') {
 describe('rotas de conteudo', () => {
   it('gera, lista, abre, serve a imagem e apaga (fluxo do dono)', async () => {
     await semearDemonstracao();
-    await darPermissaoDeConteudo('analista@4med.com');
-    const cred = await entrar('analista@4med.com');
+    await darPermissaoDeConteudo('aluno@conect2ai.com');
+    const cred = await entrar('aluno@conect2ai.com');
 
     const criada = await gerar(cred, 'Telemetria veicular');
     expect(criada.statusCode).toBe(201);
@@ -95,10 +95,10 @@ describe('rotas de conteudo', () => {
 
   it('carrossel de outro autor responde 404 (ver, imagem e apagar)', async () => {
     await semearDemonstracao();
-    await darPermissaoDeConteudo('analista@4med.com');
-    await darPermissaoDeConteudo('coordenador@4med.com');
-    const ana = await entrar('analista@4med.com');
-    const caio = await entrar('coordenador@4med.com');
+    await darPermissaoDeConteudo('aluno@conect2ai.com');
+    await darPermissaoDeConteudo('supervisor@conect2ai.com');
+    const ana = await entrar('aluno@conect2ai.com');
+    const caio = await entrar('supervisor@conect2ai.com');
 
     const carrossel = (await gerar(ana)).json() as { id: string; slides: { id: string; imagemUrl: string }[] };
 
@@ -115,7 +115,7 @@ describe('rotas de conteudo', () => {
 
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
-    const semGrant = await entrar('rh@4med.com');
+    const semGrant = await entrar('secretaria@conect2ai.com');
     const resp = await gerar(semGrant);
     expect(resp.statusCode).toBe(403);
     expect(resp.json()).toMatchObject({ codigo: 'sem_permissao' });
@@ -123,8 +123,8 @@ describe('rotas de conteudo', () => {
 
   it('mutacao sem token CSRF e recusada (403 csrf_invalido)', async () => {
     await semearDemonstracao();
-    await darPermissaoDeConteudo('analista@4med.com');
-    const cred = await entrar('analista@4med.com');
+    await darPermissaoDeConteudo('aluno@conect2ai.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await app.inject({
       method: 'POST', url: '/conteudo/carrosseis',
       cookies: { sessao: cred.sessao, csrf: cred.csrf },
@@ -136,8 +136,8 @@ describe('rotas de conteudo', () => {
 
   it('404, nunca 403, para id inexistente do proprio usuario', async () => {
     await semearDemonstracao();
-    await darPermissaoDeConteudo('analista@4med.com');
-    const cred = await entrar('analista@4med.com');
+    await darPermissaoDeConteudo('aluno@conect2ai.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await app.inject({ method: 'GET', url: `/conteudo/carrosseis/${randomUUID()}`, cookies: comCsrf(cred).cookies });
     expect(resp.statusCode).toBe(404);
   });

@@ -81,7 +81,7 @@ describe('resolverContexto', () => {
     await db.insert(cargos).values(cargoAdministrador);
     await db.insert(cargoPapeis).values({ cargoId: cargoAdministrador.id, papelId: papelAdministrador.id });
 
-    const administrador = { id: randomUUID(), email: 'admin@4med.com', nome: 'Ada', status: 'ativo' as const };
+    const administrador = { id: randomUUID(), email: 'admin@conect2ai.com', nome: 'Ada', status: 'ativo' as const };
     await db.insert(usuarios).values(administrador);
 
     const hoje = dataDeHoje();
@@ -120,7 +120,7 @@ describe('resolverContexto', () => {
     await db.insert(cargos).values(cargoComercial);
     await db.insert(cargoPapeis).values({ cargoId: cargoComercial.id, papelId: papelAprovador.id });
 
-    const coordenadora = { id: randomUUID(), email: 'coordenadora@4med.com', nome: 'Clara', status: 'ativo' as const };
+    const coordenadora = { id: randomUUID(), email: 'coordenadora@conect2ai.com', nome: 'Clara', status: 'ativo' as const };
     await db.insert(usuarios).values(coordenadora);
 
     const hoje = dataDeHoje();

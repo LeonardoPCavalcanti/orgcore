@@ -12,8 +12,8 @@ const apiFetchMock = vi.mocked(apiFetch);
 
 const unidades = [{ id: 1, nome: 'Marketing' }, { id: 2, nome: 'Comercial' }];
 const cargos = [
-  { id: 'c1', nome: 'Analista de Marketing' },
-  { id: 'c2', nome: 'Analista de RH' },
+  { id: 'c1', nome: 'Aluno' },
+  { id: 'c2', nome: 'Secretaria' },
 ];
 
 describe('PaginaConvidar', () => {
@@ -26,7 +26,7 @@ describe('PaginaConvidar', () => {
     render(<PaginaConvidar />);
 
     expect(await screen.findByRole('option', { name: 'Marketing' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Analista de RH' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Secretaria' })).toBeInTheDocument();
   });
 
   it('mostra alerta quando a carga dos selects falha', async () => {
@@ -47,7 +47,7 @@ describe('PaginaConvidar', () => {
     render(<PaginaConvidar />);
     await screen.findByRole('option', { name: 'Marketing' });
 
-    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@4med.com' } });
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@conect2ai.com' } });
     fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Nova Pessoa' } });
     fireEvent.change(screen.getByLabelText('Unidade'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'c1' } });
@@ -57,7 +57,7 @@ describe('PaginaConvidar', () => {
       expect(apiFetchMock).toHaveBeenCalledWith('/auth/convites', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          email: 'nova@4med.com', nome: 'Nova Pessoa', unidadeId: 1, cargoId: 'c1',
+          email: 'nova@conect2ai.com', nome: 'Nova Pessoa', unidadeId: 1, cargoId: 'c1',
         }),
       }));
     });

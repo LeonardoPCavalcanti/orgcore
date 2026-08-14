@@ -25,7 +25,7 @@ describe('AtivarMfa', () => {
 
   it('fluxo inativo: preparar mostra QR e chave, ativar mostra os codigos de recuperacao', async () => {
     apiFetchMock
-      .mockResolvedValueOnce({ segredo: 'ABC123SEGREDO', otpauth: 'otpauth://totp/4med:x?secret=ABC123SEGREDO' })
+      .mockResolvedValueOnce({ segredo: 'ABC123SEGREDO', otpauth: 'otpauth://totp/Conect2AI:x?secret=ABC123SEGREDO' })
       .mockResolvedValueOnce({ codigosRecuperacao: ['aaaa11112222', 'bbbb33334444'] });
     const aoAtivar = vi.fn();
     render(<AtivarMfa mfaAtivo={false} aoAtivar={aoAtivar} />);

@@ -10,7 +10,7 @@ describe('meus dados', () => {
   it('devolve os dados do proprio titular', async () => {
     const c = await criarCenarioAcesso();
     const dados = await montarMeusDados(c.analista.id);
-    expect(dados.usuario.email).toBe('analista@4med.com');
+    expect(dados.usuario.email).toBe('analista@conect2ai.com');
     expect(dados.vinculos).toHaveLength(1);
   });
 

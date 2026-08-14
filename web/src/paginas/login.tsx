@@ -48,7 +48,7 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
             <div className="campo">
               <label htmlFor="email">E-mail corporativo</label>
               <input className="entrada" id="email" type="email" value={email} required
-                autoComplete="username" placeholder="voce@4med.com"
+                autoComplete="username" placeholder="voce@conect2ai.com"
                 onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="campo">

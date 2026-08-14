@@ -28,7 +28,7 @@ describe('convite', () => {
   it('grava apenas o hash do token', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     const [linha] = await db.select().from(convites);
@@ -39,7 +39,7 @@ describe('convite', () => {
   it('aceitar cria usuario ativo com senha utilizavel', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     const { usuarioId } = await aceitarConvite(token, 'cadeira azul de madeira 41');
@@ -51,7 +51,7 @@ describe('convite', () => {
   it('token so pode ser usado uma vez', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     await aceitarConvite(token, 'cadeira azul de madeira 41');
@@ -61,7 +61,7 @@ describe('convite', () => {
   it('token expirado e recusado', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     await db.update(convites).set({ expiraEm: new Date(Date.now() - 1000) });
@@ -71,7 +71,7 @@ describe('convite', () => {
   it('aceitar cria o vinculo com unidade e cargo do convite', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     const { usuarioId } = await aceitarConvite(token, 'cadeira azul de madeira 41');
@@ -84,7 +84,7 @@ describe('convite', () => {
   it('duas aceitacoes concorrentes do mesmo token: so uma cria usuario, a outra recebe o erro generico', async () => {
     const c = await criarCenarioAcesso();
     const { token } = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
 
@@ -103,20 +103,20 @@ describe('convite', () => {
     expect(falhas).toHaveLength(1);
     expect(falhas[0]?.reason).toMatchObject({ codigo: 'convite_invalido' });
 
-    const linhasUsuario = await db.select().from(usuarios).where(eq(usuarios.email, 'novo@4med.com'));
+    const linhasUsuario = await db.select().from(usuarios).where(eq(usuarios.email, 'novo@conect2ai.com'));
     expect(linhasUsuario).toHaveLength(1);
   });
 
   it('convite para email que ja e usuario nao expoe erro cru do postgres', async () => {
     const c = await criarCenarioAcesso();
     const primeiro = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     await aceitarConvite(primeiro.token, 'cadeira azul de madeira 41');
 
     const segundo = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     await expect(aceitarConvite(segundo.token, 'outra senha bem longa 99'))
@@ -126,13 +126,13 @@ describe('convite', () => {
   it('convite para email que ja e usuario nao chega a gerar hash da senha', async () => {
     const c = await criarCenarioAcesso();
     const primeiro = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
     await aceitarConvite(primeiro.token, 'cadeira azul de madeira 41');
 
     const segundo = await criarConvite({
-      email: 'novo@4med.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
+      email: 'novo@conect2ai.com', nome: 'Novo de novo', unidadeId: c.equipeSocial.id,
       cargoId: c.cargoAnalista.id, convidadoPor: c.diretor.id,
     });
 

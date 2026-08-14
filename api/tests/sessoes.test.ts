@@ -54,7 +54,7 @@ describe('sessoes', () => {
   it('autenticar recusa senha errada', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    await expect(autenticar('analista@4med.com', 'errada errada errada', origem))
+    await expect(autenticar('analista@conect2ai.com', 'errada errada errada', origem))
       .rejects.toThrow(/credenciais/i);
   });
 
@@ -62,13 +62,13 @@ describe('sessoes', () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
     await db.update(usuarios).set({ status: 'desligado' }).where(eq(usuarios.id, c.analista.id));
-    await expect(autenticar('analista@4med.com', SENHA, origem)).rejects.toThrow(/credenciais/i);
+    await expect(autenticar('analista@conect2ai.com', SENHA, origem)).rejects.toThrow(/credenciais/i);
   });
 
   it('autenticar aceita senha correta', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const r = await autenticar('analista@4med.com', SENHA, origem);
+    const r = await autenticar('analista@conect2ai.com', SENHA, origem);
     expect(r.usuarioId).toBe(c.analista.id);
     expect(r.exigeMfa).toBe(false);
   });
@@ -77,9 +77,9 @@ describe('sessoes', () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
     for (let i = 0; i < 6; i++) {
-      await autenticar('analista@4med.com', 'errada errada errada', origem).catch(() => {});
+      await autenticar('analista@conect2ai.com', 'errada errada errada', origem).catch(() => {});
     }
-    await expect(autenticar('analista@4med.com', SENHA, origem)).rejects.toThrow(/tentativas/i);
+    await expect(autenticar('analista@conect2ai.com', SENHA, origem)).rejects.toThrow(/tentativas/i);
   });
 
   // Sem isso, "usuario nao existe" e "conta desligada" retornariam sem nunca chamar
@@ -89,7 +89,7 @@ describe('sessoes', () => {
   // testada aqui e comportamental: conferirSenha roda sempre, nos tres caminhos.
   it('confere a senha mesmo quando o usuario nao existe, para nao abrir canal lateral de tempo', async () => {
     const espiaoConferirSenha = vi.spyOn(senhaModulo, 'conferirSenha');
-    await expect(autenticar('ninguem@4med.com', 'qualquer senha aqui', origem))
+    await expect(autenticar('ninguem@conect2ai.com', 'qualquer senha aqui', origem))
       .rejects.toThrow(/credenciais/i);
     expect(espiaoConferirSenha).toHaveBeenCalledTimes(1);
     espiaoConferirSenha.mockRestore();
@@ -100,7 +100,7 @@ describe('sessoes', () => {
     await comSenha(c.analista.id);
     await db.update(usuarios).set({ status: 'desligado' }).where(eq(usuarios.id, c.analista.id));
     const espiaoConferirSenha = vi.spyOn(senhaModulo, 'conferirSenha');
-    await expect(autenticar('analista@4med.com', SENHA, origem)).rejects.toThrow(/credenciais/i);
+    await expect(autenticar('analista@conect2ai.com', SENHA, origem)).rejects.toThrow(/credenciais/i);
     expect(espiaoConferirSenha).toHaveBeenCalledTimes(1);
     espiaoConferirSenha.mockRestore();
   });
@@ -113,9 +113,9 @@ describe('sessoes', () => {
     await comSenha(c.analista.id);
     const origemAtacante = { ip: '10.0.0.9', agente: 'atacante' };
     for (let i = 0; i < 6; i++) {
-      await autenticar('analista@4med.com', 'errada errada errada', origemAtacante).catch(() => {});
+      await autenticar('analista@conect2ai.com', 'errada errada errada', origemAtacante).catch(() => {});
     }
-    const r = await autenticar('analista@4med.com', SENHA, origem);
+    const r = await autenticar('analista@conect2ai.com', SENHA, origem);
     expect(r.usuarioId).toBe(c.analista.id);
   });
 
@@ -127,9 +127,9 @@ describe('sessoes', () => {
     const origemAtacante = { ip: '10.0.0.42', agente: 'atacante-exaustao' };
     const espiaoConferirSenha = vi.spyOn(senhaModulo, 'conferirSenha');
     for (let i = 0; i < 6; i++) {
-      await autenticar(`inexistente-${i}@4med.com`, 'qualquer coisa', origemAtacante).catch(() => {});
+      await autenticar(`inexistente-${i}@conect2ai.com`, 'qualquer coisa', origemAtacante).catch(() => {});
     }
-    await expect(autenticar('mais-um-email-novo@4med.com', 'qualquer coisa', origemAtacante))
+    await expect(autenticar('mais-um-email-novo@conect2ai.com', 'qualquer coisa', origemAtacante))
       .rejects.toMatchObject({ codigo: 'muitas_tentativas' });
     // A 7a chamada foi barrada pelo limite de IP ANTES de rodar Argon2id: exatamente 6
     // chamadas reais de conferirSenha (as 6 primeiras), nao 7.

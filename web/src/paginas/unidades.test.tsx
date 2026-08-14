@@ -12,7 +12,7 @@ vi.mock('../api', async () => {
 const apiFetchMock = vi.mocked(apiFetch);
 
 const lista: Unidade[] = [
-  { id: 1, paiId: null, nome: '4med', tipo: 'empresa', caminho: '/1/', ativo: true },
+  { id: 1, paiId: null, nome: 'Conect2AI', tipo: 'empresa', caminho: '/1/', ativo: true },
   { id: 2, paiId: 1, nome: 'Marketing', tipo: 'diretoria', caminho: '/1/2/', ativo: true },
 ];
 

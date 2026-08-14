@@ -5,7 +5,7 @@ import { manifestoNucleo } from '../src/core/manifesto';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 let app: FastifyInstance;
 
 beforeAll(async () => {
@@ -47,7 +47,7 @@ function mover(cred: Credenciais, id: number | string, paiId: number | null) {
 describe('PATCH /organograma/:id', () => {
   it('rh move uma unidade para outro pai', async () => {
     await semearDemonstracao();
-    const cred = await entrar('rh@4med.com');
+    const cred = await entrar('secretaria@conect2ai.com');
     const unidades = await listarUnidades(cred);
     const empresa = unidades.find((u) => u.nome === 'Conect2AI')!;
     const social = unidades.find((u) => u.nome === 'Social Media')!;
@@ -60,7 +60,7 @@ describe('PATCH /organograma/:id', () => {
 
   it('recusa com 422 mover uma unidade para dentro da propria subarvore', async () => {
     await semearDemonstracao();
-    const cred = await entrar('rh@4med.com');
+    const cred = await entrar('secretaria@conect2ai.com');
     const unidades = await listarUnidades(cred);
     const empresa = unidades.find((u) => u.nome === 'Conect2AI')!;
     const social = unidades.find((u) => u.nome === 'Social Media')!;
@@ -73,7 +73,7 @@ describe('PATCH /organograma/:id', () => {
 
   it('devolve 404 ao mover unidade inexistente', async () => {
     await semearDemonstracao();
-    const cred = await entrar('rh@4med.com');
+    const cred = await entrar('secretaria@conect2ai.com');
 
     const resp = await mover(cred, 999999, null);
 
@@ -82,7 +82,7 @@ describe('PATCH /organograma/:id', () => {
 
   it('devolve 404 para id nao numerico', async () => {
     await semearDemonstracao();
-    const cred = await entrar('rh@4med.com');
+    const cred = await entrar('secretaria@conect2ai.com');
 
     const resp = await mover(cred, 'abc', null);
 
@@ -93,7 +93,7 @@ describe('PATCH /organograma/:id', () => {
 describe('GET /auth/cargos', () => {
   it('lista os cargos para quem administra convites', async () => {
     await semearDemonstracao();
-    const cred = await entrar('rh@4med.com');
+    const cred = await entrar('secretaria@conect2ai.com');
 
     const resp = await app.inject({
       method: 'GET', url: '/auth/cargos', cookies: { sessao: cred.sessao, csrf: cred.csrf },
@@ -102,12 +102,12 @@ describe('GET /auth/cargos', () => {
     expect(resp.statusCode).toBe(200);
     const cargos = resp.json() as { id: string; nome: string }[];
     expect(cargos.length).toBeGreaterThanOrEqual(4);
-    expect(cargos.map((c) => c.nome)).toContain('Analista de RH');
+    expect(cargos.map((c) => c.nome)).toContain('Secretaria');
   });
 
   it('barra quem nao administra convites', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
 
     const resp = await app.inject({
       method: 'GET', url: '/auth/cargos', cookies: { sessao: cred.sessao, csrf: cred.csrf },

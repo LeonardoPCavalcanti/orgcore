@@ -97,7 +97,7 @@ export function PaginaConvidar() {
               <div className="campo">
                 <label htmlFor="email">E-mail</label>
                 <input className="entrada" id="email" type="email" value={email} required
-                  placeholder="pessoa@4med.com"
+                  placeholder="pessoa@conect2ai.com"
                   onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="campo">

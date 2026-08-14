@@ -37,7 +37,7 @@ const daquiA = (dias: number) => {
 /** Terceiro usuário, para o teste de encadeamento. Reaproveita o cargo do analista. */
 async function criarTerceiro(unidadeId: number, cargoId: string) {
   const usuario = {
-    id: randomUUID(), email: `caio-${randomUUID()}@4med.com`, nome: 'Caio', status: 'ativo' as const,
+    id: randomUUID(), email: `caio-${randomUUID()}@conect2ai.com`, nome: 'Caio', status: 'ativo' as const,
   };
   await db.insert(usuarios).values(usuario);
   await db.insert(vinculos).values({

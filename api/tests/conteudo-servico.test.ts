@@ -29,7 +29,7 @@ const criar = (a: { id: string; unidadeId: number }, tema = 'Edge AI em veiculos
 describe('servico de conteudo', () => {
   it('cria um carrossel com N slides escopados ao autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana, 'Telemetria', 5);
 
     expect(resp.slides).toHaveLength(5);
@@ -43,8 +43,8 @@ describe('servico de conteudo', () => {
 
   it('lista apenas os carrosseis do proprio autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     await criar(ana);
     await criar(ana);
     await criar(caio);
@@ -55,8 +55,8 @@ describe('servico de conteudo', () => {
 
   it('nega obter/imagem/apagar de carrossel de outro autor (null/false)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
 
     expect(await obterCarrossel(resp.id, caio.id)).toBeNull();
@@ -73,7 +73,7 @@ describe('servico de conteudo', () => {
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana);
 
     expect(await apagarCarrossel(resp.id, ana.id)).toBe(true);

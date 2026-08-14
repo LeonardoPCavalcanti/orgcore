@@ -10,7 +10,7 @@ import { manifestoConteudo } from '../src/modulos/conteudo/manifesto';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 const ASSINATURA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const PX = `data:image/png;base64,${
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -55,7 +55,7 @@ function gerar(cred: Credenciais, over: Record<string, unknown> = {}) {
 describe('rotas de anuncio', () => {
   it('gera, audita, lista, abre, serve imagem/foto e apaga (fluxo do dono)', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
 
     const criada = await gerar(cred);
     expect(criada.statusCode).toBe(201);
@@ -89,8 +89,8 @@ describe('rotas de anuncio', () => {
 
   it('anuncio de outro autor responde 404 (ver, imagem, foto e apagar)', async () => {
     await semearDemonstracao();
-    const ana = await entrar('analista@4med.com');
-    const caio = await entrar('coordenador@4med.com');
+    const ana = await entrar('aluno@conect2ai.com');
+    const caio = await entrar('supervisor@conect2ai.com');
     const anuncio = (await gerar(ana)).json() as RespAnuncio;
 
     const ver = await app.inject({ method: 'GET', url: `/conteudo/anuncios/${anuncio.id}`, cookies: comCsrf(caio).cookies });
@@ -105,8 +105,8 @@ describe('rotas de anuncio', () => {
 
   it('registra feedback do dono e audita; de outro autor da 404', async () => {
     await semearDemonstracao();
-    const ana = await entrar('analista@4med.com');
-    const caio = await entrar('coordenador@4med.com');
+    const ana = await entrar('aluno@conect2ai.com');
+    const caio = await entrar('supervisor@conect2ai.com');
     const anuncio = (await gerar(ana)).json() as RespAnuncio;
 
     const ok = await app.inject({
@@ -128,8 +128,8 @@ describe('rotas de anuncio', () => {
 
   it('exporta o corpus JSONL do proprio autor (sem vazar de outro)', async () => {
     await semearDemonstracao();
-    const ana = await entrar('analista@4med.com');
-    const caio = await entrar('coordenador@4med.com');
+    const ana = await entrar('aluno@conect2ai.com');
+    const caio = await entrar('supervisor@conect2ai.com');
     await gerar(ana, { veiculo: 'CBIS 2026' });
     await gerar(caio); // ruído
 
@@ -145,7 +145,7 @@ describe('rotas de anuncio', () => {
 
   it('exporta datasets de treino SFT e KTO nas rotas dedicadas', async () => {
     await semearDemonstracao();
-    const ana = await entrar('analista@4med.com');
+    const ana = await entrar('aluno@conect2ai.com');
     const anuncio = (await gerar(ana)).json() as RespAnuncio;
     await app.inject({
       method: 'PATCH', url: `/conteudo/anuncios/${anuncio.id}/feedback`, ...comCsrf(ana),
@@ -164,7 +164,7 @@ describe('rotas de anuncio', () => {
 
   it('lista provedores de IA (vazio sem chaves) e aceita o refresh', async () => {
     await semearDemonstracao();
-    const ana = await entrar('analista@4med.com');
+    const ana = await entrar('aluno@conect2ai.com');
     const lista = await app.inject({ method: 'GET', url: '/conteudo/ia/provedores', cookies: comCsrf(ana).cookies });
     expect(lista.statusCode).toBe(200);
     expect(Array.isArray(lista.json())).toBe(true); // [] no gate (sem chaves)
@@ -176,7 +176,7 @@ describe('rotas de anuncio', () => {
 
   it('quem nao tem a permissao e barrado no portao (403)', async () => {
     await semearDemonstracao();
-    const rh = await entrar('rh@4med.com');
+    const rh = await entrar('secretaria@conect2ai.com');
     const resp = await gerar(rh);
     expect(resp.statusCode).toBe(403);
     expect(resp.json()).toMatchObject({ codigo: 'sem_permissao' });
@@ -184,7 +184,7 @@ describe('rotas de anuncio', () => {
 
   it('mutacao sem token CSRF e recusada (403 csrf_invalido)', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await app.inject({
       method: 'POST', url: '/conteudo/anuncios',
       cookies: { sessao: cred.sessao, csrf: cred.csrf },
@@ -196,21 +196,21 @@ describe('rotas de anuncio', () => {
 
   it('404 para id inexistente do proprio usuario', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await app.inject({ method: 'GET', url: `/conteudo/anuncios/${randomUUID()}`, cookies: comCsrf(cred).cookies });
     expect(resp.statusCode).toBe(404);
   });
 
   it('id nao-UUID vira 404, nunca erro cru', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await app.inject({ method: 'GET', url: '/conteudo/anuncios/nao-e-uuid', cookies: comCsrf(cred).cookies });
     expect(resp.statusCode).toBe(404);
   });
 
   it('sem pessoas ainda gera (variante so titulo)', async () => {
     await semearDemonstracao();
-    const cred = await entrar('analista@4med.com');
+    const cred = await entrar('aluno@conect2ai.com');
     const resp = await gerar(cred, { tipo: 'aprovados', titulo: 'Candidatos aprovados 2026.2', pessoas: [] });
     expect(resp.statusCode).toBe(201);
     expect((resp.json() as RespAnuncio).pessoas).toHaveLength(0);

@@ -11,7 +11,7 @@ vi.mock('../api', async () => {
 const apiFetchMock = vi.mocked(apiFetch);
 
 function preencherEEntrar() {
-  fireEvent.change(screen.getByLabelText('E-mail corporativo'), { target: { value: 'x@4med.com' } });
+  fireEvent.change(screen.getByLabelText('E-mail corporativo'), { target: { value: 'x@conect2ai.com' } });
   fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'senha muito segura' } });
   fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 }

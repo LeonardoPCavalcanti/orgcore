@@ -1,21 +1,21 @@
 import { expect, test } from '@playwright/test';
 
-const SENHA = 'demonstracao 4med 2026';
+const SENHA = 'demonstracao conect2ai 2026';
 
 test('analista entra, ve apenas o proprio escopo e perde acesso ao ser desligado', async ({ page, request }) => {
   await request.post('http://localhost:3333/testes/semear');
 
   await page.goto('/');
-  await page.getByLabel('E-mail corporativo').fill('analista@4med.com');
+  await page.getByLabel('E-mail corporativo').fill('aluno@conect2ai.com');
   await page.getByLabel('Senha').fill(SENHA);
   await page.getByRole('button', { name: 'Entrar' }).click();
 
-  await expect(page.getByText('Ana Ribeiro')).toBeVisible();
+  await expect(page.getByText('Aluno')).toBeVisible();
   // Analista não tem core.auditoria.ler: o item não existe no menu.
   await expect(page.getByRole('link', { name: 'Auditoria' })).toHaveCount(0);
 
   await request.post('http://localhost:3333/testes/desligar', {
-    data: { email: 'analista@4med.com' },
+    data: { email: 'aluno@conect2ai.com' },
   });
 
   await page.reload();
@@ -26,10 +26,10 @@ test('o botao Sair encerra a sessao no servidor, nao so na tela', async ({ page,
   await request.post('http://localhost:3333/testes/semear');
 
   await page.goto('/');
-  await page.getByLabel('E-mail corporativo').fill('coordenador@4med.com');
+  await page.getByLabel('E-mail corporativo').fill('supervisor@conect2ai.com');
   await page.getByLabel('Senha').fill(SENHA);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText('Caio Nunes')).toBeVisible();
+  await expect(page.getByText('Supervisor')).toBeVisible();
 
   // Sair é um POST /auth/sair — mutação protegida por CSRF de dupla submissão. Se
   // o front não ecoar o cookie `csrf` no cabeçalho, o servidor recusa com 403, a
@@ -41,14 +41,14 @@ test('o botao Sair encerra a sessao no servidor, nao so na tela', async ({ page,
 
   await page.reload();
   await expect(page.getByLabel('E-mail corporativo')).toBeVisible();
-  await expect(page.getByText('Caio Nunes')).toHaveCount(0);
+  await expect(page.getByText('Supervisor')).toHaveCount(0);
 });
 
 test('diretor enxerga a subarvore de marketing e nao a de comercial', async ({ page, request }) => {
   await request.post('http://localhost:3333/testes/semear');
 
   await page.goto('/');
-  await page.getByLabel('E-mail corporativo').fill('diretor@4med.com');
+  await page.getByLabel('E-mail corporativo').fill('admin@conect2ai.com');
   await page.getByLabel('Senha').fill(SENHA);
   await page.getByRole('button', { name: 'Entrar' }).click();
 

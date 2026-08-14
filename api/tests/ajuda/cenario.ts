@@ -8,7 +8,7 @@ import {
 import { criarUnidade } from '../../src/core/organograma/servico';
 
 export async function criarCenarioAcesso() {
-  const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+  const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
   const marketing = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
   const vendas = await criarUnidade({ nome: 'Vendas', tipo: 'diretoria', paiId: empresa.id });
   const equipeSocial = await criarUnidade({ nome: 'Social', tipo: 'equipe', paiId: marketing.id });
@@ -34,8 +34,8 @@ export async function criarCenarioAcesso() {
     { cargoId: cargoDiretor.id, papelId: papelGestor.id },
   ]);
 
-  const analista = { id: randomUUID(), email: 'analista@4med.com', nome: 'Ana', status: 'ativo' as const };
-  const diretor = { id: randomUUID(), email: 'diretor@4med.com', nome: 'Dario', status: 'ativo' as const };
+  const analista = { id: randomUUID(), email: 'analista@conect2ai.com', nome: 'Ana', status: 'ativo' as const };
+  const diretor = { id: randomUUID(), email: 'diretor@conect2ai.com', nome: 'Dario', status: 'ativo' as const };
   await db.insert(usuarios).values([analista, diretor]);
 
   const vinculoAnalista = randomUUID();

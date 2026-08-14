@@ -49,7 +49,7 @@ describe('rotas de autenticacao', () => {
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/login',
-      payload: { email: 'analista@4med.com', senha: SENHA },
+      payload: { email: 'analista@conect2ai.com', senha: SENHA },
     });
 
     expect(resp.statusCode).toBe(200);
@@ -64,7 +64,7 @@ describe('rotas de autenticacao', () => {
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/login',
-      payload: { email: 'analista@4med.com', senha: 'errada errada errada' },
+      payload: { email: 'analista@conect2ai.com', senha: 'errada errada errada' },
     });
 
     expect(resp.statusCode).toBe(401);
@@ -80,7 +80,7 @@ describe('rotas de autenticacao', () => {
   it('/auth/eu devolve permissoes e menu do usuario', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.diretor.id);
-    const { cookie } = await logar('diretor@4med.com');
+    const { cookie } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({
       method: 'GET', url: '/auth/eu', cookies: { sessao: cookie },
@@ -96,7 +96,7 @@ describe('rotas de autenticacao', () => {
   it('menu esconde item cuja permissao o usuario nao tem', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'GET', url: '/auth/eu', cookies: { sessao: cookie },
@@ -109,7 +109,7 @@ describe('rotas de autenticacao', () => {
   it('sair revoga a sessao', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     await app.inject({
       method: 'POST', url: '/auth/sair',
@@ -129,7 +129,7 @@ describe('MFA obrigatorio no servidor', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
-    const { cookie } = await logar('diretor@4med.com');
+    const { cookie } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: cookie } });
     expect(resp.statusCode).toBe(401);
@@ -144,7 +144,7 @@ describe('MFA obrigatorio no servidor', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     const { codigosRecuperacao } = await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     const confirmacao = await app.inject({
       method: 'POST', url: '/auth/mfa',
@@ -163,7 +163,7 @@ describe('MFA obrigatorio no servidor', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     // Codigo propositalmente errado: o que se prova aqui e que a rota foi
     // ALCANCADA (422 codigo_invalido, vindo do handler) e nao barrada pelo
@@ -186,7 +186,7 @@ describe('MFA obrigatorio no servidor', () => {
   it('quem nao tem MFA ativo entra direto, sem sessao pendente', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: cookie } });
     expect(resp.statusCode).toBe(200);
@@ -204,7 +204,7 @@ describe('MFA obrigatorio no servidor', () => {
     const { segredo } = await prepararMfa(c.diretor.id);
     await ativarMfa(c.diretor.id, authenticator.generate(segredo));
 
-    const { cookie } = await logar('diretor@4med.com');
+    const { cookie } = await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({ method: 'GET', url: '/auditoria', cookies: { sessao: cookie } });
     expect(resp.statusCode).toBe(401);
@@ -233,7 +233,7 @@ describe('limite de tentativas do segundo fator', () => {
 
   it('esgotar o orcamento revoga a sessao pendente, e ate um codigo valido depois e recusado', async () => {
     const { segredo, codigosRecuperacao } = await diretorComMfa();
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     // As MAX-1 primeiras erram e apenas gastam orcamento.
     for (let i = 1; i < MAX_TENTATIVAS_MFA; i++) {
@@ -260,14 +260,14 @@ describe('limite de tentativas do segundo fator', () => {
 
     // Prova de que o codigo acima era mesmo valido (senao o 401 anterior nao
     // provaria nada): numa sessao nova ele confirma o segundo fator.
-    const novo = await logar('diretor@4med.com');
+    const novo = await logar('diretor@conect2ai.com');
     const aceito = await postarMfa(novo.cookie, novo.csrf, codigoValido);
     expect(aceito.statusCode).toBe(200);
   });
 
   it('codigo de recuperacao errado sai do mesmo orcamento das tentativas de TOTP', async () => {
     const { segredo } = await diretorComMfa();
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     // Mistura os dois formatos que `conferirMfa` aceita: seis digitos (TOTP) e um
     // codigo de recuperacao (10 hex). Se cada caminho tivesse contador proprio, ou
@@ -286,7 +286,7 @@ describe('limite de tentativas do segundo fator', () => {
 
   it('sessao pendente nao tem o prazo renovado a cada tentativa; sessao confirmada tem', async () => {
     const { segredo, codigosRecuperacao } = await diretorComMfa();
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     // Encurta o prazo para um valor conhecido: se a renovacao deslizante rodar,
     // `expira_em` salta para daqui a 12h e a diferenca e visivel.
@@ -333,7 +333,7 @@ describe('limite de tentativas do segundo fator', () => {
 
     const statusPorLogin: number[][] = [];
     for (let n = 0; n < LOGINS; n++) {
-      const { cookie, csrf } = await logar('diretor@4med.com');
+      const { cookie, csrf } = await logar('diretor@conect2ai.com');
       const status: number[] = [];
       for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
         const resp = await postarMfa(cookie, csrf, codigoErrado(segredo));
@@ -369,7 +369,7 @@ describe('limite de tentativas do segundo fator', () => {
     // enquanto a janela nao passa. Recusado ANTES de ser conferido, entao ele nem
     // e consumido.
     const valido = codigosRecuperacao[0] ?? '';
-    const bloqueado = await logar('diretor@4med.com');
+    const bloqueado = await logar('diretor@conect2ai.com');
     const recusado = await postarMfa(bloqueado.cookie, bloqueado.csrf, valido);
     expect(recusado.statusCode).toBe(429);
     expect(recusado.json().codigo).toBe('muitas_tentativas');
@@ -382,7 +382,7 @@ describe('limite de tentativas do segundo fator', () => {
       .set({ criadaEm: new Date(Date.now() - 2 * 3600_000) })
       .where(eq(tentativasLogin.tipo, 'mfa'));
 
-    const depois = await logar('diretor@4med.com');
+    const depois = await logar('diretor@conect2ai.com');
     const aceito = await postarMfa(depois.cookie, depois.csrf, valido);
     expect(aceito.statusCode).toBe(200);
   });
@@ -394,8 +394,8 @@ describe('limite de tentativas do segundo fator', () => {
   it('sessao pendente nova revoga as sessoes pendentes anteriores da mesma conta', async () => {
     const { segredo } = await diretorComMfa();
 
-    const primeira = await logar('diretor@4med.com');
-    const segunda = await logar('diretor@4med.com');
+    const primeira = await logar('diretor@conect2ai.com');
+    const segunda = await logar('diretor@conect2ai.com');
 
     const naPrimeira = await postarMfa(primeira.cookie, primeira.csrf, codigoErrado(segredo));
     expect(naPrimeira.statusCode).toBe(401);
@@ -417,7 +417,7 @@ describe('limite de tentativas do segundo fator', () => {
   // contagem de linhas E a contagem de palpites conferidos.
   it('rajada simultanea numa unica sessao nao confere mais palpites que o teto da sessao', async () => {
     const { segredo } = await diretorComMfa();
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
     const RAJADA = 120;
     const errado = codigoErrado(segredo);
 
@@ -447,7 +447,7 @@ describe('limite de tentativas do segundo fator', () => {
     const LOGINS = 12;
 
     const resultados = await Promise.all(
-      Array.from({ length: LOGINS }, () => logar('diretor@4med.com')),
+      Array.from({ length: LOGINS }, () => logar('diretor@conect2ai.com')),
     );
 
     expect(resultados.map((r) => r.resp.statusCode)).toEqual(
@@ -471,18 +471,18 @@ describe('limite de tentativas do segundo fator', () => {
 
     const LOGINS_ATE_ESGOTAR = Math.ceil(MAX_FALHAS_MFA_CONTA / MAX_TENTATIVAS_MFA);
     for (let n = 0; n < LOGINS_ATE_ESGOTAR; n++) {
-      const { cookie, csrf } = await logar('diretor@4med.com');
+      const { cookie, csrf } = await logar('diretor@conect2ai.com');
       for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
         await postarMfa(cookie, csrf, codigoErrado(segredo));
       }
     }
 
-    await db.update(usuarios).set({ email: 'diretor.novo@4med.com' })
+    await db.update(usuarios).set({ email: 'diretor.novo@conect2ai.com' })
       .where(eq(usuarios.id, c.diretor.id));
 
     // Codigo de recuperacao genuinamente valido, conta com e-mail novo: continua
     // bloqueado, porque a janela e da conta e a janela nao passou.
-    const depois = await logar('diretor.novo@4med.com');
+    const depois = await logar('diretor.novo@conect2ai.com');
     const recusado = await postarMfa(depois.cookie, depois.csrf, codigosRecuperacao[0] ?? '');
     expect(recusado.statusCode).toBe(429);
     expect(recusado.json().codigo).toBe('muitas_tentativas');
@@ -493,11 +493,11 @@ describe('limite de tentativas do segundo fator', () => {
   it('login novo nao derruba a sessao ja confirmada de outro aparelho', async () => {
     const { codigosRecuperacao } = await diretorComMfa();
 
-    const antiga = await logar('diretor@4med.com', 'aparelho-a');
+    const antiga = await logar('diretor@conect2ai.com', 'aparelho-a');
     const confirmacao = await postarMfa(antiga.cookie, antiga.csrf, codigosRecuperacao[0] ?? '');
     expect(confirmacao.statusCode).toBe(200);
 
-    await logar('diretor@4med.com', 'aparelho-b');
+    await logar('diretor@conect2ai.com', 'aparelho-b');
 
     const resp = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: antiga.cookie } });
     expect(resp.statusCode).toBe(200);
@@ -510,7 +510,7 @@ describe('limite de tentativas do segundo fator', () => {
     const { c, segredo } = await diretorComMfa();
 
     for (let n = 0; n < 2; n++) {
-      const { cookie, csrf } = await logar('diretor@4med.com');
+      const { cookie, csrf } = await logar('diretor@conect2ai.com');
       for (let i = 0; i < MAX_TENTATIVAS_MFA; i++) {
         await postarMfa(cookie, csrf, codigoErrado(segredo));
       }
@@ -533,7 +533,7 @@ describe('limite de tentativas do segundo fator', () => {
   // revogava a sessao de quem ja tinha se autenticado direito.
   it('confirmar o segundo fator zera o orcamento da sessao', async () => {
     const { segredo, codigosRecuperacao } = await diretorComMfa();
-    const { cookie, csrf } = await logar('diretor@4med.com');
+    const { cookie, csrf } = await logar('diretor@conect2ai.com');
 
     for (let i = 1; i < MAX_TENTATIVAS_MFA; i++) {
       const errada = await postarMfa(cookie, csrf, codigoErrado(segredo));
@@ -554,7 +554,7 @@ describe('csrf (dupla submissao)', () => {
   it('mutacao sem cabecalho csrf e recusada mesmo com cookie de sessao valido', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/sair', cookies: { sessao: cookie, csrf },
@@ -570,7 +570,7 @@ describe('csrf (dupla submissao)', () => {
   it('mutacao com cabecalho csrf divergente do cookie e recusada', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/sair',
@@ -583,7 +583,7 @@ describe('csrf (dupla submissao)', () => {
   it('mutacao com cabecalho csrf correto e aceita', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/sair',
@@ -598,7 +598,7 @@ describe('csrf (dupla submissao)', () => {
   it('cabecalho csrf do mesmo tamanho do cookie, porem diferente, e recusado', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/sair',
@@ -638,7 +638,7 @@ describe('csrf (dupla submissao)', () => {
   it('requisicao recusada por csrf nao estende a sessao nem marca uso', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const prazoCurto = new Date(Date.now() + 3600_000);
     await db.update(sessoes).set({ expiraEm: prazoCurto, ultimoUso: prazoCurto });
@@ -658,7 +658,7 @@ describe('csrf (dupla submissao)', () => {
     await comSenha(c.analista.id);
     const resp = await app.inject({
       method: 'POST', url: '/auth/login',
-      payload: { email: 'analista@4med.com', senha: SENHA },
+      payload: { email: 'analista@conect2ai.com', senha: SENHA },
     });
     expect(resp.statusCode).toBe(200);
   });
@@ -679,7 +679,7 @@ describe('validacao de entrada (zod)', () => {
   it('codigo mfa curto demais devolve 422 com codigo entrada_invalida, nao 500', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'POST', url: '/auth/mfa',
@@ -695,7 +695,7 @@ describe('request-id', () => {
   it('aparece em toda resposta, tanto de sucesso quanto de erro', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const sucesso = await app.inject({ method: 'GET', url: '/auth/eu', cookies: { sessao: cookie } });
     expect(sucesso.statusCode).toBe(200);
@@ -720,7 +720,7 @@ describe('auditoria de leitura sensivel', () => {
     // o comportamento errado sem avisar.
     await sincronizarPermissoes([manifestoNucleo]);
     await c.concederGlobal(c.analista.id, 'core.auditoria.ler');
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({ method: 'GET', url: '/auditoria', cookies: { sessao: cookie } });
     expect(resp.statusCode).toBe(200);
@@ -737,7 +737,7 @@ describe('auditoria de leitura sensivel', () => {
     // Ver comentario no teste anterior sobre por que isto e necessario.
     await sincronizarPermissoes([manifestoNucleo]);
     await c.concederGlobal(c.analista.id, 'core.auditoria.ler');
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const espiao = vi.spyOn(registroAuditoriaModulo, 'registrarAuditoria')
       .mockRejectedValueOnce(new Error('falha simulada de banco'));
@@ -763,8 +763,8 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
     await comSenha(c.analista.id);
     await comSenha(c.diretor.id);
 
-    const { cookie: cookieAnalista } = await logar('analista@4med.com');
-    await logar('diretor@4med.com');
+    const { cookie: cookieAnalista } = await logar('analista@conect2ai.com');
+    await logar('diretor@conect2ai.com');
 
     const resp = await app.inject({
       method: 'GET', url: '/auth/sessoes', cookies: { sessao: cookieAnalista },
@@ -776,7 +776,7 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
   it('revogar a propria sessao por id funciona e derruba o acesso', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const lista = await app.inject({ method: 'GET', url: '/auth/sessoes', cookies: { sessao: cookie } });
     const [minhaSessao] = lista.json();
@@ -796,8 +796,8 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
     await comSenha(c.analista.id);
     await comSenha(c.diretor.id);
 
-    const { cookie: cookieAnalista, csrf: csrfAnalista } = await logar('analista@4med.com');
-    const { cookie: cookieDiretor } = await logar('diretor@4med.com');
+    const { cookie: cookieAnalista, csrf: csrfAnalista } = await logar('analista@conect2ai.com');
+    const { cookie: cookieDiretor } = await logar('diretor@conect2ai.com');
 
     const listaDiretor = await app.inject({
       method: 'GET', url: '/auth/sessoes', cookies: { sessao: cookieDiretor },
@@ -823,7 +823,7 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
   it('a listagem de sessoes nao devolve nenhum campo de segredo', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie } = await logar('analista@4med.com');
+    const { cookie } = await logar('analista@conect2ai.com');
 
     const [noBanco] = await db.select().from(sessoes);
     const resp = await app.inject({ method: 'GET', url: '/auth/sessoes', cookies: { sessao: cookie } });
@@ -840,8 +840,8 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
   it('revogar a mesma sessao duas vezes devolve 404 na segunda, sem check-then-write', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie: cookieA, csrf: csrfA } = await logar('analista@4med.com', 'aparelho-a');
-    await logar('analista@4med.com', 'aparelho-b');
+    const { cookie: cookieA, csrf: csrfA } = await logar('analista@conect2ai.com', 'aparelho-a');
+    await logar('analista@conect2ai.com', 'aparelho-b');
 
     const lista = await app.inject({ method: 'GET', url: '/auth/sessoes', cookies: { sessao: cookieA } });
     const outra = lista.json()
@@ -867,7 +867,7 @@ describe('gerenciamento de sessoes (GET e DELETE)', () => {
   it('id de sessao malformado devolve 404, nao 500', async () => {
     const c = await criarCenarioAcesso();
     await comSenha(c.analista.id);
-    const { cookie, csrf } = await logar('analista@4med.com');
+    const { cookie, csrf } = await logar('analista@conect2ai.com');
 
     const resp = await app.inject({
       method: 'DELETE', url: '/auth/sessoes/nao-e-um-uuid',

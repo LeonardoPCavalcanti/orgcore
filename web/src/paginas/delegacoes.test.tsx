@@ -13,8 +13,8 @@ const apiFetchMock = vi.mocked(apiFetch);
 const concedida: Delegacao = {
   id: 'd1', inicio: '2026-07-01', fim: '2026-07-10', motivo: 'ferias',
   criadaEm: '2026-06-30T00:00:00Z', revogadaEm: null,
-  deUsuarioId: 'u1', deUsuarioNome: 'Dario Alves',
-  paraUsuarioId: 'u2', paraUsuarioNome: 'Ana Ribeiro',
+  deUsuarioId: 'u1', deUsuarioNome: 'Administrador',
+  paraUsuarioId: 'u2', paraUsuarioNome: 'Aluno',
   papel: 'concedida',
 };
 
@@ -25,7 +25,7 @@ describe('PaginaDelegacoes', () => {
     apiFetchMock.mockResolvedValueOnce([concedida]);
     render(<PaginaDelegacoes />);
 
-    expect(await screen.findByText('Ana Ribeiro')).toBeInTheDocument();
+    expect(await screen.findByText('Aluno')).toBeInTheDocument();
     expect(screen.getByText('ferias')).toBeInTheDocument();
     expect(screen.getByText('2026-07-01 → 2026-07-10')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Revogar' })).toBeInTheDocument();
@@ -37,7 +37,7 @@ describe('PaginaDelegacoes', () => {
     ]);
     render(<PaginaDelegacoes />);
 
-    expect(await screen.findByText('Dario Alves')).toBeInTheDocument();
+    expect(await screen.findByText('Administrador')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Revogar' })).not.toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe('PaginaDelegacoes', () => {
         body: JSON.stringify({ paraUsuarioId: 'u2', inicio: '2026-07-01', fim: '2026-07-10', motivo: 'ferias' }),
       }));
     });
-    expect(await screen.findByText('Ana Ribeiro')).toBeInTheDocument();
+    expect(await screen.findByText('Aluno')).toBeInTheDocument();
   });
 
   it('revoga via DELETE e recarrega a lista', async () => {

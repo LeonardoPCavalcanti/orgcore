@@ -20,7 +20,7 @@ import { criarAnuncio } from '../modulos/conteudo/anuncio/servico-anuncio';
 import { melhoradorPassthrough } from '../modulos/conteudo/anuncio/template/melhorador';
 import { removedorPassthrough } from '../modulos/conteudo/anuncio/template/silhueta';
 
-const SENHA_DEMO = 'demonstracao 4med 2026';
+const SENHA_DEMO = 'demonstracao conect2ai 2026';
 
 /**
  * Organograma fictício para apresentação. Permite abrir duas sessões lado a
@@ -63,10 +63,10 @@ export async function semearDemonstracao(): Promise<{
     { papelId: papelRh.id, permissaoChave: 'core.auditoria.ler', alcance: 'global' },
   ]);
 
-  const cargoAnalista = { id: randomUUID(), nome: 'Analista de Marketing', nivel: 1 };
-  const cargoCoordenador = { id: randomUUID(), nome: 'Coordenador de Conteúdo', nivel: 2 };
-  const cargoDiretor = { id: randomUUID(), nome: 'Diretor de Marketing', nivel: 3 };
-  const cargoRh = { id: randomUUID(), nome: 'Analista de RH', nivel: 2 };
+  const cargoAnalista = { id: randomUUID(), nome: 'Aluno', nivel: 1 };
+  const cargoCoordenador = { id: randomUUID(), nome: 'Supervisor', nivel: 2 };
+  const cargoDiretor = { id: randomUUID(), nome: 'Administrador', nivel: 3 };
+  const cargoRh = { id: randomUUID(), nome: 'Secretaria', nivel: 2 };
   await db.insert(cargos).values([cargoAnalista, cargoCoordenador, cargoDiretor, cargoRh]);
 
   await db.insert(cargoPapeis).values([
@@ -80,10 +80,10 @@ export async function semearDemonstracao(): Promise<{
 
   const senhaHash = await gerarHash(SENHA_DEMO);
   const pessoas = [
-    { email: 'analista@4med.com', nome: 'Ana Ribeiro', cargo: cargoAnalista, unidade: social },
-    { email: 'coordenador@4med.com', nome: 'Caio Nunes', cargo: cargoCoordenador, unidade: conteudo },
-    { email: 'diretor@4med.com', nome: 'Dario Alves', cargo: cargoDiretor, unidade: marketing },
-    { email: 'rh@4med.com', nome: 'Rita Homem', cargo: cargoRh, unidade: empresa },
+    { email: 'aluno@conect2ai.com', nome: 'Aluno', cargo: cargoAnalista, unidade: social },
+    { email: 'supervisor@conect2ai.com', nome: 'Supervisor', cargo: cargoCoordenador, unidade: conteudo },
+    { email: 'admin@conect2ai.com', nome: 'Administrador', cargo: cargoDiretor, unidade: marketing },
+    { email: 'secretaria@conect2ai.com', nome: 'Secretaria', cargo: cargoRh, unidade: empresa },
   ];
 
   // Início do vínculo no fuso da organização, não em UTC — senão, rodado à noite
@@ -117,7 +117,7 @@ export async function semearDemonstracao(): Promise<{
  */
 export async function semearCarrosselDemo(): Promise<void> {
   const [analista] = await db.select({ id: usuarios.id }).from(usuarios)
-    .where(eq(usuarios.email, 'analista@4med.com'));
+    .where(eq(usuarios.email, 'aluno@conect2ai.com'));
   if (!analista) return;
   const [vinculo] = await db.select({ unidadeId: vinculos.unidadeId }).from(vinculos)
     .where(eq(vinculos.usuarioId, analista.id));
@@ -140,7 +140,7 @@ export async function semearCarrosselDemo(): Promise<void> {
  */
 export async function semearAnuncioDemo(): Promise<void> {
   const [analista] = await db.select({ id: usuarios.id }).from(usuarios)
-    .where(eq(usuarios.email, 'analista@4med.com'));
+    .where(eq(usuarios.email, 'aluno@conect2ai.com'));
   if (!analista) return;
   const [vinculo] = await db.select({ unidadeId: vinculos.unidadeId }).from(vinculos)
     .where(eq(vinculos.usuarioId, analista.id));

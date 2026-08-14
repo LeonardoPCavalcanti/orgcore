@@ -12,18 +12,18 @@ beforeEach(limparBanco);
 
 describe('organograma', () => {
   it('raiz recebe caminho com o proprio id', async () => {
-    const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+    const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
     expect(empresa.caminho).toBe(`/${empresa.id}/`);
   });
 
   it('filho herda o caminho do pai', async () => {
-    const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+    const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
     const mkt = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
     expect(mkt.caminho).toBe(`/${empresa.id}/${mkt.id}/`);
   });
 
   it('mover uma unidade reescreve o caminho de toda a descendencia', async () => {
-    const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+    const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
     const mkt = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
     const vendas = await criarUnidade({ nome: 'Vendas', tipo: 'diretoria', paiId: empresa.id });
     const social = await criarUnidade({ nome: 'Social', tipo: 'equipe', paiId: mkt.id });
@@ -54,7 +54,7 @@ describe('organograma', () => {
   });
 
   it('mover unidade de volta para raiz reescreve o caminho dela e da descendencia', async () => {
-    const empresa = await criarUnidade({ nome: '4med', tipo: 'empresa', paiId: null });
+    const empresa = await criarUnidade({ nome: 'Conect2AI', tipo: 'empresa', paiId: null });
     const mkt = await criarUnidade({ nome: 'Marketing', tipo: 'diretoria', paiId: empresa.id });
     const social = await criarUnidade({ nome: 'Social', tipo: 'equipe', paiId: mkt.id });
 

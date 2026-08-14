@@ -48,7 +48,7 @@ const criar = (a: { id: string; unidadeId: number }, over: Partial<NovoAnuncio> 
 describe('servico de anuncio', () => {
   it('cria um anuncio escopado ao autor, com headline por tipo e card em PNG', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana, { pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }, { nome: 'Flávio Lins', papel: 'Coautor' }] });
 
     expect(resp.headline).toEqual({ prefixo: 'ARTIGO', destaque: 'APROVADO' });
@@ -61,7 +61,7 @@ describe('servico de anuncio', () => {
 
   it('guarda a foto da pessoa e expoe fotoUrl', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana, { pessoas: [{ nome: 'Júlia Didra', papel: 'Autora', foto: PX }] });
 
     const pessoa = resp.pessoas[0]!;
@@ -72,7 +72,7 @@ describe('servico de anuncio', () => {
 
   it('roda o melhorador ANTES do recorte, alimentando-o com a foto tratada', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const ordem: string[] = [];
     let recebidoPeloRecorte: Buffer | null = null;
     const melhorador = {
@@ -92,14 +92,14 @@ describe('servico de anuncio', () => {
 
   it('sem foto, a pessoa fica com fotoUrl null', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana);
     expect(resp.pessoas[0]!.fotoUrl).toBeNull();
   }, 30_000);
 
   it('guarda e devolve a variante tabela (grupos)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const grupos = [{
       titulo: 'DOUTORADO', colunas: ['Orientando', 'Orientadora'] as [string, string],
       linhas: [['Gabriel Masson', 'Patrícia Endo'] as [string, string]],
@@ -113,7 +113,7 @@ describe('servico de anuncio', () => {
 
   it('gera, guarda e devolve a legenda do post', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana, { titulo: 'Modelos Generativos para Recomendação Clínica' });
 
     expect(resp.legenda).toContain('#Conect2AI');
@@ -124,7 +124,7 @@ describe('servico de anuncio', () => {
 
   it('marca o modelo gerador e registra a avaliacao (sinal de recompensa)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana);
     expect(resp.modelo).toBe('fake');
 
@@ -136,16 +136,16 @@ describe('servico de anuncio', () => {
 
   it('nega avaliar anuncio de outro autor (fora do escopo -> null)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
     expect(await avaliarAnuncio(resp.id, caio.id, { avaliacao: 'reprovado' })).toBeNull();
   }, 30_000);
 
   it('few-shot: exemplosAprovados traz so os aprovados do mesmo tipo do autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
 
     const bom = await criar(ana, { tipo: 'artigo_aprovado', titulo: 'Peça Boa Aprovada' });
     await avaliarAnuncio(bom.id, ana.id, { avaliacao: 'aprovado' });
@@ -165,8 +165,8 @@ describe('servico de anuncio', () => {
 
   it('exporta o corpus (entrada snapshot -> saida + recompensa) escopado ao autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana, {
       titulo: 'Redes Neurais para Diagnóstico', pessoas: [{ nome: 'Júlia', papel: 'Autora', foto: PX }],
       veiculo: 'CBIS 2026',
@@ -194,7 +194,7 @@ describe('servico de anuncio', () => {
 
   it('formata datasets de treino: SFT (so aprovados) e KTO (avaliados com label)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const bom = await criar(ana, { titulo: 'Peça Aprovada para Treino' });
     await avaliarAnuncio(bom.id, ana.id, { avaliacao: 'aprovado' });
     const mau = await criar(ana, { titulo: 'Peça Reprovada para Treino' });
@@ -218,8 +218,8 @@ describe('servico de anuncio', () => {
 
   it('lista apenas os anuncios do proprio autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     await criar(ana);
     await criar(ana, { tipo: 'defesa' });
     await criar(caio);
@@ -230,8 +230,8 @@ describe('servico de anuncio', () => {
 
   it('nega obter/imagem/foto/apagar de anuncio de outro autor', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
-    const caio = await autor('coordenador@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana, { pessoas: [{ nome: 'Júlia', papel: 'Autora', foto: PX }] });
 
     expect(await obterAnuncio(resp.id, caio.id)).toBeNull();
@@ -245,7 +245,7 @@ describe('servico de anuncio', () => {
 
   it('apaga o proprio anuncio e some com as pessoas (cascade)', async () => {
     await semearDemonstracao();
-    const ana = await autor('analista@4med.com');
+    const ana = await autor('aluno@conect2ai.com');
     const resp = await criar(ana, { pessoas: [{ nome: 'Júlia', papel: 'Autora', foto: PX }] });
 
     expect(await apagarAnuncio(resp.id, ana.id)).toBe(true);
