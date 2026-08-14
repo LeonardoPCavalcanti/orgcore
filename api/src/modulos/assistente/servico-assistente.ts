@@ -6,6 +6,7 @@ import type { ClienteLLM, Mensagem } from '../../core/llm';
 import { iaConversas, iaMensagens, type IaConversa, type IaMensagem } from './db/schema/assistente';
 import { extrairTexto } from './extrair-texto';
 import { detectarPedidoCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
+import { lerLinks } from './consumir-link';
 
 const SYSTEM =
   'Você é o assistente da intranet Conect2AI. Responda em português, de forma direta e útil.';
@@ -107,18 +108,21 @@ export async function enviarMensagem(args: {
     throw new ErroHttp(503, 'ia_indisponivel', 'Nenhum provedor de IA disponível no momento.');
   }
 
-  // Extrai o texto dos documentos ANTES de gravar (formato inválido falha cedo, 415).
+  // Contexto de referência: documentos anexados + links colados no texto. Documento com
+  // formato inválido falha cedo (415); link inseguro/indisponível é apenas ignorado.
   const nomesDoc: string[] = [];
-  let contexto: string | null = null;
-  if (args.dados.documentos.length > 0) {
-    const blocos: string[] = [];
-    for (const doc of args.dados.documentos) {
-      const texto = await extrairTexto(doc.nome, doc.dataUri);
-      nomesDoc.push(doc.nome);
-      blocos.push(`=== ${doc.nome} ===\n${texto}`);
-    }
-    contexto = `Documentos anexados pelo usuário (use como referência):\n\n${blocos.join('\n\n')}`;
+  const blocos: string[] = [];
+  for (const doc of args.dados.documentos) {
+    const texto = await extrairTexto(doc.nome, doc.dataUri);
+    nomesDoc.push(doc.nome);
+    blocos.push(`=== Documento: ${doc.nome} ===\n${texto}`);
   }
+  for (const pagina of await lerLinks(args.dados.conteudo)) {
+    blocos.push(`=== Link: ${pagina.url}${pagina.titulo ? ` (${pagina.titulo})` : ''} ===\n${pagina.texto}`);
+  }
+  const contexto = blocos.length > 0
+    ? `Material de referência enviado pelo usuário (use como base):\n\n${blocos.join('\n\n')}`
+    : null;
 
   // Grava a mensagem do usuário ANTES de responder (o texto não se perde se a IA falhar).
   await db.insert(iaMensagens).values({
