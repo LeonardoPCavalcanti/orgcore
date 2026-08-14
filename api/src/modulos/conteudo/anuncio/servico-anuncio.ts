@@ -69,6 +69,16 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
       return { id: randomUUID(), ordem: i, nome: p.nome, papel: p.papel, foto: null, fotoTipo: null, render: null };
     }
     const { bytes } = decodificarDataUri(uri);
+    // Cliente já removeu o fundo (WASM no navegador): usa os bytes como vieram e marca
+    // como recortado. Pula recorte E realce — sharpen sobre um recorte pode halar a
+    // borda, e o servidor nativo falha no Windows de qualquer forma.
+    if (entradaPessoa?.fotoRecortada) {
+      return {
+        id: randomUUID(), ordem: i, nome: p.nome, papel: p.papel,
+        foto: bytes, fotoTipo: 'image/png',
+        render: { dataUri: uri, recortado: true },
+      };
+    }
     // Fluxo de imagem: realce leve (opt-in) ANTES do recorte de fundo, para o recorte
     // acontecer sobre uma foto já mais limpa/maior. Ambos caem no passthrough sozinhos.
     const { png: tratada } = await entrada.melhorador.melhorar(bytes);

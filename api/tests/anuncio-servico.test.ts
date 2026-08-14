@@ -1,6 +1,6 @@
 import type { NovoAnuncio } from '@4med/contracts';
 import { eq } from 'drizzle-orm';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../src/core/db/client';
 import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { anuncioPessoas } from '../src/modulos/conteudo/anuncio/db/schema/anuncio';
@@ -89,6 +89,26 @@ describe('servico de anuncio', () => {
     expect(ordem).toEqual(['melhorar', 'remover']);
     expect(recebidoPeloRecorte).not.toBeNull();
     expect((recebidoPeloRecorte as unknown as Buffer).subarray(-1).toString()).toBe('+');
+  }, 30_000);
+
+  it('pula recorte E realce quando a foto ja veio recortada do cliente', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const remover = vi.fn(async (b: Buffer) => ({ png: b, recortado: false }));
+    const melhorar = vi.fn(async (b: Buffer) => ({ png: b, melhorada: false }));
+    const resp = await criarAnuncio({
+      dados: {
+        tipo: 'artigo_aprovado', titulo: 'Foto ja recortada no cliente',
+        pessoas: [{ nome: 'Ana', papel: 'Autora', foto: PX, fotoRecortada: true }],
+        grupos: [], logos: [], logosPosicao: 'rodape',
+      },
+      autorId: ana.id, unidadeId: ana.unidadeId,
+      gerador: geradorAnuncioFake, removedor: { remover }, melhorador: { melhorar },
+    });
+    expect(remover).not.toHaveBeenCalled();
+    expect(melhorar).not.toHaveBeenCalled();
+    // A foto recortada foi guardada e exposta normalmente.
+    expect(resp.pessoas[0]!.fotoUrl).toBe(`/conteudo/anuncios/pessoas/${resp.pessoas[0]!.id}/foto`);
   }, 30_000);
 
   it('sem foto, a pessoa fica com fotoUrl null', async () => {
