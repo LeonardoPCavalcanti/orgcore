@@ -64,6 +64,22 @@ describe('PaginaAssistente', () => {
     });
   });
 
+  it('mostra os slides do carrossel do assistant como links de download', async () => {
+    apiFetchMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'c1', titulo: 'Nova conversa', atualizadoEm: 'x' })
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'Aqui está seu carrossel', imagens: ['data:image/png;base64,AAA', 'data:image/png;base64,BBB'], documentos: [], provedor: null, criadoEm: 'x' } });
+    render(<PaginaAssistente />);
+    await screen.findByText(/Olá, Leonardo/);
+    fireEvent.change(screen.getByPlaceholderText(/Peça/i), { target: { value: 'faça um carrossel sobre sono' } });
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    const links = await screen.findAllByTitle('Baixar slide');
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute('download', 'slide-1.png');
+    expect(links[0]).toHaveAttribute('href', 'data:image/png;base64,AAA');
+  });
+
   it('com imagem anexada, seleciona o modelo de visão de primeira e mostra a dica', async () => {
     apiFetchMock.mockResolvedValueOnce([
       { id: 'groq', nome: 'Groq', modelo: 'm', percentual: 90, disponivel: true, atualizadoEm: null, visao: false },

@@ -226,7 +226,19 @@ export function PaginaAssistente() {
           <div key={m.id} className={`chat-bolha chat-bolha--${m.papel}`}>
             {m.imagens.length > 0 && (
               <div className="chat-bolha-imagens">
-                {m.imagens.map((src, i) => <img key={i} src={src} alt="anexo" />)}
+                {m.imagens.map((src, i) => (
+                  m.papel === 'assistant' ? (
+                    <a key={i} className="chat-slide" href={src} download={`slide-${i + 1}.png`} title="Baixar slide">
+                      <img src={src} alt={`slide ${i + 1}`} />
+                      <span className="chat-slide-baixar" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" />
+                        </svg>
+                      </span>
+                    </a>
+                  ) : <img key={i} src={src} alt="anexo" />
+                ))}
               </div>
             )}
             {m.documentos.length > 0 && (
