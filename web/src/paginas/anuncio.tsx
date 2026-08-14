@@ -1,6 +1,7 @@
 import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, ProvedorStatus, TipoAnuncio } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
+import { removerFundo, branquearLogo } from '../imagem/padronizar';
 
 const TIPOS: { valor: TipoAnuncio; rotulo: string }[] = [
   { valor: 'artigo_aprovado', rotulo: 'Artigo aprovado' },
@@ -8,7 +9,7 @@ const TIPOS: { valor: TipoAnuncio; rotulo: string }[] = [
   { valor: 'aprovados', rotulo: 'Candidatos aprovados' },
 ];
 
-type PessoaForm = { nome: string; papel: string; foto?: string };
+type PessoaForm = { nome: string; papel: string; foto?: string; fotoRecortada?: boolean };
 
 const pessoaVazia = (): PessoaForm => ({ nome: '', papel: '' });
 const grupoVazio = (): GrupoTabela => ({ titulo: '', colunas: ['Orientando', 'Orientador'], linhas: [['', '']] });
@@ -36,7 +37,11 @@ export function PaginaAnuncio() {
   const [pessoas, setPessoas] = useState<PessoaForm[]>([pessoaVazia()]);
   const [grupos, setGrupos] = useState<GrupoTabela[]>([]);
   const [logos, setLogos] = useState<string[]>([]);
+  const [logosPosicao, setLogosPosicao] = useState<'topo' | 'rodape'>('rodape');
   const [gerando, setGerando] = useState(false);
+  // Contador de imagens sendo padronizadas (recorte/branqueamento no navegador). > 0
+  // desabilita "Gerar" para o card sair só quando as fotos/logos estiverem prontos.
+  const [processando, setProcessando] = useState(0);
 
   const [provedores, setProvedores] = useState<ProvedorStatus[]>([]);
   const [provedor, setProvedor] = useState('');
@@ -83,10 +88,17 @@ export function PaginaAnuncio() {
   async function escolherFoto(indice: number, evento: ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
     if (!arquivo) return;
+    setProcessando((n) => n + 1);
     try {
-      alterarPessoa(indice, 'foto', await lerComoDataUri(arquivo));
+      const bruta = await lerComoDataUri(arquivo);
+      // Recorte de fundo no navegador (WASM). Em falha, `removerFundo` devolve a foto
+      // original com recortado=false — o card ainda sai, com o headshot emoldurado.
+      const { dataUri, recortado } = await removerFundo(bruta);
+      setPessoas((atuais) => atuais.map((p, i) => (i === indice ? { ...p, foto: dataUri, fotoRecortada: recortado } : p)));
     } catch {
       setErro('Não foi possível ler a foto');
+    } finally {
+      setProcessando((n) => n - 1);
     }
   }
 
@@ -94,11 +106,16 @@ export function PaginaAnuncio() {
     const arquivos = Array.from(evento.target.files ?? []);
     evento.target.value = ''; // permite reescolher o mesmo arquivo depois
     if (arquivos.length === 0) return;
+    setProcessando((n) => n + 1);
     try {
-      const novos = await Promise.all(arquivos.map(lerComoDataUri));
-      setLogos((atuais) => [...atuais, ...novos].slice(0, 6));
+      const brutos = await Promise.all(arquivos.map(lerComoDataUri));
+      // Padroniza cada logo: fundo removido e marca repintada de branco (no navegador).
+      const brancos = await Promise.all(brutos.map(branquearLogo));
+      setLogos((atuais) => [...atuais, ...brancos].slice(0, 6));
     } catch {
       setErro('Não foi possível ler os logos');
+    } finally {
+      setProcessando((n) => n - 1);
     }
   }
 
@@ -122,7 +139,11 @@ export function PaginaAnuncio() {
     setGerando(true);
     const pessoasValidas = pessoas
       .filter((p) => p.nome.trim())
-      .map((p) => ({ nome: p.nome.trim(), papel: p.papel.trim(), ...(p.foto ? { foto: p.foto } : {}) }));
+      .map((p) => ({
+        nome: p.nome.trim(), papel: p.papel.trim(),
+        ...(p.foto ? { foto: p.foto } : {}),
+        ...(p.fotoRecortada ? { fotoRecortada: true } : {}),
+      }));
     // Só grupos com título e ao menos uma linha preenchida viram tabela.
     const gruposValidos = grupos
       .map((g) => ({
@@ -134,7 +155,7 @@ export function PaginaAnuncio() {
       }))
       .filter((g) => g.titulo && g.linhas.length > 0);
     const corpo = {
-      tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos,
+      tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos, logosPosicao,
       ...(provedor ? { provedor } : {}),
       ...(logos.length ? { logos } : {}),
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
@@ -416,14 +437,14 @@ export function PaginaAnuncio() {
             <div className="campo">
               <span className="rotulo-campo">Logos parceiros (opcional)</span>
               <p className="texto-fraco" style={{ fontSize: 13, marginTop: -2 }}>
-                Marcas de laboratório, universidade ou programa — até 6. Aparecem numa faixa
-                clara no rodapé do card.
+                Marcas de laboratório, universidade ou programa — até 6. São padronizadas
+                em branco automaticamente e aparecem como marca no card.
               </p>
               {logos.length > 0 && (
                 <div className="linha" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                   {logos.map((src, i) => (
                     <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+                      display: 'flex', alignItems: 'center', gap: 6, background: 'var(--tinta, #101418)',
                       borderRadius: 8, padding: '6px 8px', border: '1px solid var(--borda)',
                     }}>
                       <img src={src} alt={`Logo ${i + 1}`} style={{ height: 28, objectFit: 'contain' }} />
@@ -433,13 +454,25 @@ export function PaginaAnuncio() {
                   ))}
                 </div>
               )}
-              <input className="entrada" id="logos" type="file" accept="image/*" multiple
-                disabled={logos.length >= 6} onChange={adicionarLogos} />
+              <div className="linha" style={{ gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div className="campo" style={{ flex: '1 1 240px' }}>
+                  <input className="entrada" id="logos" type="file" accept="image/*" multiple
+                    disabled={logos.length >= 6} onChange={adicionarLogos} />
+                </div>
+                <div className="campo" style={{ flex: '0 0 200px' }}>
+                  <label htmlFor="logos-posicao">Posição dos logos</label>
+                  <select className="entrada" id="logos-posicao" value={logosPosicao}
+                    onChange={(e) => setLogosPosicao(e.target.value as 'topo' | 'rodape')}>
+                    <option value="rodape">Rodapé</option>
+                    <option value="topo">Topo</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="linha">
-              <button className="botao botao--primario" type="submit" disabled={gerando}>
-                {gerando ? 'Gerando…' : 'Gerar anúncio'}
+              <button className="botao botao--primario" type="submit" disabled={gerando || processando > 0}>
+                {gerando ? 'Gerando…' : processando > 0 ? 'Processando imagens…' : 'Gerar anúncio'}
               </button>
             </div>
           </form>

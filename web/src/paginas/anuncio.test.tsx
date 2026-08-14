@@ -9,6 +9,13 @@ vi.mock('../api', async () => {
   return { ...real, apiFetch: vi.fn() };
 });
 
+// Padronização de imagem é WASM/canvas — fora do jsdom. O mock devolve a foto como
+// recortada e o logo inalterado, sem tocar em nada nativo.
+vi.mock('../imagem/padronizar', () => ({
+  removerFundo: vi.fn(async (f: string) => ({ dataUri: f, recortado: true })),
+  branquearLogo: vi.fn(async (f: string) => f),
+}));
+
 const apiFetchMock = vi.mocked(apiFetch);
 
 const anuncio: AnuncioResposta = {
@@ -204,6 +211,30 @@ describe('PaginaAnuncio', () => {
       );
     });
     expect(await screen.findByText(/Avaliação registrada: aprovado/)).toBeInTheDocument();
+  });
+
+  it('envia logosPosicao e marca fotoRecortada ao anexar a foto', async () => {
+    apiFetchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(anuncio).mockResolvedValueOnce([]);
+    render(<PaginaAnuncio />);
+    await screen.findByText(/Nenhum anúncio ainda/);
+
+    fireEvent.change(screen.getByLabelText('Título do trabalho'), { target: { value: 'Modelos Generativos' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Júlia' } });
+    const arquivo = new File(['x'], 'foto.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Foto'), { target: { files: [arquivo] } });
+    // Espera o recorte (mockado) terminar: o rótulo passa a marcar a foto.
+    await screen.findByText('Foto ✓');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar anúncio' }));
+    await waitFor(() => {
+      const chamada = apiFetchMock.mock.calls.find(
+        ([url, opts]) => url === '/conteudo/anuncios' && (opts as { method?: string } | undefined)?.method === 'POST',
+      );
+      expect(chamada).toBeTruthy();
+      const corpo = JSON.parse((chamada![1] as { body: string }).body);
+      expect(corpo.logosPosicao).toBe('rodape');
+      expect(corpo.pessoas[0].fotoRecortada).toBe(true);
+    });
   });
 
   it('oferece o campo de logos parceiros (multiplos arquivos)', async () => {
