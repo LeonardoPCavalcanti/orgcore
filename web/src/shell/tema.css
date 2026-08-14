@@ -109,32 +109,34 @@ a { color: inherit; }
   display: inline-flex;
   align-items: center;
 }
-/* ── Logo Conect2AI (volante ciano + wordmark) ───────────── */
+/* ── Logo Conect2AI (wordmark "C2AI" com o A triangular) ───── */
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--logo-h, 32px) * 0.3);
   height: var(--logo-h, 32px);
   line-height: 1;
 }
-.logo-volante {
-  width: calc(var(--logo-h, 32px) * 0.94);
-  height: calc(var(--logo-h, 32px) * 0.94);
-  flex: none;
-  fill: none;
-  stroke: var(--marca);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-}
-.logo-volante-hub { fill: var(--marca); stroke: none; }
-.logo-texto {
+.logo-c2ai {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--fonte-titulo);
   font-weight: 700;
-  font-size: calc(var(--logo-h, 32px) * 0.6);
-  letter-spacing: 0.06em;
+  font-size: calc(var(--logo-h, 32px) * 0.92);
+  letter-spacing: -0.04em;
   color: var(--texto);
+  line-height: 1;
   white-space: nowrap;
 }
+.logo-a {
+  height: calc(var(--logo-h, 32px) * 0.78);
+  width: auto;
+  flex: none;
+  margin: 0 calc(var(--logo-h, 32px) * 0.02);
+  transform: translateY(4%);
+}
+.logo-a-corpo { fill: currentColor; }
+.logo-a-ciano { fill: var(--marca); }
+.logo-a-teal { fill: var(--marca-forte); }
 
 /* ── Estrutura do app ────────────────────────────────────── */
 .app {

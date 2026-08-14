@@ -4,7 +4,7 @@ import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
 import type { SlidePlanejado } from '../gerador/tipos';
 import {
-  cores, FONTE_CORPO, FONTE_TITULO, HANDLE, LADO,
+  cores, FONTE_CORPO, FONTE_TITULO, HANDLE, LADO, trianguloA,
 } from './tema-c2ai';
 
 // Fontes lidas UMA vez na carga do módulo — satori precisa dos bytes crus da fonte,
@@ -23,17 +23,19 @@ type Elemento = { type: string; props: { style: Estilo; children?: unknown } };
 function el(type: string, style: Estilo, children?: unknown): Elemento {
   return { type, props: children === undefined ? { style } : { style, children } };
 }
+function img(src: string, style: Estilo): Elemento {
+  return { type: 'img', props: { style, src } as unknown as { style: Estilo } };
+}
 
+/** Logo "C2AI" (na cor do painel): C2 + o A triangular + I. */
 function marca(corTexto: string): Elemento {
-  return el('div', { display: 'flex', alignItems: 'center', gap: 18 }, [
-    el('div', {
-      width: 46, height: 46, borderRadius: 999,
-      border: `7px solid ${cores.ciano}`, display: 'flex',
-    }),
-    el('div', {
-      fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 34,
-      letterSpacing: 2, color: corTexto,
-    }, 'CONECT2AI'),
+  const letra: Estilo = {
+    fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 54, letterSpacing: -3, color: corTexto, display: 'flex',
+  };
+  return el('div', { display: 'flex', alignItems: 'center' }, [
+    el('div', letra, 'C2'),
+    img(trianguloA(corTexto), { width: 42, height: 44, marginLeft: 5, marginRight: 1, marginTop: 6 }),
+    el('div', letra, 'I'),
   ]);
 }
 

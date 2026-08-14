@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import type { GrupoTabela, PlanoAnuncio } from '@4med/contracts';
 import satori from 'satori';
-import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, RETRATO } from '../../template/tema-c2ai';
+import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, RETRATO, trianguloA } from '../../template/tema-c2ai';
 
 // Reusa as MESMAS fontes do carrossel (lidas uma vez na carga). Space Grotesk 700
 // nos títulos/headline, Inter 400/600 no corpo.
@@ -32,13 +32,15 @@ export type FotoPessoa = { dataUri: string; recortado: boolean };
 const INICIAIS = (nome: string): string =>
   nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 
-/** Logo do volante + wordmark, centralizado no topo. */
+/** Logo "C2AI" (branca no card escuro): C2 + o A triangular + I, centralizado no topo. */
 function marca(): Elemento {
-  return el('div', { display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center' }, [
-    el('div', { width: 40, height: 40, borderRadius: 999, border: `6px solid ${cores.ciano}`, display: 'flex' }),
-    el('div', {
-      fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 30, letterSpacing: 2, color: cores.branco, display: 'flex',
-    }, 'CONECT2AI'),
+  const letra: Estilo = {
+    fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 52, letterSpacing: -3, color: cores.branco, display: 'flex',
+  };
+  return el('div', { display: 'flex', alignItems: 'center', justifyContent: 'center' }, [
+    el('div', letra, 'C2'),
+    img(trianguloA(cores.branco), { width: 40, height: 42, marginLeft: 4, marginRight: 1, marginTop: 5 }),
+    el('div', letra, 'I'),
   ]);
 }
 
