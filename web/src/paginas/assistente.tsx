@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } fro
 import { apiFetch, ErroApi } from '../api';
 import { lerComoDataUri } from '../imagem/arquivo';
 import { useSessao } from '../shell/sessao';
+import { Markdown } from './markdown';
 
 const primeiroNome = (nome: string) => nome.split(' ')[0] ?? nome;
 const idDaUrl = () => new URLSearchParams(window.location.search).get('c');
@@ -162,7 +163,9 @@ export function PaginaAssistente() {
                 {m.imagens.map((src, i) => <img key={i} src={src} alt="anexo" />)}
               </div>
             )}
-            <div className="chat-bolha-texto">{m.conteudo}</div>
+            {m.papel === 'assistant'
+              ? <Markdown texto={m.conteudo} />
+              : <div className="chat-bolha-texto">{m.conteudo}</div>}
             {m.papel === 'assistant' && m.provedor && (
               <div className="chat-bolha-fonte texto-fraco">via {m.provedor}</div>
             )}
