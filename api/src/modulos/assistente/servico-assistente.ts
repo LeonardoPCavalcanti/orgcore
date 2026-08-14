@@ -23,6 +23,21 @@ function paraMensagem(m: IaMensagem): MensagemChat {
   };
 }
 
+type ParteConteudo = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
+/**
+ * Conteúdo da mensagem para o modelo. Sem imagens → texto puro. Com imagens (só na
+ * mensagem atual, para não reenviar anexos a cada turno) → formato multimodal do OpenAI.
+ */
+function conteudoDe(m: IaMensagem, comImagens: boolean): Mensagem['content'] {
+  const imagens = Array.isArray(m.imagens) ? (m.imagens as string[]) : [];
+  if (!comImagens || imagens.length === 0) return m.conteudo;
+  const partes: ParteConteudo[] = [];
+  if (m.conteudo.trim()) partes.push({ type: 'text', text: m.conteudo });
+  for (const url of imagens) partes.push({ type: 'image_url', image_url: { url } });
+  return partes;
+}
+
 /** Confirma que a conversa é do usuário; senão 404 (nunca 403). */
 async function conversaDoDono(id: string, usuarioId: string): Promise<IaConversa> {
   const [c] = await db.select().from(iaConversas)
@@ -95,7 +110,10 @@ export async function enviarMensagem(args: {
     .orderBy(asc(iaMensagens.criadoEm));
   const mensagens: Mensagem[] = [
     { role: 'system', content: SYSTEM },
-    ...historico.map((m): Mensagem => ({ role: m.papel === 'assistant' ? 'assistant' : 'user', content: m.conteudo })),
+    ...historico.map((m, i): Mensagem => ({
+      role: m.papel === 'assistant' ? 'assistant' : 'user',
+      content: conteudoDe(m, i === historico.length - 1),
+    })),
   ];
 
   const r = await args.cliente.completar(mensagens, { preferido: args.dados.provedor });

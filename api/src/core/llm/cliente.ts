@@ -30,6 +30,13 @@ const indisponivel = () =>
 
 type Chamada = { conteudo: string; truncado: boolean; uso: DadosUso };
 
+/** Detecta anexos de imagem no payload (conteúdo multimodal do OpenAI: partes com type 'image_url'). */
+function temImagem(mensagens: Mensagem[]): boolean {
+  return mensagens.some(
+    (m) => Array.isArray(m.content) && m.content.some((p) => (p as { type?: string }).type === 'image_url'),
+  );
+}
+
 function lerUso(headers: RespostaHttp['headers']): DadosUso {
   const restante = headers.get('x-ratelimit-remaining-requests');
   const limite = headers.get('x-ratelimit-limit-requests');
@@ -83,9 +90,12 @@ export function criarClienteLLM(cfg: ConfigCliente): ClienteLLM {
   return {
     async completar(mensagens, opcoes = {}) {
       const ordenados = await ordenar(opcoes.preferido);
+      // Tarefa com imagem só pode ir para provedor com visão — sobrepõe o preferido.
+      const elegiveis = temImagem(mensagens) ? ordenados.filter((x) => x.p.visao) : ordenados;
+      if (elegiveis.length === 0) throw indisponivel();
       // Proativo: prefere quem está acima do limiar; se ninguém, tenta todos mesmo assim.
-      const acima = ordenados.filter((x) => x.pct >= limiar);
-      const candidatos = (acima.length > 0 ? acima : ordenados).map((x) => x.p);
+      const acima = elegiveis.filter((x) => x.pct >= limiar);
+      const candidatos = (acima.length > 0 ? acima : elegiveis).map((x) => x.p);
 
       let acumulado = '';
       for (const p of candidatos) {

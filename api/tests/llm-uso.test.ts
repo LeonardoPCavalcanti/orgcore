@@ -3,8 +3,8 @@ import type { ProvedorAtivo } from '../src/core/llm/catalogo';
 import { usoDb } from '../src/core/llm/uso';
 import { prepararBanco } from './ajuda/banco';
 
-const groq: ProvedorAtivo = { id: 'groq', nome: 'Groq', envChave: 'GROQ_API_KEY', baseUrl: 'x', modelo: 'm', limiteDiario: 1000, leHeaders: true, chave: 'k' };
-const gemini: ProvedorAtivo = { id: 'gemini', nome: 'Gemini', envChave: 'GEMINI_API_KEY', baseUrl: 'x', modelo: 'm', limiteDiario: 1000, leHeaders: false, chave: 'k' };
+const groq: ProvedorAtivo = { id: 'groq', nome: 'Groq', envChave: 'GROQ_API_KEY', baseUrl: 'x', modelo: 'm', limiteDiario: 1000, leHeaders: true, visao: false, chave: 'k' };
+const gemini: ProvedorAtivo = { id: 'gemini', nome: 'Gemini', envChave: 'GEMINI_API_KEY', baseUrl: 'x', modelo: 'm', limiteDiario: 1000, leHeaders: false, visao: true, chave: 'k' };
 
 describe('usoDb', () => {
   it('provedor sem uso ainda mostra 100%', async () => {

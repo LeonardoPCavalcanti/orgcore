@@ -3,8 +3,8 @@ import type { ProvedorAtivo } from './catalogo';
 import { criarClienteLLM, type FetchLike, type RespostaHttp } from './cliente';
 import type { PortaUso, StatusProvedor } from './uso';
 
-const prov = (id: string, _pct: number): ProvedorAtivo =>
-  ({ id, nome: id, envChave: 'X', baseUrl: `https://${id}`, modelo: 'm', limiteDiario: 100, leHeaders: true, chave: 'k' });
+const prov = (id: string, _pct: number, visao = false): ProvedorAtivo =>
+  ({ id, nome: id, envChave: 'X', baseUrl: `https://${id}`, modelo: 'm', limiteDiario: 100, leHeaders: true, chave: 'k', visao });
 
 function usoFake(pcts: Record<string, number>): PortaUso & { registros: string[] } {
   const registros: string[] = [];
@@ -67,6 +67,29 @@ describe('criarClienteLLM.completar', () => {
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90), prov('cerebras', 90)], uso: usoFake({}), fetchImpl: fetchFake, timeoutMs: 50 });
     const r = await cliente.completar(msgs, { preferido: 'groq' });
     expect(r.provedorUsado).toBe('cerebras');
+  });
+
+  it('tarefa com imagem so vai para provedor com visao, sobrepondo o preferido', async () => {
+    const fetchFake: FetchLike = vi.fn(async () => ok('vi a imagem'));
+    const cliente = criarClienteLLM({
+      provedores: [prov('groq', 90, false), prov('gemini', 90, true)],
+      uso: usoFake({}), fetchImpl: fetchFake,
+    });
+    const comImagem = [{ role: 'user' as const, content: [
+      { type: 'text', text: 'que cor?' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } },
+    ] }];
+    const r = await cliente.completar(comImagem, { preferido: 'groq' });
+    expect(r.provedorUsado).toBe('gemini');
+    expect((fetchFake as unknown as { mock: { calls: [string][] } }).mock.calls[0]![0]).toContain('https://gemini');
+  });
+
+  it('imagem sem nenhum provedor de visao -> 503', async () => {
+    const fetchFake: FetchLike = vi.fn(async () => ok('r'));
+    const cliente = criarClienteLLM({ provedores: [prov('groq', 90, false)], uso: usoFake({}), fetchImpl: fetchFake });
+    const comImagem = [{ role: 'user' as const, content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }] }];
+    await expect(cliente.completar(comImagem)).rejects.toMatchObject({ codigo: 'geracao_indisponivel' });
+    expect(fetchFake).not.toHaveBeenCalled();
   });
 
   it('todos falham -> 503 geracao_indisponivel', async () => {
