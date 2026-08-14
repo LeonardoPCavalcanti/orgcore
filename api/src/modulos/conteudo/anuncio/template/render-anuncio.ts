@@ -39,7 +39,7 @@ function marca(): Elemento {
   };
   return el('div', { display: 'flex', alignItems: 'center', justifyContent: 'center' }, [
     el('div', letra, 'C2'),
-    img(trianguloA(cores.branco), { width: 40, height: 42, marginLeft: 4, marginRight: 1, marginTop: 5 }),
+    img(trianguloA(cores.branco), { width: 45, height: 38, marginLeft: 3, marginRight: 0, marginTop: 4 }),
     el('div', letra, 'I'),
   ]);
 }

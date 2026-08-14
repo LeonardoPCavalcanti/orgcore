@@ -22,15 +22,16 @@ export const FONTE_CORPO = 'Inter';
 export const HANDLE = '@conect2ai';
 
 /**
- * O "A" triangular da logo C2AI: um triângulo na cor da letra, com um acento ciano
- * (▽) e um filete de ciano profundo na base. Data URI de SÓ polígonos (sem texto —
- * rasteriza limpo no resvg). Vai entre "C2" e "I" para formar o wordmark "C2AI".
+ * O "A" da logo C2AI: a letra em SI é um "A" vazado na cor da letra (uma moldura Λ
+ * com duas pernas e o contra-fundo aberto), e dentro do contra-fundo repousa um
+ * triângulo ciano invertido (▽) — exatamente como no original (o branco é só fundo;
+ * o que importa é o A preto + o triângulo azul). Data URI de SÓ polígonos (sem texto,
+ * que o resvg não rasteriza). Vai entre "C2" e "I" para formar o wordmark "C2AI".
  */
 export function trianguloA(corLetra: string): string {
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 54">'
-    + `<polygon points="26,0 52,54 0,54" fill="${corLetra}"/>`
-    + `<polygon points="26,54 40,28 12,28" fill="${cores.ciano}"/>`
-    + `<polygon points="26,54 33,40 19,40" fill="${cores.cianoProfundo}"/>`
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 44">'
+    + `<polygon points="23,0 29,0 52,43 41,43 26,15 11,43 0,43" fill="${corLetra}"/>`
+    + `<polygon points="18,31 34,31 26,44" fill="${cores.ciano}"/>`
     + '</svg>';
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }

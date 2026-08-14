@@ -1,16 +1,15 @@
 import type { CSSProperties } from 'react';
 
 /**
- * Versão REDUZIDA da marca: só o "A" triangular do "C2AI" — corpo na cor do texto
- * (currentColor) com o acento ciano e o filete em ciano profundo. Para favicon,
- * avatares e espaços pequenos.
+ * Versão REDUZIDA da marca: só o "A" do "C2AI" — um "A" vazado na cor do texto
+ * (currentColor: moldura Λ com duas pernas e contra-fundo aberto) e, dentro dele,
+ * o triângulo ciano invertido (▽). Para favicon, avatares e espaços pequenos.
  */
 export function LogoIcone({ className }: { className?: string }) {
   return (
-    <svg className={className ?? 'logo-a'} viewBox="0 0 52 54" aria-hidden="true">
-      <polygon className="logo-a-corpo" points="26,0 52,54 0,54" />
-      <polygon className="logo-a-ciano" points="26,54 40,28 12,28" />
-      <polygon className="logo-a-teal" points="26,54 33,40 19,40" />
+    <svg className={className ?? 'logo-a'} viewBox="0 0 52 44" aria-hidden="true">
+      <polygon className="logo-a-corpo" points="23,0 29,0 52,43 41,43 26,15 11,43 0,43" />
+      <polygon className="logo-a-ciano" points="18,31 34,31 26,44" />
     </svg>
   );
 }
