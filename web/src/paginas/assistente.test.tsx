@@ -40,4 +40,27 @@ describe('PaginaAssistente', () => {
       expect(JSON.parse((post![1] as { body: string }).body).conteudo).toBe('Capital da França?');
     });
   });
+
+  it('anexa imagem e envia no corpo da mensagem', async () => {
+    apiFetchMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'c1', titulo: 'Nova conversa', atualizadoEm: 'x' })
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'ok', imagens: [], provedor: 'groq', criadoEm: 'x' } });
+    render(<PaginaAssistente />);
+    await screen.findByText(/Olá, Leonardo/);
+
+    const arquivo = new File(['x'], 'foto.png', { type: 'image/png' });
+    const input = document.querySelector('input[type=file]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [arquivo] } });
+    await screen.findByAltText('anexo');
+
+    fireEvent.change(screen.getByPlaceholderText(/Peça/i), { target: { value: 'olha isso' } });
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    await waitFor(() => {
+      const post = apiFetchMock.mock.calls.find(([u, o]) => String(u).endsWith('/mensagens') && (o as { method?: string } | undefined)?.method === 'POST');
+      expect(post).toBeTruthy();
+      expect(JSON.parse((post![1] as { body: string }).body).imagens).toHaveLength(1);
+    });
+  });
 });

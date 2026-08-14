@@ -467,6 +467,7 @@ a { color: inherit; }
 .chat-caixa-acoes { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .chat-modelo { flex: 0 0 auto; max-width: 220px; font-size: 13px; padding: 6px 10px; }
 .chat-enviar { flex: 0 0 auto; }
+.chat-mais { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1; border-radius: 999px; }
 .chat-anexos { display: flex; gap: 8px; flex-wrap: wrap; }
 .chat-anexo { position: relative; }
 .chat-anexo img { height: 56px; border-radius: 8px; object-fit: cover; display: block; }

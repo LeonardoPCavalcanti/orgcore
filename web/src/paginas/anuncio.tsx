@@ -1,6 +1,7 @@
 import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, ProvedorStatus, TipoAnuncio } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
+import { lerComoDataUri } from '../imagem/arquivo';
 import { removerFundo, branquearLogo } from '../imagem/padronizar';
 
 const TIPOS: { valor: TipoAnuncio; rotulo: string }[] = [
@@ -13,15 +14,6 @@ type PessoaForm = { nome: string; papel: string; foto?: string; fotoRecortada?: 
 
 const pessoaVazia = (): PessoaForm => ({ nome: '', papel: '' });
 const grupoVazio = (): GrupoTabela => ({ titulo: '', colunas: ['Orientando', 'Orientador'], linhas: [['', '']] });
-
-function lerComoDataUri(arquivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const leitor = new FileReader();
-    leitor.onload = () => resolve(String(leitor.result));
-    leitor.onerror = () => reject(new Error('falha ao ler arquivo'));
-    leitor.readAsDataURL(arquivo);
-  });
-}
 
 export function PaginaAnuncio() {
   const [lista, setLista] = useState<AnuncioResumo[]>([]);
