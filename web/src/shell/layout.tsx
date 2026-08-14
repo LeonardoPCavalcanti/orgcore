@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlternadorTema } from './alternador-tema';
+import { ConversasRecentes } from './conversas';
 import { Logo } from './logo';
 import { Navegacao } from './navegacao';
 import { useSessao } from './sessao';
@@ -19,6 +20,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="lateral-topo">
           <Logo size={28} />
         </div>
+        <ConversasRecentes />
         <div className="lateral-rotulo">Navegação</div>
         <Navegacao itens={eu.menu} caminhoAtual={window.location.pathname} />
         <div className="lateral-rodape usuario">

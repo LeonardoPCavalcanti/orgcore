@@ -386,6 +386,30 @@ a { color: inherit; }
   .topo { padding: 14px 16px; }
 }
 
+/* ── Conversas na lateral ────────────────────────────────── */
+.conversas { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.conversas-nova {
+  display: block; padding: 8px 12px; border-radius: 10px; font-weight: 600; font-size: 14px;
+  color: var(--texto); text-decoration: none;
+  border: 1px solid color-mix(in oklab, var(--marca) 22%, var(--borda));
+  background: color-mix(in oklab, var(--marca) 10%, transparent);
+}
+.conversas-nova:hover { background: color-mix(in oklab, var(--marca) 18%, transparent); }
+.conversas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 38vh; overflow-y: auto; }
+.conversas-item { display: flex; align-items: center; gap: 4px; border-radius: 8px; padding: 2px 4px 2px 8px; }
+.conversas-item:hover { background: color-mix(in oklab, var(--superficie-alta) 60%, transparent); }
+.conversas-item--ativo { background: color-mix(in oklab, var(--marca) 14%, transparent); }
+.conversas-titulo {
+  flex: 1; min-width: 0; color: var(--texto-fraco); text-decoration: none; font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 5px 0;
+}
+.conversas-item:hover .conversas-titulo, .conversas-item--ativo .conversas-titulo { color: var(--texto); }
+.conversas-acoes { display: none; gap: 2px; }
+.conversas-item:hover .conversas-acoes { display: flex; }
+.conversas-acoes button { border: 0; background: transparent; color: var(--texto-fraco); cursor: pointer; padding: 2px 5px; border-radius: 6px; font-size: 13px; }
+.conversas-acoes button:hover { color: var(--texto); background: var(--superficie-alta); }
+.conversas-editar { font-size: 13px; padding: 5px 8px; width: 100%; }
+
 /* ── Chat assistente (home) ──────────────────────────────── */
 .chat-tela {
   display: flex; flex-direction: column;
