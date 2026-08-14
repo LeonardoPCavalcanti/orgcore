@@ -23,4 +23,9 @@ describe('provedoresAtivos', () => {
     const [cer] = provedoresAtivos({ CEREBRAS_API_KEY: 'c', CEREBRAS_MODELO: 'outro' });
     expect(cer!.modelo).toBe('outro');
   });
+
+  it('inclui sambanova, mistral e nvidia no catalogo', () => {
+    const ativos = provedoresAtivos({ SAMBANOVA_API_KEY: 's', MISTRAL_API_KEY: 'm', NVIDIA_API_KEY: 'n' });
+    expect(ativos.map((p) => p.id).sort()).toEqual(['mistral', 'nvidia', 'sambanova']);
+  });
 });

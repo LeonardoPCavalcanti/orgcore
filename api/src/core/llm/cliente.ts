@@ -15,6 +15,8 @@ export type ConfigCliente = {
   fetchImpl?: FetchLike | undefined;
   agora?: (() => number) | undefined;
   limiar?: number | undefined;
+  /** Teto por chamada; um provedor lento é abortado e cai pro próximo. Padrão 30s. */
+  timeoutMs?: number | undefined;
 };
 
 export interface ClienteLLM {
@@ -42,24 +44,31 @@ export function criarClienteLLM(cfg: ConfigCliente): ClienteLLM {
   const limiar = cfg.limiar ?? 8;
 
   async function chamar(p: ProvedorAtivo, mensagens: Mensagem[], opcoes: OpcoesCompletar): Promise<Chamada> {
-    const resp = await fetchImpl(`${p.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${p.chave}` },
-      body: JSON.stringify({
-        model: p.modelo,
-        ...(opcoes.jsonObject ? { response_format: { type: 'json_object' } } : {}),
-        ...(opcoes.maxTokens ? { max_tokens: opcoes.maxTokens } : {}),
-        messages: mensagens,
-      }),
-    });
-    if (!resp.ok) throw new Error(`http_${resp.status}`);
-    const corpo = JSON.parse(await resp.text()) as { choices?: { finish_reason?: string; message?: { content?: string } }[] };
-    const escolha = corpo.choices?.[0];
-    return {
-      conteudo: escolha?.message?.content ?? '',
-      truncado: escolha?.finish_reason === 'length',
-      uso: p.leHeaders ? lerUso(resp.headers) : {},
-    };
+    const controlador = new AbortController();
+    const prazo = setTimeout(() => controlador.abort(), cfg.timeoutMs ?? 30_000);
+    try {
+      const resp = await fetchImpl(`${p.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${p.chave}` },
+        body: JSON.stringify({
+          model: p.modelo,
+          ...(opcoes.jsonObject ? { response_format: { type: 'json_object' } } : {}),
+          ...(opcoes.maxTokens ? { max_tokens: opcoes.maxTokens } : {}),
+          messages: mensagens,
+        }),
+        signal: controlador.signal,
+      });
+      if (!resp.ok) throw new Error(`http_${resp.status}`);
+      const corpo = JSON.parse(await resp.text()) as { choices?: { finish_reason?: string; message?: { content?: string } }[] };
+      const escolha = corpo.choices?.[0];
+      return {
+        conteudo: escolha?.message?.content ?? '',
+        truncado: escolha?.finish_reason === 'length',
+        uso: p.leHeaders ? lerUso(resp.headers) : {},
+      };
+    } finally {
+      clearTimeout(prazo);
+    }
   }
 
   // Ordena: preferido primeiro, depois por % desc.

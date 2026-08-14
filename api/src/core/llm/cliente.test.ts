@@ -53,6 +53,22 @@ describe('criarClienteLLM.completar', () => {
     expect(r).toEqual({ conteudo: 'do segundo', provedorUsado: 'cerebras' });
   });
 
+  it('provedor que trava e abortado por timeout e cai pro proximo', async () => {
+    let n = 0;
+    const fetchFake: FetchLike = vi.fn((_url, init): Promise<RespostaHttp> => {
+      n += 1;
+      if (n === 1) {
+        return new Promise((_res, rej) => {
+          (init!.signal as AbortSignal).addEventListener('abort', () => rej(new Error('aborted')));
+        });
+      }
+      return Promise.resolve(ok('segundo'));
+    });
+    const cliente = criarClienteLLM({ provedores: [prov('groq', 90), prov('cerebras', 90)], uso: usoFake({}), fetchImpl: fetchFake, timeoutMs: 50 });
+    const r = await cliente.completar(msgs, { preferido: 'groq' });
+    expect(r.provedorUsado).toBe('cerebras');
+  });
+
   it('todos falham -> 503 geracao_indisponivel', async () => {
     const fetchFake: FetchLike = vi.fn(async (): Promise<RespostaHttp> => ({ ok: false, status: 429, text: async () => '', headers: { get: () => null } }));
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90)], uso: usoFake({}), fetchImpl: fetchFake });

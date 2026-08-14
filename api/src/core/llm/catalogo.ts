@@ -18,9 +18,12 @@ export type ProvedorAtivo = Provedor & { chave: string };
 
 export const CATALOGO: Provedor[] = [
   { id: 'groq', nome: 'Groq', envChave: 'GROQ_API_KEY', baseUrl: 'https://api.groq.com/openai/v1', modelo: 'llama-3.3-70b-versatile', limiteDiario: 1000, leHeaders: true },
-  { id: 'cerebras', nome: 'Cerebras', envChave: 'CEREBRAS_API_KEY', baseUrl: 'https://api.cerebras.ai/v1', modelo: 'llama-3.3-70b', limiteDiario: 1000, leHeaders: true },
+  { id: 'cerebras', nome: 'Cerebras', envChave: 'CEREBRAS_API_KEY', baseUrl: 'https://api.cerebras.ai/v1', modelo: 'gpt-oss-120b', limiteDiario: 1000, leHeaders: true },
   { id: 'gemini', nome: 'Google Gemini', envChave: 'GEMINI_API_KEY', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', modelo: 'gemini-2.0-flash', limiteDiario: 1500, leHeaders: false },
-  { id: 'openrouter', nome: 'OpenRouter', envChave: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', modelo: 'meta-llama/llama-3.3-70b-instruct:free', limiteDiario: 200, leHeaders: true },
+  { id: 'openrouter', nome: 'OpenRouter', envChave: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', modelo: 'nvidia/nemotron-3.5-lightning:free', limiteDiario: 200, leHeaders: true },
+  { id: 'sambanova', nome: 'SambaNova', envChave: 'SAMBANOVA_API_KEY', baseUrl: 'https://api.sambanova.ai/v1', modelo: 'Meta-Llama-3.3-70B-Instruct', limiteDiario: 500, leHeaders: false },
+  { id: 'mistral', nome: 'Mistral', envChave: 'MISTRAL_API_KEY', baseUrl: 'https://api.mistral.ai/v1', modelo: 'mistral-small-latest', limiteDiario: 500, leHeaders: false },
+  { id: 'nvidia', nome: 'NVIDIA NIM', envChave: 'NVIDIA_API_KEY', baseUrl: 'https://integrate.api.nvidia.com/v1', modelo: 'meta/llama-3.3-70b-instruct', limiteDiario: 1000, leHeaders: false },
 ];
 
 function chaveDe(p: Provedor, env: Record<string, string | undefined>): string | undefined {
