@@ -34,7 +34,7 @@ function marca(corTexto: string): Elemento {
   };
   return el('div', { display: 'flex', alignItems: 'center' }, [
     el('div', letra, 'C2'),
-    img(trianguloA(corTexto), { width: 47, height: 40, marginLeft: 4, marginRight: 0, marginTop: 5 }),
+    img(trianguloA(corTexto), { width: 45, height: 38, marginLeft: 4, marginRight: 0, marginTop: 7 }),
     el('div', letra, 'I'),
   ]);
 }
