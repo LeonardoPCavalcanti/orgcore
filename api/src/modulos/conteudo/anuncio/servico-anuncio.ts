@@ -99,7 +99,7 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     decodificarDataUri(uri);
     return uri;
   });
-  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos, logos);
+  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos, logos, entrada.dados.logosPosicao);
 
   // Snapshot textual da ENTRADA (sem bytes de foto) — o outro lado do par de treino.
   const entradaSnapshot: EntradaSnapshot = {

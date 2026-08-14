@@ -181,18 +181,15 @@ function headline(prefixo: string, destaque: string): Elemento {
 }
 
 /**
- * Faixa de logos das instituições parceiras, no rodapé. Cada logo vai dentro de um
- * chip claro (fundo branco arredondado) para garantir legibilidade de qualquer marca,
- * inclusive as transparentes de cor. Altura fixa, largura por proporção (objectFit).
+ * Faixa de logos das instituições parceiras. As marcas já chegam padronizadas em
+ * BRANCO (recorte + branqueamento no navegador), então vão direto sobre o gradiente,
+ * sem chip — como nas referências. Altura fixa, largura por proporção (objectFit).
  */
 function faixaLogos(logos: string[]): Elemento {
   return el('div', {
     display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
-    justifyContent: 'center', gap: 16,
-  }, logos.map((src) => el('div', {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: cores.branco, borderRadius: 14, padding: '10px 18px', height: 76,
-  }, [img(src, { height: 48, objectFit: 'contain' })])));
+    justifyContent: 'center', gap: 28,
+  }, logos.map((src) => img(src, { height: 46, objectFit: 'contain' })));
 }
 
 /** Selo de data/local (defesa): dia grande + horário/local menores. */
@@ -210,7 +207,10 @@ function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento
   ]);
 }
 
-function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[], logos: string[]): Elemento {
+function raiz(
+  plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[], logos: string[],
+  logosPosicao: 'topo' | 'rodape',
+): Elemento {
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
     el('div', {
@@ -219,10 +219,11 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTa
     }, plano.titulo),
   ];
   if (plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
-  if (logos.length > 0) rodapeBlocos.push(faixaLogos(logos));
+  if (logos.length > 0 && logosPosicao === 'rodape') rodapeBlocos.push(faixaLogos(logos));
 
   const topo: Elemento[] = [marca()];
   if (plano.veiculo) topo.push(seloVeiculo(plano.veiculo));
+  if (logos.length > 0 && logosPosicao === 'topo') topo.push(faixaLogos(logos));
 
   return el('div', {
     width: RETRATO.largura, height: RETRATO.altura, display: 'flex', flexDirection: 'column',
@@ -246,8 +247,9 @@ function raiz(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTa
  */
 export async function renderAnuncio(
   plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[] = [], logos: string[] = [],
+  logosPosicao: 'topo' | 'rodape' = 'rodape',
 ): Promise<Buffer> {
-  const arvore = raiz(plano, fotos, grupos, logos);
+  const arvore = raiz(plano, fotos, grupos, logos, logosPosicao);
   const svg = await satori(arvore as never, { width: RETRATO.largura, height: RETRATO.altura, fonts: fontes });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: RETRATO.largura } }).render().asPng();
   return Buffer.from(png);
