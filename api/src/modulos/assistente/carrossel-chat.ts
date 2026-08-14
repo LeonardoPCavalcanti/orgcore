@@ -17,6 +17,14 @@ export function detectarPedidoCarrossel(mensagem: string): boolean {
   return VERBO_CRIAR.test(mensagem) && ALVO_POST.test(mensagem);
 }
 
+// Follow-up curto de ajuste logo após um carrossel ("agora com dados", "mais slides",
+// "outro ângulo"). Só vale como refinamento se a mensagem for curta (não um tema novo).
+const CUE_REFINO = /\b(dados|estat[ií]stic\w*|pr[aá]tic\w*|mito|slides?|tom|vers[aã]o|refa[çz]\w*|outr[oa]|[aâ]ngulo|menos|mais|engra[çc]\w*|formal|s[eé]ri[oa]|curto|longo|resum\w*|divertid\w*)\b/i;
+
+export function ehRefinamentoDeCarrossel(mensagem: string): boolean {
+  return mensagem.trim().length < 120 && CUE_REFINO.test(mensagem);
+}
+
 /** Nº de slides pedido ("6 slides") ou 6 por padrão; limitado a 3–10. */
 export function numeroDeSlides(mensagem: string): number {
   const m = /(\d+)\s*slides?/i.exec(mensagem);
@@ -41,6 +49,8 @@ export async function gerarCarrosselNoChat(args: {
     '**Legenda sugerida:**',
     plano.legenda,
     tags ? `\n${tags}` : '',
+    '',
+    'Quer outra versão? Posso refazer com outro ângulo (prática, com dados, mitos e verdades), mais ou menos slides, ou outro tom — é só pedir.',
   ].join('\n').trim();
   return { imagens, conteudo };
 }

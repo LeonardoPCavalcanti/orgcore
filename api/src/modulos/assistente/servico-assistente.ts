@@ -5,7 +5,7 @@ import { ErroHttp, naoEncontrado } from '../../core/erros';
 import type { ClienteLLM, Mensagem } from '../../core/llm';
 import { iaConversas, iaMensagens, type IaConversa, type IaMensagem } from './db/schema/assistente';
 import { extrairTexto } from './extrair-texto';
-import { detectarPedidoCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
+import { detectarPedidoCarrossel, ehRefinamentoDeCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
 import { lerLinks } from './consumir-link';
 
 const SYSTEM =
@@ -90,6 +90,23 @@ export async function apagarConversa(id: string, usuarioId: string): Promise<voi
   await db.delete(iaConversas).where(eq(iaConversas.id, id));
 }
 
+/**
+ * Se a última resposta do assistant foi um carrossel (tem imagens), devolve o tema do
+ * usuário que a originou — para refinamentos como "agora com dados" reusarem o assunto.
+ */
+function temaDoUltimoCarrossel(historico: IaMensagem[]): string | null {
+  const anteriores = historico.slice(0, -1); // exclui a mensagem atual do usuário
+  for (let i = anteriores.length - 1; i >= 0; i -= 1) {
+    const m = anteriores[i]!;
+    if (m.papel !== 'assistant') continue;
+    const temImagens = Array.isArray(m.imagens) && (m.imagens as string[]).length > 0;
+    if (!temImagens) return null; // o último assistant não foi um carrossel
+    for (let j = i - 1; j >= 0; j -= 1) if (anteriores[j]!.papel === 'user') return anteriores[j]!.conteudo;
+    return null;
+  }
+  return null;
+}
+
 /** Título curto derivado da 1ª mensagem do usuário (~6 palavras / 60 chars). */
 function tituloDe(conteudo: string): string {
   const limpo = conteudo.trim().replace(/\s+/g, ' ');
@@ -143,16 +160,26 @@ export async function enviarMensagem(args: {
     return { mensagem: paraMensagem(assistente!) };
   };
 
-  // Pedido de carrossel do Instagram por linguagem natural → gera os slides no próprio chat.
+  // Histórico (inclui a mensagem recém-gravada do usuário como último item).
+  const historico = await db.select().from(iaMensagens)
+    .where(eq(iaMensagens.conversaId, conversa.id))
+    .orderBy(asc(iaMensagens.criadoEm));
+
+  // Carrossel do Instagram: pedido direto por linguagem natural, OU refinamento curto
+  // ("agora com dados") logo após um carrossel — nesse caso reusa o tema anterior.
+  let temaCarrossel: string | null = null;
   if (detectarPedidoCarrossel(args.dados.conteudo)) {
-    const carrossel = await gerarCarrosselNoChat({ mensagem: args.dados.conteudo });
+    temaCarrossel = args.dados.conteudo;
+  } else if (ehRefinamentoDeCarrossel(args.dados.conteudo)) {
+    const base = temaDoUltimoCarrossel(historico);
+    if (base) temaCarrossel = `${base}\nAjuste pedido pelo usuário: ${args.dados.conteudo}`;
+  }
+  if (temaCarrossel) {
+    const carrossel = await gerarCarrosselNoChat({ mensagem: temaCarrossel });
     return responder(carrossel.conteudo, carrossel.imagens, null);
   }
 
   // Conversa normal: monta o histórico (system + toda a conversa até aqui) e chama o modelo.
-  const historico = await db.select().from(iaMensagens)
-    .where(eq(iaMensagens.conversaId, conversa.id))
-    .orderBy(asc(iaMensagens.criadoEm));
   const mensagens: Mensagem[] = [
     { role: 'system', content: SYSTEM },
     ...historico.map((m, i): Mensagem => ({

@@ -86,6 +86,24 @@ describe('servico do assistente', () => {
     expect(mensagem.conteudo.toLowerCase()).toContain('legenda');
   }, 30_000);
 
+  it('refina um carrossel: follow-up curto ("agora com dados") gera outro reusando o tema', async () => {
+    await semearDemonstracao();
+    const uid = await usuario('admin@conect2ai.com');
+    const conv = await criarConversa(uid);
+    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq' }));
+    const cliente: ClienteLLM = { completar, provedores: vi.fn(async () => []), atualizarCotas: vi.fn(async () => []) };
+    await enviarMensagem({
+      conversaId: conv.id, usuarioId: uid,
+      dados: { conteudo: 'faça um carrossel sobre o sono com 3 slides', imagens: [], documentos: [] }, cliente,
+    });
+    const { mensagem } = await enviarMensagem({
+      conversaId: conv.id, usuarioId: uid,
+      dados: { conteudo: 'agora com dados', imagens: [], documentos: [] }, cliente,
+    });
+    expect(mensagem.imagens.length).toBeGreaterThan(0); // regenerou um carrossel
+    expect(completar).not.toHaveBeenCalled();
+  }, 30_000);
+
   it('renomeia a conversa', async () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');

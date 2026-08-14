@@ -1,7 +1,7 @@
 import type { PlanoCarrossel } from '@4med/contracts';
 import { describe, expect, it } from 'vitest';
 import type { GeradorDeTexto } from '../conteudo/gerador';
-import { detectarPedidoCarrossel, gerarCarrosselNoChat, numeroDeSlides } from './carrossel-chat';
+import { detectarPedidoCarrossel, ehRefinamentoDeCarrossel, gerarCarrosselNoChat, numeroDeSlides } from './carrossel-chat';
 
 describe('detectarPedidoCarrossel', () => {
   it('dispara em pedidos de criar carrossel/post', () => {
@@ -20,6 +20,17 @@ describe('detectarPedidoCarrossel', () => {
       'qual a capital da França?',
       'quero postar uma foto amanhã',
     ]) expect(detectarPedidoCarrossel(m)).toBe(false);
+  });
+});
+
+describe('ehRefinamentoDeCarrossel', () => {
+  it('reconhece ajustes curtos', () => {
+    for (const m of ['agora com dados', 'mais slides', 'outro ângulo', 'faça uma versão mais séria'])
+      expect(ehRefinamentoDeCarrossel(m)).toBe(true);
+  });
+  it('ignora frases sem pista de ajuste ou longas demais', () => {
+    expect(ehRefinamentoDeCarrossel('qual a capital da França?')).toBe(false);
+    expect(ehRefinamentoDeCarrossel(`explique ${'muito '.repeat(30)}`)).toBe(false);
   });
 });
 
