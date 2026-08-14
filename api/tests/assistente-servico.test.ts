@@ -68,6 +68,24 @@ describe('servico do assistente', () => {
     expect(msgUser.documentos).toEqual(['rel.txt']);
   }, 30_000);
 
+  it('pedido de carrossel gera os slides como imagens na resposta (sem chamar o chat)', async () => {
+    await semearDemonstracao();
+    const uid = await usuario('admin@conect2ai.com');
+    const conv = await criarConversa(uid);
+    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq' }));
+    const cliente: ClienteLLM = { completar, provedores: vi.fn(async () => []), atualizarCotas: vi.fn(async () => []) };
+    const { mensagem } = await enviarMensagem({
+      conversaId: conv.id, usuarioId: uid,
+      dados: { conteudo: 'monte um carrossel sobre o sono com 3 slides', imagens: [], documentos: [] },
+      cliente,
+    });
+    expect(completar).not.toHaveBeenCalled(); // roteou para o gerador de carrossel, não para o chat
+    expect(mensagem.papel).toBe('assistant');
+    expect(mensagem.imagens).toHaveLength(3);
+    expect(mensagem.imagens.every((u) => u.startsWith('data:image/png;base64,'))).toBe(true);
+    expect(mensagem.conteudo.toLowerCase()).toContain('legenda');
+  }, 30_000);
+
   it('renomeia a conversa', async () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');

@@ -5,6 +5,7 @@ import { ErroHttp, naoEncontrado } from '../../core/erros';
 import type { ClienteLLM, Mensagem } from '../../core/llm';
 import { iaConversas, iaMensagens, type IaConversa, type IaMensagem } from './db/schema/assistente';
 import { extrairTexto } from './extrair-texto';
+import { detectarPedidoCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
 
 const SYSTEM =
   'Você é o assistente da intranet Conect2AI. Responda em português, de forma direta e útil.';
@@ -119,14 +120,32 @@ export async function enviarMensagem(args: {
     contexto = `Documentos anexados pelo usuário (use como referência):\n\n${blocos.join('\n\n')}`;
   }
 
-  // Grava a mensagem do usuário ANTES de chamar a IA (o texto não se perde se a IA falhar).
+  // Grava a mensagem do usuário ANTES de responder (o texto não se perde se a IA falhar).
   await db.insert(iaMensagens).values({
     conversaId: conversa.id, papel: 'user',
     conteudo: args.dados.conteudo, imagens: args.dados.imagens,
     documentos: nomesDoc, contexto,
   });
 
-  // Monta o histórico (system + toda a conversa até aqui) para o modelo.
+  // Grava a resposta do assistant, dá título à conversa na 1ª troca e renova atualizado_em.
+  const novoTitulo = conversa.titulo === 'Nova conversa' ? tituloDe(args.dados.conteudo) : conversa.titulo;
+  const responder = async (conteudoResp: string, imagens: string[], provedor: string | null) => {
+    const [assistente] = await db.insert(iaMensagens).values({
+      conversaId: conversa.id, papel: 'assistant', conteudo: conteudoResp, imagens, provedor,
+    }).returning();
+    await db.update(iaConversas)
+      .set({ titulo: novoTitulo, atualizadoEm: new Date() })
+      .where(eq(iaConversas.id, conversa.id));
+    return { mensagem: paraMensagem(assistente!) };
+  };
+
+  // Pedido de carrossel do Instagram por linguagem natural → gera os slides no próprio chat.
+  if (detectarPedidoCarrossel(args.dados.conteudo)) {
+    const carrossel = await gerarCarrosselNoChat({ mensagem: args.dados.conteudo });
+    return responder(carrossel.conteudo, carrossel.imagens, null);
+  }
+
+  // Conversa normal: monta o histórico (system + toda a conversa até aqui) e chama o modelo.
   const historico = await db.select().from(iaMensagens)
     .where(eq(iaMensagens.conversaId, conversa.id))
     .orderBy(asc(iaMensagens.criadoEm));
@@ -137,18 +156,6 @@ export async function enviarMensagem(args: {
       content: conteudoDe(m, i === historico.length - 1),
     })),
   ];
-
   const r = await args.cliente.completar(mensagens, { preferido: args.dados.provedor });
-
-  const [assistente] = await db.insert(iaMensagens).values({
-    conversaId: conversa.id, papel: 'assistant', conteudo: r.conteudo, provedor: r.provedorUsado,
-  }).returning();
-
-  // 1ª troca: dá um título à conversa. Sempre renova `atualizado_em`.
-  const titulo = conversa.titulo === 'Nova conversa' ? tituloDe(args.dados.conteudo) : conversa.titulo;
-  await db.update(iaConversas)
-    .set({ titulo, atualizadoEm: new Date() })
-    .where(eq(iaConversas.id, conversa.id));
-
-  return { mensagem: paraMensagem(assistente!) };
+  return responder(r.conteudo, [], r.provedorUsado);
 }

@@ -1,0 +1,46 @@
+import { criarGerador, type GeradorDeTexto } from '../conteudo/gerador';
+import { renderSlide } from '../conteudo/template/render';
+
+/**
+ * Geração de carrossel do Instagram por linguagem natural, dentro do chat. Reusa o
+ * gerador de conteúdo (fake determinístico sem chave, LLM real com chave) e o render
+ * satori/resvg. Os slides voltam embutidos como data URI — o chat é aberto a qualquer
+ * usuário autenticado, então não dependemos da rota de slides (que exige permissão).
+ */
+
+// Só dispara quando há intenção de CRIAR (verbo) + ALVO de post/carrossel — assim
+// "o que é um carrossel?" não gera nada por engano.
+const VERBO_CRIAR = /\b(fa[çc]|fazer|cri[ae]|criar|ger[ae]|gerar|mont[ae]|montar|prepar|elabor|quero|preciso|monta)/i;
+const ALVO_POST = /\b(carros{1,2}[eé](l|is)?|carousel|slides?|post(agem|s)?|publica[çc][aã]o|insta(gram)?)\b/i;
+
+export function detectarPedidoCarrossel(mensagem: string): boolean {
+  return VERBO_CRIAR.test(mensagem) && ALVO_POST.test(mensagem);
+}
+
+/** Nº de slides pedido ("6 slides") ou 6 por padrão; limitado a 3–10. */
+export function numeroDeSlides(mensagem: string): number {
+  const m = /(\d+)\s*slides?/i.exec(mensagem);
+  const n = m ? Number(m[1]) : 6;
+  return Math.min(10, Math.max(3, n));
+}
+
+export type CarrosselChat = { imagens: string[]; conteudo: string };
+
+export async function gerarCarrosselNoChat(args: {
+  mensagem: string;
+  gerador?: GeradorDeTexto;
+}): Promise<CarrosselChat> {
+  const gerador = args.gerador ?? criarGerador();
+  const plano = await gerador.gerar(args.mensagem, numeroDeSlides(args.mensagem));
+  const buffers = await Promise.all(plano.slides.map((s) => renderSlide(s)));
+  const imagens = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`);
+  const tags = plano.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ');
+  const conteudo = [
+    `Aqui está seu carrossel com ${imagens.length} slides.`,
+    '',
+    '**Legenda sugerida:**',
+    plano.legenda,
+    tags ? `\n${tags}` : '',
+  ].join('\n').trim();
+  return { imagens, conteudo };
+}

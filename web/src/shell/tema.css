@@ -449,6 +449,14 @@ a { color: inherit; }
 }
 .chat-bolha-imagens { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .chat-bolha-imagens img { height: 96px; border-radius: 10px; object-fit: cover; }
+/* Slides de carrossel gerados pelo assistant: tira de imagens rolável e legível */
+.chat-bolha--assistant .chat-bolha-imagens {
+  flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px;
+}
+.chat-bolha--assistant .chat-bolha-imagens img {
+  height: 300px; width: auto; object-fit: contain; scroll-snap-align: start;
+  border: 1px solid var(--borda-suave); background: var(--superficie);
+}
 .chat-bolha-fonte { font-size: 12px; margin-top: 6px; }
 .chat-md { display: flex; flex-direction: column; gap: 10px; }
 .chat-md p { margin: 0; }
