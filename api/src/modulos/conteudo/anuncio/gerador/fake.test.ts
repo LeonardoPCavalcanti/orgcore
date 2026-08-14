@@ -8,6 +8,7 @@ const base: NovoAnuncio = {
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }, { nome: 'Flávio Lins', papel: '' }],
   grupos: [],
   logos: [],
+  logosPosicao: 'rodape',
 };
 
 describe('geradorAnuncioFake', () => {

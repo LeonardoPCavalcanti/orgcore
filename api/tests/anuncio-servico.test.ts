@@ -36,6 +36,7 @@ const dados = (over: Partial<NovoAnuncio> = {}): NovoAnuncio => ({
   pessoas: [{ nome: 'Júlia Didra', papel: 'Autora' }],
   grupos: [],
   logos: [],
+  logosPosicao: 'rodape',
   ...over,
 });
 
@@ -82,7 +83,7 @@ describe('servico de anuncio', () => {
       remover: async (f: Buffer) => { ordem.push('remover'); recebidoPeloRecorte = f; return { png: f, recortado: false }; },
     };
     await criarAnuncio({
-      dados: { tipo: 'artigo_aprovado', titulo: 'Foto tratada no fluxo', pessoas: [{ nome: 'Ana', papel: 'Autora', foto: PX }], grupos: [], logos: [] },
+      dados: { tipo: 'artigo_aprovado', titulo: 'Foto tratada no fluxo', pessoas: [{ nome: 'Ana', papel: 'Autora', foto: PX }], grupos: [], logos: [], logosPosicao: 'rodape' },
       autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorAnuncioFake, removedor, melhorador,
     });
     expect(ordem).toEqual(['melhorar', 'remover']);

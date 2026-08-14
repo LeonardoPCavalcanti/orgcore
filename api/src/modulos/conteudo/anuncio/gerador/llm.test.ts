@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClienteLLM } from '../../../../core/llm';
 import { geradorAnuncioLLM } from './llm';
 
-const entrada: NovoAnuncio = { tipo: 'artigo_aprovado', titulo: 'Titulo valido', pessoas: [{ nome: 'Ana', papel: 'Autora' }], grupos: [], logos: [] };
+const entrada: NovoAnuncio = { tipo: 'artigo_aprovado', titulo: 'Titulo valido', pessoas: [{ nome: 'Ana', papel: 'Autora' }], grupos: [], logos: [], logosPosicao: 'rodape' };
 const planoJson = JSON.stringify({ headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' }, titulo: 'Titulo valido', pessoas: [{ nome: 'Ana', papel: 'Autora' }], legenda: 'Legenda.\n\n#Conect2AI' });
 
 const clienteFake = (conteudo: string, provedorUsado = 'groq'): ClienteLLM => ({

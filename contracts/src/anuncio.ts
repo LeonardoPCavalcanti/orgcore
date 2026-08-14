@@ -16,6 +16,9 @@ export const pessoaEntrada = z.object({
   nome: z.string().trim().min(1).max(80),
   papel: z.string().trim().max(80).default(''),
   foto: z.string().startsWith('data:').optional(),
+  // Sinaliza que a foto JÁ veio recortada do cliente (fundo removido no navegador).
+  // Quando true, o serviço pula recorte/realce e renderiza como silhueta.
+  fotoRecortada: z.boolean().optional(),
 });
 export type PessoaEntrada = z.infer<typeof pessoaEntrada>;
 
@@ -47,6 +50,9 @@ export const novoAnuncio = z.object({
   // numa faixa clara no rodapé do card. São marca, não cópia: passam direto para o
   // render sem tocar na IA (que não deve inventá-las nem reescrevê-las).
   logos: z.array(z.string().startsWith('data:')).max(6).default([]),
+  // Onde os logos parceiros aparecem no card. `rodape` (padrão) mantém a faixa
+  // inferior; `topo` põe a fileira no topo, no espírito da referência CBIS.
+  logosPosicao: z.enum(['topo', 'rodape']).default('rodape'),
   // Provedor de IA escolhido pelo usuário (id do catálogo). Roteamento, não cópia —
   // opcional; o cliente decide o failover a partir daqui.
   provedor: z.string().trim().max(40).optional(),

@@ -158,6 +158,7 @@ export async function semearAnuncioDemo(): Promise<void> {
       ],
       grupos: [],
       logos: [],
+      logosPosicao: 'rodape',
       veiculo: 'Journal of Healthcare Informatics Research',
     },
     autorId: analista.id,

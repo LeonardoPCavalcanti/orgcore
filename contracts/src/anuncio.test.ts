@@ -88,6 +88,20 @@ describe('novoAnuncio', () => {
     expect(r.grupos[0]!.linhas[0]).toEqual(['Gabriel Masson', 'Patrícia Endo']);
   });
 
+  it('aceita fotoRecortada por pessoa e usa default rodape para logosPosicao', () => {
+    const r = novoAnuncio.parse({
+      tipo: 'artigo_aprovado', titulo: 'Titulo de teste valido',
+      pessoas: [{ nome: 'Ana', foto: fotoMinima, fotoRecortada: true }],
+    });
+    expect(r.pessoas[0]!.fotoRecortada).toBe(true);
+    expect(r.logosPosicao).toBe('rodape');
+  });
+
+  it('aceita logosPosicao topo', () => {
+    const r = novoAnuncio.parse({ tipo: 'defesa', titulo: 'Outro titulo valido', pessoas: [], logosPosicao: 'topo' });
+    expect(r.logosPosicao).toBe('topo');
+  });
+
   it('aceita destaque opcional (ex.: DOUTORADO)', () => {
     const r = novoAnuncio.parse({ tipo: 'defesa', titulo: 'Defesa de Doutorado', pessoas: [], destaque: 'DOUTORADO' });
     expect(r.destaque).toBe('DOUTORADO');
