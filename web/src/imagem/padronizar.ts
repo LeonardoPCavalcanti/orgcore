@@ -19,3 +19,60 @@ export function pixelsParaBranco(dados: Uint8ClampedArray): void {
     }
   }
 }
+
+// import() dinâmico com especificador LITERAL, para o Vite pré-empacotar o pacote e o
+// navegador resolvê-lo — o WASM só carrega quando uma imagem é de fato processada. O
+// teste substitui `_interno.carregarRemocao` e nunca baixa o modelo (hermético).
+export const _interno = {
+  async carregarRemocao(): Promise<(b: Blob) => Promise<Blob>> {
+    const mod = await import('@imgly/background-removal');
+    return mod.removeBackground;
+  },
+};
+
+async function paraBlob(fonte: string): Promise<Blob> {
+  return (await fetch(fonte)).blob();
+}
+
+function blobParaDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(String(leitor.result));
+    leitor.onerror = () => reject(new Error('falha ao ler blob'));
+    leitor.readAsDataURL(blob);
+  });
+}
+
+/** Remove o fundo via WASM. Em qualquer falha, devolve a fonte + recortado:false. */
+export async function removerFundo(fonte: string): Promise<{ dataUri: string; recortado: boolean }> {
+  try {
+    const remove = await _interno.carregarRemocao();
+    const semFundo = await remove(await paraBlob(fonte));
+    return { dataUri: await blobParaDataUri(semFundo), recortado: true };
+  } catch {
+    return { dataUri: fonte, recortado: false };
+  }
+}
+
+/** Remove o fundo e repinta a marca de branco (canvas), preservando o alfa. */
+export async function branquearLogo(fonte: string): Promise<string> {
+  try {
+    const { dataUri, recortado } = await removerFundo(fonte);
+    const base = recortado ? dataUri : fonte;
+    const img = new Image();
+    img.src = base;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return base;
+    ctx.drawImage(img, 0, 0);
+    const dados = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    pixelsParaBranco(dados.data);
+    ctx.putImageData(dados, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch {
+    return fonte;
+  }
+}

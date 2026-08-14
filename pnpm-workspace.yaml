@@ -5,4 +5,5 @@ packages:
 allowBuilds:
   argon2: true
   esbuild: true
+  protobufjs: false
   sharp: true
