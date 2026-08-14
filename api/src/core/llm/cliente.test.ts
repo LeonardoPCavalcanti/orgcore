@@ -11,7 +11,7 @@ function usoFake(pcts: Record<string, number>): PortaUso & { registros: string[]
   return {
     registros,
     async status(provs): Promise<StatusProvedor[]> {
-      return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: pcts[p.id] ?? 100, disponivel: (pcts[p.id] ?? 100) > 0, atualizadoEm: null }));
+      return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: pcts[p.id] ?? 100, disponivel: (pcts[p.id] ?? 100) > 0, atualizadoEm: null, visao: p.visao }));
     },
     async registrar(id) { registros.push(id); },
   };
@@ -117,7 +117,7 @@ describe('continuacao e atualizarCotas', () => {
     const fetchFake = vi.fn(async () => ok('x'));
     const agora = () => 1_000_000;
     const uso: PortaUso = {
-      async status(provs) { return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: 100, disponivel: true, atualizadoEm: new Date(1_000_000 - 2 * 60_000).toISOString() })); },
+      async status(provs) { return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: 100, disponivel: true, atualizadoEm: new Date(1_000_000 - 2 * 60_000).toISOString(), visao: p.visao })); },
       registrar: vi.fn(async () => {}),
     };
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90)], uso, fetchImpl: fetchFake as unknown as FetchLike, agora });

@@ -8,5 +8,7 @@ export const provedorStatus = z.object({
   percentual: z.number(),
   disponivel: z.boolean(),
   atualizadoEm: z.string().nullable(),
+  // Aceita imagens (visão). O chat usa para sugerir o melhor modelo por tarefa.
+  visao: z.boolean().default(false),
 });
 export type ProvedorStatus = z.infer<typeof provedorStatus>;

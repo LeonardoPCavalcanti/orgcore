@@ -6,6 +6,7 @@ import type { ProvedorAtivo } from './catalogo';
 export type StatusProvedor = {
   id: string; nome: string; modelo: string;
   percentual: number; disponivel: boolean; atualizadoEm: string | null;
+  visao: boolean;
 };
 export type DadosUso = { restante?: number | undefined; limite?: number | undefined };
 
@@ -37,6 +38,7 @@ export const usoDb: PortaUso = {
         id: p.id, nome: p.nome, modelo: p.modelo,
         percentual, disponivel: percentual > 0,
         atualizadoEm: linha ? linha.atualizadoEm.toISOString() : null,
+        visao: p.visao,
       };
     }));
   },

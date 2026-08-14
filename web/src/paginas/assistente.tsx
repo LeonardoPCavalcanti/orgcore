@@ -46,6 +46,15 @@ export function PaginaAssistente() {
 
   useEffect(() => { fimRef.current?.scrollIntoView?.({ behavior: 'smooth' }); }, [mensagens, enviando]);
 
+  // Melhor modelo por tarefa: com imagem anexada, oferece de primeira um modelo com visão.
+  useEffect(() => {
+    if (anexos.length === 0) return;
+    const atual = provedores.find((p) => p.id === provedor);
+    if (atual?.visao) return;
+    const comVisao = provedores.find((p) => p.visao);
+    if (comVisao) setProvedor(comVisao.id);
+  }, [anexos.length, provedores, provedor]);
+
   async function anexar(e: ChangeEvent<HTMLInputElement>) {
     const arquivos = Array.from(e.target.files ?? []);
     e.target.value = '';
@@ -116,9 +125,14 @@ export function PaginaAssistente() {
 
   const vazio = mensagens.length === 0;
 
+  const nomeVisao = provedores.find((p) => p.visao)?.nome;
+
   const composer = (
     <div className="chat-composer">
       {erro && <p role="alert" className="alerta alerta--erro" style={{ marginBottom: 8 }}>{erro}</p>}
+      {anexos.length > 0 && nomeVisao && (
+        <p className="chat-dica texto-fraco">Imagens são lidas pelo {nomeVisao} (visão), o melhor modelo para essa tarefa.</p>
+      )}
       <div className="chat-caixa">
         {anexos.length > 0 && (
           <div className="chat-anexos">
@@ -171,7 +185,9 @@ export function PaginaAssistente() {
           {provedores.length > 0 && (
             <select className="entrada chat-modelo" aria-label="Modelo de IA" value={provedor}
               onChange={(e) => setProvedor(e.target.value)}>
-              {provedores.map((p) => <option key={p.id} value={p.id}>{p.nome} — {p.percentual}%</option>)}
+              {provedores.map((p) => (
+                <option key={p.id} value={p.id}>{p.nome} — {p.percentual}%{p.visao ? ' · visão' : ''}</option>
+              ))}
             </select>
           )}
           <button type="button" className="botao botao--primario chat-enviar" aria-label="Enviar"

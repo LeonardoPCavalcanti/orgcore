@@ -64,6 +64,24 @@ describe('PaginaAssistente', () => {
     });
   });
 
+  it('com imagem anexada, seleciona o modelo de visão de primeira e mostra a dica', async () => {
+    apiFetchMock.mockResolvedValueOnce([
+      { id: 'groq', nome: 'Groq', modelo: 'm', percentual: 90, disponivel: true, atualizadoEm: null, visao: false },
+      { id: 'gemini', nome: 'Gemini', modelo: 'm', percentual: 80, disponivel: true, atualizadoEm: null, visao: true },
+    ]);
+    render(<PaginaAssistente />);
+    await screen.findByText(/Olá, Leonardo/);
+    const sel = screen.getByLabelText('Modelo de IA') as HTMLSelectElement;
+    expect(sel.value).toBe('groq');
+
+    const arquivo = new File(['x'], 'foto.png', { type: 'image/png' });
+    fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [arquivo] } });
+    await screen.findByAltText('anexo');
+
+    expect(await screen.findByText(/lidas pelo Gemini/i)).toBeInTheDocument();
+    await waitFor(() => expect(sel.value).toBe('gemini'));
+  });
+
   it('anexa documento e envia nome + dataUri no corpo', async () => {
     apiFetchMock
       .mockResolvedValueOnce([])

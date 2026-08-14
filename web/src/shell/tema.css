@@ -543,3 +543,4 @@ a { color: inherit; }
 .chat-doc button:hover { color: var(--texto); }
 .chat-bolha-docs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .chat-doc--bolha { background: transparent; }
+.chat-dica { font-size: 12px; margin-bottom: 8px; }
