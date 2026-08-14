@@ -30,7 +30,36 @@ function tokenCsrf(): string | null {
   return achado ? decodeURIComponent(achado.slice('csrf='.length)) : null;
 }
 
+// Requisições GET idênticas ainda EM VOO compartilham a mesma promessa. O gatilho
+// concreto: no dev o StrictMode remonta o efeito e dispara dois fetches iguais no
+// mesmo tick — sem coalescer, cada um chega ao servidor e uma leitura sensível grava
+// DUAS linhas `*.acessado` na trilha de auditoria ("clico uma vez, aparecem dois").
+// Só GET entra aqui (idempotente); mutações nunca — coalescer dois POST engoliria uma
+// ação real. A entrada some quando a requisição resolve, então acessos sequenciais
+// (navegar, voltar) seguem gerando um registro cada — que é o comportamento correto.
+const getEmVoo = new Map<string, Promise<unknown>>();
+
 export async function apiFetch<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+  const metodo = (init.method ?? 'GET').toUpperCase();
+  const coalescivel = metodo === 'GET' && init.body == null;
+  if (coalescivel) {
+    const emVoo = getEmVoo.get(caminho);
+    if (emVoo) return emVoo as Promise<T>;
+  }
+
+  const promessa = executarFetch<T>(caminho, init);
+  if (coalescivel) {
+    getEmVoo.set(caminho, promessa);
+    // Limpa ao resolver OU rejeitar, para não servir uma resposta velha depois nem
+    // prender um caminho que falhou. `finally` não altera a promessa devolvida.
+    void promessa.finally(() => {
+      if (getEmVoo.get(caminho) === promessa) getEmVoo.delete(caminho);
+    });
+  }
+  return promessa;
+}
+
+async function executarFetch<T>(caminho: string, init: RequestInit): Promise<T> {
   const cabecalhos: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
 
   // `content-type: application/json` SÓ quando há corpo. Uma mutação sem corpo

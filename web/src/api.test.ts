@@ -63,4 +63,50 @@ describe('apiFetch', () => {
 
     expect(cabecalhosDe(fetchMock)['content-type']).toBe('application/json');
   });
+
+  it('coalesce dois GET identicos simultaneos numa unica requisicao', async () => {
+    // StrictMode remonta o efeito no dev e dispara dois fetches idênticos ao mesmo
+    // tempo. Sem coalescer, cada um chega ao servidor e a leitura sensível vira DUAS
+    // linhas `*.acessado` na auditoria (bug relatado: "clico uma vez, aparecem dois").
+    let resolver!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => { resolver = r; }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const p1 = apiFetch('/auditoria');
+    const p2 = apiFetch('/auditoria');
+    resolver(new Response('[]', { status: 200 }));
+    const [a, b] = await Promise.all([p1, p2]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(b);
+  });
+
+  it('nao coalesce GET de caminhos diferentes', async () => {
+    const fetchMock = espionarFetch();
+
+    await Promise.all([apiFetch('/auditoria'), apiFetch('/auth/eu')]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('nao coalesce mutacoes (dois POST identicos sao duas requisicoes)', async () => {
+    // POST não é idempotente: coalescer dois envios engoliria uma ação real.
+    const fetchMock = espionarFetch();
+
+    await Promise.all([
+      apiFetch('/auth/sair', { method: 'POST' }),
+      apiFetch('/auth/sair', { method: 'POST' }),
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('refaz o GET depois que o anterior terminou (dedup so enquanto em voo)', async () => {
+    const fetchMock = espionarFetch();
+
+    await apiFetch('/auditoria');
+    await apiFetch('/auditoria');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
