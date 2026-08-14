@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { apiFetch, ErroApi } from '../api';
 import { Logo } from '../shell/logo';
 import { DesafioMfa } from './desafio-mfa';
@@ -9,6 +9,23 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [desafioMfa, setDesafioMfa] = useState(false);
+  const telaRef = useRef<HTMLDivElement>(null);
+
+  // Foco de luz que segue o cursor: atualiza duas variáveis CSS direto no nó (sem
+  // re-render), e o brilho renderizado ATRÁS do cartão acende também o vidro por onde
+  // o mouse passa. Sem ponteiro (toque), fica o brilho ambiente estático.
+  useEffect(() => {
+    const el = telaRef.current;
+    if (!el) return undefined;
+    const mover = (e: PointerEvent) => {
+      // Coordenadas de viewport direto (o brilho é `position: fixed`), então casa
+      // exatamente com o cursor sem depender do tamanho/offset do container.
+      el.style.setProperty('--mx', `${e.clientX}px`);
+      el.style.setProperty('--my', `${e.clientY}px`);
+    };
+    el.addEventListener('pointermove', mover);
+    return () => el.removeEventListener('pointermove', mover);
+  }, [desafioMfa]);
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -36,7 +53,7 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   }
 
   return (
-    <div className="login-tela">
+    <div className="login-tela" ref={telaRef}>
       <div className="card login-card">
         <div className="card-corpo">
           <div className="login-marca"><Logo size={40} /></div>

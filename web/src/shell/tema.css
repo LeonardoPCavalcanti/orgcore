@@ -73,8 +73,10 @@
 body {
   margin: 0;
   background:
-    radial-gradient(1100px 500px at 100% -10%, var(--marca-halo), transparent 60%),
+    radial-gradient(1100px 520px at 100% -12%, color-mix(in oklab, var(--marca) 15%, transparent), transparent 60%),
+    radial-gradient(900px 520px at -8% 110%, color-mix(in oklab, var(--marca-forte) 12%, transparent), transparent 62%),
     var(--fundo);
+  background-attachment: fixed;
   color: var(--texto);
   font-family: var(--fonte-corpo);
   font-size: 15px;
@@ -344,13 +346,38 @@ a { color: inherit; }
 
 /* ── Login ───────────────────────────────────────────────── */
 .login-tela {
+  position: relative;
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  overflow: hidden;
+  --mx: 50%; --my: 26%;
   background:
-    radial-gradient(600px 300px at 50% 0%, var(--marca-halo), transparent 70%),
+    radial-gradient(72% 55% at 12% 6%, color-mix(in oklab, var(--marca) 24%, transparent), transparent 60%),
+    radial-gradient(64% 52% at 90% 96%, color-mix(in oklab, var(--apoio) 15%, transparent), transparent 62%),
+    radial-gradient(120% 80% at 50% 128%, color-mix(in oklab, var(--marca-forte) 16%, transparent), transparent 72%),
     var(--fundo);
 }
-.login-card { width: 100%; max-width: 400px; box-shadow: var(--sombra-lg); }
-.login-card .card-corpo { padding: 30px; }
+/* Foco de luz sob o cursor: renderizado ATRÁS do cartão, então o backdrop-filter do
+   vidro o acende também por onde o mouse passa. `--mx`/`--my` vêm do pointermove. */
+.login-tela::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(360px 360px at var(--mx, 50%) var(--my, 26%),
+    color-mix(in oklab, white 12%, var(--marca) 34%), transparent 68%);
+  opacity: 0.55;
+}
+.login-card {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 408px;
+  background: color-mix(in oklab, var(--superficie) 58%, transparent);
+  border: 1px solid color-mix(in oklab, var(--marca) 26%, var(--borda));
+  border-radius: 20px;
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  box-shadow:
+    0 32px 80px -34px rgba(2, 6, 23, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 0 70px -22px var(--marca-halo);
+}
+.login-card .card-corpo { padding: 32px; }
 .login-marca { font-size: 26px; margin-bottom: 20px; }
 
 @media (max-width: 760px) {
