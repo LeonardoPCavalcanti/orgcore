@@ -30,8 +30,8 @@ export const HANDLE = '@conect2ai';
  */
 export function trianguloA(corLetra: string): string {
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 44">'
-    + `<polygon points="23,0 29,0 52,43 41,43 26,15 11,43 0,43" fill="${corLetra}"/>`
-    + `<polygon points="18,31 34,31 26,44" fill="${cores.ciano}"/>`
+    + `<polygon points="20,0 32,0 52,43 40,43 26,12 12,43 0,43" fill="${corLetra}"/>`
+    + `<polygon points="18,32 34,32 26,44" fill="${cores.ciano}"/>`
     + '</svg>';
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }

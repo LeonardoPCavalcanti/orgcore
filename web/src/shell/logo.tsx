@@ -8,8 +8,8 @@ import type { CSSProperties } from 'react';
 export function LogoIcone({ className }: { className?: string }) {
   return (
     <svg className={className ?? 'logo-a'} viewBox="0 0 52 44" aria-hidden="true">
-      <polygon className="logo-a-corpo" points="23,0 29,0 52,43 41,43 26,15 11,43 0,43" />
-      <polygon className="logo-a-ciano" points="18,31 34,31 26,44" />
+      <polygon className="logo-a-corpo" points="20,0 32,0 52,43 40,43 26,12 12,43 0,43" />
+      <polygon className="logo-a-ciano" points="18,32 34,32 26,44" />
     </svg>
   );
 }
