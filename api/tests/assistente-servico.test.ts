@@ -31,7 +31,7 @@ describe('servico do assistente', () => {
     const conv = await criarConversa(uid);
     const { mensagem } = await enviarMensagem({
       conversaId: conv.id, usuarioId: uid,
-      dados: { conteudo: 'Qual a capital da França?', imagens: [] }, cliente: clienteFake('Paris.'),
+      dados: { conteudo: 'Qual a capital da França?', imagens: [], documentos: [] }, cliente: clienteFake('Paris.'),
     });
     expect(mensagem.papel).toBe('assistant');
     expect(mensagem.conteudo).toBe('Paris.');
@@ -39,6 +39,33 @@ describe('servico do assistente', () => {
     const detalhe = await obterConversa(conv.id, uid);
     expect(detalhe.mensagens.map((m) => m.papel)).toEqual(['user', 'assistant']);
     expect(detalhe.titulo).toContain('Qual a capital');
+  }, 30_000);
+
+  it('anexa documento: extrai o texto como contexto e grava o nome (sem poluir a bolha)', async () => {
+    await semearDemonstracao();
+    const uid = await usuario('admin@conect2ai.com');
+    const conv = await criarConversa(uid);
+    let capturadas: unknown;
+    const cliente: ClienteLLM = {
+      completar: vi.fn(async (m: unknown) => { capturadas = m; return { conteudo: 'ok', provedorUsado: 'groq' }; }),
+      provedores: vi.fn(async () => []),
+      atualizarCotas: vi.fn(async () => []),
+    };
+    const txt = `data:text/plain;base64,${Buffer.from('O relatorio menciona ABACAXI42', 'utf8').toString('base64')}`;
+    await enviarMensagem({
+      conversaId: conv.id, usuarioId: uid,
+      dados: { conteudo: 'resuma o documento', imagens: [], documentos: [{ nome: 'rel.txt', dataUri: txt }] },
+      cliente,
+    });
+    // O texto extraído e o nome vão ao modelo…
+    const enviado = JSON.stringify(capturadas);
+    expect(enviado).toContain('ABACAXI42');
+    expect(enviado).toContain('rel.txt');
+    // …mas a bolha do usuário guarda só o texto digitado + o nome do doc.
+    const detalhe = await obterConversa(conv.id, uid);
+    const msgUser = detalhe.mensagens.find((m) => m.papel === 'user')!;
+    expect(msgUser.conteudo).toBe('resuma o documento');
+    expect(msgUser.documentos).toEqual(['rel.txt']);
   }, 30_000);
 
   it('renomeia a conversa', async () => {
@@ -61,7 +88,7 @@ describe('servico do assistente', () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');
     const conv = await criarConversa(uid);
-    await enviarMensagem({ conversaId: conv.id, usuarioId: uid, dados: { conteudo: 'oi', imagens: [] }, cliente: clienteFake() });
+    await enviarMensagem({ conversaId: conv.id, usuarioId: uid, dados: { conteudo: 'oi', imagens: [], documentos: [] }, cliente: clienteFake() });
     await apagarConversa(conv.id, uid);
     expect(await listarConversas(uid)).toHaveLength(0);
   }, 30_000);
@@ -70,7 +97,7 @@ describe('servico do assistente', () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');
     const conv = await criarConversa(uid);
-    await expect(enviarMensagem({ conversaId: conv.id, usuarioId: uid, dados: { conteudo: 'oi', imagens: [] }, cliente: null }))
+    await expect(enviarMensagem({ conversaId: conv.id, usuarioId: uid, dados: { conteudo: 'oi', imagens: [], documentos: [] }, cliente: null }))
       .rejects.toMatchObject({ status: 503 });
   }, 30_000);
 });

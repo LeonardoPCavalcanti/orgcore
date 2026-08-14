@@ -4,6 +4,7 @@ import { db } from '../../core/db/client';
 import { ErroHttp, naoEncontrado } from '../../core/erros';
 import type { ClienteLLM, Mensagem } from '../../core/llm';
 import { iaConversas, iaMensagens, type IaConversa, type IaMensagem } from './db/schema/assistente';
+import { extrairTexto } from './extrair-texto';
 
 const SYSTEM =
   'Você é o assistente da intranet Conect2AI. Responda em português, de forma direta e útil.';
@@ -18,6 +19,7 @@ function paraMensagem(m: IaMensagem): MensagemChat {
     papel: m.papel === 'assistant' ? 'assistant' : 'user',
     conteudo: m.conteudo,
     imagens: Array.isArray(m.imagens) ? (m.imagens as string[]) : [],
+    documentos: Array.isArray(m.documentos) ? (m.documentos as string[]) : [],
     provedor: m.provedor,
     criadoEm: m.criadoEm.toISOString(),
   };
@@ -26,13 +28,19 @@ function paraMensagem(m: IaMensagem): MensagemChat {
 type ParteConteudo = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
 
 /**
- * Conteúdo da mensagem para o modelo. Sem imagens → texto puro. Com imagens (só na
- * mensagem atual, para não reenviar anexos a cada turno) → formato multimodal do OpenAI.
+ * Conteúdo da mensagem para o modelo. Imagens e contexto de documento só entram na
+ * mensagem `atual` (turno corrente), para não reenviar anexos a cada rodada. Sem imagem →
+ * texto puro (com o contexto prefixado), aceito por qualquer provedor. Com imagem →
+ * formato multimodal do OpenAI (força o roteamento para um provedor com visão).
  */
-function conteudoDe(m: IaMensagem, comImagens: boolean): Mensagem['content'] {
-  const imagens = Array.isArray(m.imagens) ? (m.imagens as string[]) : [];
-  if (!comImagens || imagens.length === 0) return m.conteudo;
+function conteudoDe(m: IaMensagem, atual: boolean): Mensagem['content'] {
+  const imagens = atual && Array.isArray(m.imagens) ? (m.imagens as string[]) : [];
+  const contexto = atual ? (m.contexto ?? '') : '';
+  if (imagens.length === 0) {
+    return contexto ? `${contexto}\n\n${m.conteudo}` : m.conteudo;
+  }
   const partes: ParteConteudo[] = [];
+  if (contexto) partes.push({ type: 'text', text: contexto });
   if (m.conteudo.trim()) partes.push({ type: 'text', text: m.conteudo });
   for (const url of imagens) partes.push({ type: 'image_url', image_url: { url } });
   return partes;
@@ -98,10 +106,24 @@ export async function enviarMensagem(args: {
     throw new ErroHttp(503, 'ia_indisponivel', 'Nenhum provedor de IA disponível no momento.');
   }
 
+  // Extrai o texto dos documentos ANTES de gravar (formato inválido falha cedo, 415).
+  const nomesDoc: string[] = [];
+  let contexto: string | null = null;
+  if (args.dados.documentos.length > 0) {
+    const blocos: string[] = [];
+    for (const doc of args.dados.documentos) {
+      const texto = await extrairTexto(doc.nome, doc.dataUri);
+      nomesDoc.push(doc.nome);
+      blocos.push(`=== ${doc.nome} ===\n${texto}`);
+    }
+    contexto = `Documentos anexados pelo usuário (use como referência):\n\n${blocos.join('\n\n')}`;
+  }
+
   // Grava a mensagem do usuário ANTES de chamar a IA (o texto não se perde se a IA falhar).
   await db.insert(iaMensagens).values({
     conversaId: conversa.id, papel: 'user',
     conteudo: args.dados.conteudo, imagens: args.dados.imagens,
+    documentos: nomesDoc, contexto,
   });
 
   // Monta o histórico (system + toda a conversa até aqui) para o modelo.

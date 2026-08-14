@@ -7,8 +7,8 @@ import {
   apagarConversa, criarConversa, enviarMensagem, listarConversas, obterConversa, renomearConversaSvc,
 } from './servico-assistente';
 
-// As imagens anexadas chegam como base64 no JSON; ~8MB cobre até 4 imagens com folga.
-const LIMITE_CORPO = 8 * 1024 * 1024;
+// Anexos (imagens e documentos) chegam como base64 no JSON; ~20MB cobre PDFs/docs + imagens.
+const LIMITE_CORPO = 20 * 1024 * 1024;
 
 const idDeUuid = z.string().uuid();
 const idDaRota = (req: { params: unknown }) => idDeUuid.parse((req.params as { id?: string }).id);

@@ -9,13 +9,20 @@ export const iaConversas = pgTable('ia_conversas', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Mensagem de uma conversa (do usuário ou do assistant). `imagens`: data URIs anexados. */
+/**
+ * Mensagem de uma conversa (do usuário ou do assistant).
+ * `imagens`: data URIs anexados (mostrados e lidos por visão).
+ * `documentos`: nomes dos arquivos anexados (só para exibir na bolha).
+ * `contexto`: texto extraído dos documentos, enviado ao modelo mas nunca exibido.
+ */
 export const iaMensagens = pgTable('ia_mensagens', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversaId: uuid('conversa_id').notNull(),
   papel: text('papel').notNull(), // 'user' | 'assistant'
   conteudo: text('conteudo').notNull(),
   imagens: jsonb('imagens').notNull().default([]),
+  documentos: jsonb('documentos').notNull().default([]),
+  contexto: text('contexto'),
   provedor: text('provedor'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -25,7 +25,7 @@ describe('PaginaAssistente', () => {
     apiFetchMock
       .mockResolvedValueOnce([]) // GET /assistente/provedores (mount)
       .mockResolvedValueOnce({ id: 'c1', titulo: 'Nova conversa', atualizadoEm: 'x' }) // POST conversas
-      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'Paris.', imagens: [], provedor: 'groq', criadoEm: 'x' } }); // POST mensagens
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'Paris.', imagens: [], documentos: [], provedor: 'groq', criadoEm: 'x' } }); // POST mensagens
     render(<PaginaAssistente />);
     await screen.findByText(/Olá, Leonardo/);
 
@@ -45,7 +45,7 @@ describe('PaginaAssistente', () => {
     apiFetchMock
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ id: 'c1', titulo: 'Nova conversa', atualizadoEm: 'x' })
-      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'ok', imagens: [], provedor: 'groq', criadoEm: 'x' } });
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'ok', imagens: [], documentos: [], provedor: 'groq', criadoEm: 'x' } });
     render(<PaginaAssistente />);
     await screen.findByText(/Olá, Leonardo/);
 
@@ -61,6 +61,32 @@ describe('PaginaAssistente', () => {
       const post = apiFetchMock.mock.calls.find(([u, o]) => String(u).endsWith('/mensagens') && (o as { method?: string } | undefined)?.method === 'POST');
       expect(post).toBeTruthy();
       expect(JSON.parse((post![1] as { body: string }).body).imagens).toHaveLength(1);
+    });
+  });
+
+  it('anexa documento e envia nome + dataUri no corpo', async () => {
+    apiFetchMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'c1', titulo: 'Nova conversa', atualizadoEm: 'x' })
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'ok', imagens: [], documentos: [], provedor: 'groq', criadoEm: 'x' } });
+    render(<PaginaAssistente />);
+    await screen.findByText(/Olá, Leonardo/);
+
+    const doc = new File(['conteudo do relatorio'], 'relatorio.txt', { type: 'text/plain' });
+    const inputs = document.querySelectorAll('input[type=file]');
+    fireEvent.change(inputs[1]!, { target: { files: [doc] } });
+    expect(await screen.findByText('relatorio.txt')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Peça/i), { target: { value: 'resuma' } });
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    await waitFor(() => {
+      const post = apiFetchMock.mock.calls.find(([u, o]) => String(u).endsWith('/mensagens') && (o as { method?: string } | undefined)?.method === 'POST');
+      expect(post).toBeTruthy();
+      const docs = JSON.parse((post![1] as { body: string }).body).documentos as { nome: string; dataUri: string }[];
+      expect(docs).toHaveLength(1);
+      expect(docs[0]!.nome).toBe('relatorio.txt');
+      expect(docs[0]!.dataUri).toMatch(/^data:/);
     });
   });
 });

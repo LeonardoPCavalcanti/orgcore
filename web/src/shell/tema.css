@@ -501,3 +501,37 @@ a { color: inherit; }
   position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 999px;
   border: 0; background: var(--superficie-alta); color: var(--texto); cursor: pointer; line-height: 1;
 }
+
+/* Menu do "+" (Imagem / Documento) */
+.chat-mais-wrap { position: relative; flex: 0 0 auto; }
+.chat-mais[aria-expanded='true'] { color: var(--texto); }
+.chat-mais-fundo { position: fixed; inset: 0; z-index: 10; }
+.chat-mais-menu {
+  position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 11; min-width: 168px;
+  display: flex; flex-direction: column; padding: 6px; gap: 2px;
+  background: var(--superficie-alta); border: 1px solid var(--borda); border-radius: 12px;
+  box-shadow: var(--sombra-md);
+}
+.chat-mais-menu button {
+  display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--texto); font-size: 14px; cursor: pointer;
+}
+.chat-mais-menu button:hover:not(:disabled) { background: var(--superficie); }
+.chat-mais-menu button:disabled { opacity: 0.4; cursor: default; }
+
+/* Chips de documento no composer e nas bolhas */
+.chat-docs { display: flex; gap: 8px; flex-wrap: wrap; }
+.chat-doc {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 240px;
+  padding: 6px 10px; border-radius: 999px; background: var(--superficie-alta);
+  border: 1px solid var(--borda-suave); color: var(--texto); font-size: 13px;
+}
+.chat-doc svg { flex: 0 0 auto; color: var(--texto-fraco); }
+.chat-doc-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-doc button {
+  flex: 0 0 auto; width: 18px; height: 18px; border: 0; border-radius: 999px; line-height: 1;
+  background: transparent; color: var(--texto-fraco); cursor: pointer;
+}
+.chat-doc button:hover { color: var(--texto); }
+.chat-bolha-docs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.chat-doc--bolha { background: transparent; }

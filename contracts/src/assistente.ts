@@ -13,6 +13,8 @@ export const mensagemChat = z.object({
   papel: papelChat,
   conteudo: z.string(),
   imagens: z.array(z.string()),
+  // Nomes dos documentos anexados (só para exibir; o texto extraído vai ao modelo).
+  documentos: z.array(z.string()).default([]),
   // Id do provedor real que respondeu (null em mensagem do usuário).
   provedor: z.string().nullable(),
   criadoEm: z.string(),
@@ -31,10 +33,19 @@ export const conversaDetalhe = conversaResumo.extend({
 });
 export type ConversaDetalhe = z.infer<typeof conversaDetalhe>;
 
+/** Documento anexado: nome do arquivo + data URI base64 do conteúdo (extraído no servidor). */
+export const documentoAnexo = z.object({
+  nome: z.string().trim().min(1).max(200),
+  dataUri: z.string().startsWith('data:'),
+});
+export type DocumentoAnexo = z.infer<typeof documentoAnexo>;
+
 /** Entrada do POST de mensagem. `imagens` são data URIs (efetivas só com modelo de visão). */
 export const novaMensagem = z.object({
   conteudo: z.string().trim().min(1).max(8000),
   imagens: z.array(z.string().startsWith('data:')).max(4).default([]),
+  // Documentos (PDF/.docx/texto): o servidor extrai o texto e usa como contexto.
+  documentos: z.array(documentoAnexo).max(3).default([]),
   // Provedor preferido (id do catálogo). Roteamento, não cópia — opcional.
   provedor: z.string().trim().max(40).optional(),
 });

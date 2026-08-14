@@ -18,8 +18,11 @@ export function PaginaAssistente() {
   const [provedores, setProvedores] = useState<ProvedorStatus[]>([]);
   const [provedor, setProvedor] = useState('');
   const [anexos, setAnexos] = useState<string[]>([]);
+  const [docs, setDocs] = useState<{ nome: string; dataUri: string }[]>([]);
+  const [menu, setMenu] = useState(false);
   const fimRef = useRef<HTMLDivElement>(null);
-  const arquivoRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
 
   // Provedores para o seletor de modelo (com %). Rota autenticada, sem RBAC de anúncio.
   useEffect(() => {
@@ -55,19 +58,36 @@ export function PaginaAssistente() {
     }
   }
 
+  async function anexarDoc(e: ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (arquivos.length === 0) return;
+    try {
+      const novos = await Promise.all(
+        arquivos.map(async (f) => ({ nome: f.name, dataUri: await lerComoDataUri(f) })),
+      );
+      setDocs((d) => [...d, ...novos].slice(0, 3));
+    } catch {
+      setErro('Não foi possível ler o documento');
+    }
+  }
+
   async function enviar() {
     const conteudo = texto.trim();
     if (!conteudo || enviando) return;
     setErro('');
     setEnviando(true);
     const imagens = anexos;
+    const documentos = docs;
     // Otimista: a mensagem do usuário aparece na hora.
     const provisoria: MensagemChat = {
-      id: `local-${Date.now()}`, papel: 'user', conteudo, imagens, provedor: null, criadoEm: new Date().toISOString(),
+      id: `local-${Date.now()}`, papel: 'user', conteudo, imagens,
+      documentos: documentos.map((d) => d.nome), provedor: null, criadoEm: new Date().toISOString(),
     };
     setMensagens((m) => [...m, provisoria]);
     setTexto('');
     setAnexos([]);
+    setDocs([]);
     try {
       let id = conversaId;
       if (!id) {
@@ -76,7 +96,7 @@ export function PaginaAssistente() {
         setConversaId(id);
       }
       const { mensagem } = await apiFetch<{ mensagem: MensagemChat }>(`/assistente/conversas/${id}/mensagens`, {
-        method: 'POST', body: JSON.stringify({ conteudo, imagens, ...(provedor ? { provedor } : {}) }),
+        method: 'POST', body: JSON.stringify({ conteudo, imagens, documentos, ...(provedor ? { provedor } : {}) }),
       });
       setMensagens((m) => [...m, mensagem]);
     } catch (e) {
@@ -84,6 +104,7 @@ export function PaginaAssistente() {
       setMensagens((m) => m.filter((x) => x.id !== provisoria.id));
       setTexto(conteudo);
       setAnexos(imagens);
+      setDocs(documentos);
     } finally {
       setEnviando(false);
     }
@@ -110,13 +131,42 @@ export function PaginaAssistente() {
             ))}
           </div>
         )}
+        {docs.length > 0 && (
+          <div className="chat-docs">
+            {docs.map((d, i) => (
+              <span key={i} className="chat-doc">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
+                </svg>
+                <span className="chat-doc-nome">{d.nome}</span>
+                <button type="button" aria-label={`Remover documento ${d.nome}`}
+                  onClick={() => setDocs((a) => a.filter((_, k) => k !== i))}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
         <textarea
           className="chat-texto" value={texto} rows={1} placeholder="Peça à IA da Conect2AI…"
           onChange={(e) => setTexto(e.target.value)} onKeyDown={aoTeclar} />
         <div className="chat-caixa-acoes">
-          <input ref={arquivoRef} type="file" accept="image/*" multiple hidden onChange={anexar} />
-          <button type="button" className="botao botao--fantasma chat-mais" aria-label="Anexar imagem"
-            disabled={anexos.length >= 4} onClick={() => arquivoRef.current?.click()}>+</button>
+          <input ref={imgRef} type="file" accept="image/*" multiple hidden onChange={anexar} />
+          <input ref={docRef} type="file" accept=".pdf,.docx,.txt,.md,.csv,.json" multiple hidden onChange={anexarDoc} />
+          <div className="chat-mais-wrap">
+            <button type="button" className="botao botao--fantasma chat-mais" aria-label="Anexar"
+              aria-expanded={menu} onClick={() => setMenu((v) => !v)}>+</button>
+            {menu && (
+              <>
+                <div className="chat-mais-fundo" onClick={() => setMenu(false)} aria-hidden="true" />
+                <div className="chat-mais-menu" role="menu">
+                  <button type="button" role="menuitem" disabled={anexos.length >= 4}
+                    onClick={() => { setMenu(false); imgRef.current?.click(); }}>Imagem</button>
+                  <button type="button" role="menuitem" disabled={docs.length >= 3}
+                    onClick={() => { setMenu(false); docRef.current?.click(); }}>Documento</button>
+                </div>
+              </>
+            )}
+          </div>
           <span style={{ flex: 1 }} />
           {provedores.length > 0 && (
             <select className="entrada chat-modelo" aria-label="Modelo de IA" value={provedor}
@@ -161,6 +211,19 @@ export function PaginaAssistente() {
             {m.imagens.length > 0 && (
               <div className="chat-bolha-imagens">
                 {m.imagens.map((src, i) => <img key={i} src={src} alt="anexo" />)}
+              </div>
+            )}
+            {m.documentos.length > 0 && (
+              <div className="chat-bolha-docs">
+                {m.documentos.map((nome, i) => (
+                  <span key={i} className="chat-doc chat-doc--bolha">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
+                    </svg>
+                    <span className="chat-doc-nome">{nome}</span>
+                  </span>
+                ))}
               </div>
             )}
             {m.papel === 'assistant'
