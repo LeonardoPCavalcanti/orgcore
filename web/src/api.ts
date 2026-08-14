@@ -51,10 +51,12 @@ export async function apiFetch<T>(caminho: string, init: RequestInit = {}): Prom
   if (coalescivel) {
     getEmVoo.set(caminho, promessa);
     // Limpa ao resolver OU rejeitar, para não servir uma resposta velha depois nem
-    // prender um caminho que falhou. `finally` não altera a promessa devolvida.
+    // prender um caminho que falhou. Este é um ramo SEPARADO da promessa devolvida: o
+    // `.catch` no fim é obrigatório — sem ele, um GET que falha viraria uma "unhandled
+    // rejection" aqui (o erro real continua sendo entregue a quem chamou, via `promessa`).
     void promessa.finally(() => {
       if (getEmVoo.get(caminho) === promessa) getEmVoo.delete(caminho);
-    });
+    }).catch(() => {});
   }
   return promessa;
 }

@@ -109,4 +109,17 @@ describe('apiFetch', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('GET que rejeita entrega o erro a quem chamou e limpa o em-voo (sem vazar)', async () => {
+    // O `fetch` falhando (rede fora) precisa (a) rejeitar para quem chamou e (b) NÃO
+    // deixar uma rejeição não-tratada no ramo de limpeza da coalescência — foi o que
+    // quebrou o CI (sem API no ar, todo GET falhava e vazava "unhandled rejection").
+    const fetchMock = vi.fn(async () => { throw new TypeError('rede fora'); });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiFetch('/auditoria')).rejects.toThrow('rede fora');
+    // Em-voo limpo após a falha: a próxima chamada idêntica refaz o fetch.
+    await expect(apiFetch('/auditoria')).rejects.toThrow('rede fora');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
