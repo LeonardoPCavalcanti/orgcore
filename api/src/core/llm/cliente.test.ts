@@ -30,7 +30,7 @@ describe('criarClienteLLM.completar', () => {
     const fetchFake: FetchLike = vi.fn(async () => ok('resposta'));
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90), prov('cerebras', 90)], uso: usoFake({}), fetchImpl: fetchFake });
     const r = await cliente.completar(msgs, { preferido: 'cerebras' });
-    expect(r).toEqual({ conteudo: 'resposta', provedorUsado: 'cerebras' });
+    expect(r).toEqual({ conteudo: 'resposta', provedorUsado: 'cerebras', tokens: 0 });
     expect((fetchFake as unknown as { mock: { calls: [string][] } }).mock.calls[0]![0]).toContain('https://cerebras');
   });
 
@@ -50,7 +50,7 @@ describe('criarClienteLLM.completar', () => {
     });
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90), prov('cerebras', 90)], uso: usoFake({}), fetchImpl: fetchFake });
     const r = await cliente.completar(msgs, { preferido: 'groq' });
-    expect(r).toEqual({ conteudo: 'do segundo', provedorUsado: 'cerebras' });
+    expect(r).toEqual({ conteudo: 'do segundo', provedorUsado: 'cerebras', tokens: 0 });
   });
 
   it('provedor que trava e abortado por timeout e cai pro proximo', async () => {

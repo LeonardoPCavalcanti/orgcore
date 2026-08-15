@@ -7,6 +7,7 @@ import { usuarios } from '../src/core/db/schema/acesso';
 import {
   apagarConversa, criarConversa, enviarMensagem, listarConversas, obterConversa, renomearConversaSvc,
 } from '../src/modulos/assistente/servico-assistente';
+import { rankingConsumo, registrarConsumoUsuario } from '../src/modulos/assistente/consumo-usuario';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
 
@@ -14,7 +15,7 @@ beforeAll(prepararBanco);
 beforeEach(limparBanco);
 
 const clienteFake = (conteudo = 'resposta da IA'): ClienteLLM => ({
-  completar: vi.fn(async () => ({ conteudo, provedorUsado: 'groq' })),
+  completar: vi.fn(async () => ({ conteudo, provedorUsado: 'groq', tokens: 0 })),
   provedores: vi.fn(async () => []),
   atualizarCotas: vi.fn(async () => []),
 });
@@ -48,7 +49,7 @@ describe('servico do assistente', () => {
     const conv = await criarConversa(uid);
     let capturadas: unknown;
     const cliente: ClienteLLM = {
-      completar: vi.fn(async (m: unknown) => { capturadas = m; return { conteudo: 'ok', provedorUsado: 'groq' }; }),
+      completar: vi.fn(async (m: unknown) => { capturadas = m; return { conteudo: 'ok', provedorUsado: 'groq', tokens: 0 }; }),
       provedores: vi.fn(async () => []),
       atualizarCotas: vi.fn(async () => []),
     };
@@ -73,7 +74,7 @@ describe('servico do assistente', () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');
     const conv = await criarConversa(uid);
-    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq' }));
+    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq', tokens: 0 }));
     const cliente: ClienteLLM = { completar, provedores: vi.fn(async () => []), atualizarCotas: vi.fn(async () => []) };
     const { mensagem } = await enviarMensagem({
       conversaId: conv.id, usuarioId: uid,
@@ -91,7 +92,7 @@ describe('servico do assistente', () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');
     const conv = await criarConversa(uid);
-    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq' }));
+    const completar = vi.fn(async () => ({ conteudo: 'não deveria', provedorUsado: 'groq', tokens: 0 }));
     const cliente: ClienteLLM = { completar, provedores: vi.fn(async () => []), atualizarCotas: vi.fn(async () => []) };
     await enviarMensagem({
       conversaId: conv.id, usuarioId: uid,
@@ -118,6 +119,18 @@ describe('servico do assistente', () => {
     expect(mensagem.papel).toBe('assistant');
     expect(mensagem.imagens).toHaveLength(0);
     expect(mensagem.conteudo).toContain('Não consegui gerar o carrossel');
+  }, 30_000);
+
+  it('registra consumo por usuário e o ranking ordena por tokens', async () => {
+    await semearDemonstracao();
+    const a = await usuario('admin@conect2ai.com');
+    const b = await usuario('aluno@conect2ai.com');
+    await registrarConsumoUsuario(a, 'gemini', 100);
+    await registrarConsumoUsuario(a, 'groq', 50);
+    await registrarConsumoUsuario(b, 'groq', 30);
+    const rank = await rankingConsumo();
+    expect(rank[0]).toMatchObject({ usuarioId: a, tokens: 150, requisicoes: 2 });
+    expect(rank[1]).toMatchObject({ usuarioId: b, tokens: 30, requisicoes: 1 });
   }, 30_000);
 
   it('renomeia a conversa', async () => {

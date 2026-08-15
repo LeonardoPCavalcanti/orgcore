@@ -7,7 +7,7 @@ const entrada: NovoAnuncio = { tipo: 'artigo_aprovado', titulo: 'Titulo valido',
 const planoJson = JSON.stringify({ headline: { prefixo: 'ARTIGO', destaque: 'APROVADO' }, titulo: 'Titulo valido', pessoas: [{ nome: 'Ana', papel: 'Autora' }], legenda: 'Legenda.\n\n#Conect2AI' });
 
 const clienteFake = (conteudo: string, provedorUsado = 'groq'): ClienteLLM => ({
-  completar: vi.fn(async () => ({ conteudo, provedorUsado })),
+  completar: vi.fn(async () => ({ conteudo, provedorUsado, tokens: 0 })),
   provedores: vi.fn(async () => []),
   atualizarCotas: vi.fn(async () => []),
 });

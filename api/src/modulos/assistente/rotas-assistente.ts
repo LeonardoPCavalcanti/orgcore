@@ -6,6 +6,7 @@ import { exigirAutenticacao } from '../../core/requisicao';
 import {
   apagarConversa, criarConversa, enviarMensagem, listarConversas, obterConversa, renomearConversaSvc,
 } from './servico-assistente';
+import { rankingConsumo } from './consumo-usuario';
 
 // Anexos (imagens e documentos) chegam como base64 no JSON; ~20MB cobre PDFs/docs + imagens.
 const LIMITE_CORPO = 20 * 1024 * 1024;
@@ -22,6 +23,14 @@ export const rotasAssistente: DefinicaoRota[] = [
       exigirAutenticacao(req);
       const cliente = criarClientePadrao();
       return cliente ? cliente.provedores() : [];
+    },
+  },
+  {
+    // Ranking de consumo de IA por usuário — visão de oversight (admin/auditoria).
+    metodo: 'GET', caminho: '/assistente/consumo', permissao: 'core.auditoria.ler', autenticada: true,
+    handler: async (req) => {
+      exigirAutenticacao(req);
+      return rankingConsumo();
     },
   },
   {

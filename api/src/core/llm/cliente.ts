@@ -3,7 +3,7 @@ import type { ProvedorAtivo } from './catalogo';
 import type { DadosUso, PortaUso, StatusProvedor } from './uso';
 
 export type Mensagem = { role: 'system' | 'user' | 'assistant'; content: unknown };
-export type ResultadoLLM = { conteudo: string; provedorUsado: string };
+export type ResultadoLLM = { conteudo: string; provedorUsado: string; tokens: number };
 export type OpcoesCompletar = { preferido?: string | undefined; jsonObject?: boolean | undefined; maxTokens?: number | undefined };
 
 export type RespostaHttp = { ok: boolean; status: number; text(): Promise<string>; headers: { get(nome: string): string | null } };
@@ -102,6 +102,7 @@ export function criarClienteLLM(cfg: ConfigCliente): ClienteLLM {
       const candidatos = (acima.length > 0 ? acima : elegiveis).map((x) => x.p);
 
       let acumulado = '';
+      let tokensAcum = 0;
       for (const p of candidatos) {
         const efetivas: Mensagem[] = acumulado
           ? [...mensagens, { role: 'assistant', content: acumulado }, { role: 'user', content: 'Continue de onde parou, completando a resposta.' }]
@@ -109,8 +110,9 @@ export function criarClienteLLM(cfg: ConfigCliente): ClienteLLM {
         try {
           const r = await chamar(p, efetivas, opcoes);
           await cfg.uso.registrar(p.id, r.uso);
+          tokensAcum += r.uso.tokens ?? 0;
           if (r.truncado) { acumulado += r.conteudo; continue; }
-          return { conteudo: acumulado + r.conteudo, provedorUsado: p.id };
+          return { conteudo: acumulado + r.conteudo, provedorUsado: p.id, tokens: tokensAcum };
         } catch {
           await cfg.uso.registrar(p.id, { restante: 0 });
         }

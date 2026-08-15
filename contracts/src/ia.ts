@@ -15,3 +15,13 @@ export const provedorStatus = z.object({
   tokens: z.number().default(0),
 });
 export type ProvedorStatus = z.infer<typeof provedorStatus>;
+
+/** Uma linha do ranking "quem consome mais IA". */
+export const consumoUsuario = z.object({
+  usuarioId: z.string().uuid(),
+  nome: z.string(),
+  email: z.string(),
+  requisicoes: z.number(),
+  tokens: z.number(),
+});
+export type ConsumoUsuario = z.infer<typeof consumoUsuario>;

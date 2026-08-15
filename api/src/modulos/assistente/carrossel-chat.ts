@@ -33,14 +33,18 @@ export function numeroDeSlides(mensagem: string): number {
   return Math.min(10, Math.max(3, n));
 }
 
-export type CarrosselChat = { imagens: string[]; conteudo: string };
+export type CarrosselChat = { imagens: string[]; conteudo: string; tokens: number };
 
 export async function gerarCarrosselNoChat(args: {
   mensagem: string;
   gerador?: GeradorDeTexto;
 }): Promise<CarrosselChat> {
-  // O carrossel usa o groq (8b) — contabiliza os tokens gastos no mesmo provedor.
-  const gerador = args.gerador ?? criarGerador({ aoUsar: (tokens) => usoDb.registrar('groq', { tokens }) });
+  // O carrossel usa o groq (8b) — contabiliza os tokens gastos no mesmo provedor e
+  // acumula o total para o registro por usuário.
+  let tokensGastos = 0;
+  const gerador = args.gerador ?? criarGerador({
+    aoUsar: (t) => { tokensGastos += t; return usoDb.registrar('groq', { tokens: t }); },
+  });
   const plano = await gerador.gerar(args.mensagem, numeroDeSlides(args.mensagem));
   const buffers = await Promise.all(plano.slides.map((s) => renderSlide(s)));
   const imagens = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`);
@@ -54,5 +58,5 @@ export async function gerarCarrosselNoChat(args: {
     '',
     'Quer outra versão? Posso refazer com outro ângulo (prática, com dados, mitos e verdades), mais ou menos slides, ou outro tom — é só pedir.',
   ].join('\n').trim();
-  return { imagens, conteudo };
+  return { imagens, conteudo, tokens: tokensGastos };
 }

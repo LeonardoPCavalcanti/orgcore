@@ -8,6 +8,7 @@ import { extrairTexto } from './extrair-texto';
 import { detectarPedidoCarrossel, ehRefinamentoDeCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
 import type { GeradorDeTexto } from '../conteudo/gerador';
 import { lerLinks } from './consumir-link';
+import { registrarConsumoUsuario } from './consumo-usuario';
 
 const SYSTEM =
   'Você é o assistente da intranet Conect2AI. Responda em português, de forma direta e útil.';
@@ -179,6 +180,7 @@ export async function enviarMensagem(args: {
   if (temaCarrossel) {
     try {
       const carrossel = await gerarCarrosselNoChat({ mensagem: temaCarrossel, ...(args.gerador ? { gerador: args.gerador } : {}) });
+      await registrarConsumoUsuario(args.usuarioId, 'groq', carrossel.tokens);
       return responder(carrossel.conteudo, carrossel.imagens, null);
     } catch {
       // Falha na geração (provedor instável, render) não pode quebrar a conversa.
@@ -195,5 +197,6 @@ export async function enviarMensagem(args: {
     })),
   ];
   const r = await args.cliente.completar(mensagens, { preferido: args.dados.provedor });
+  await registrarConsumoUsuario(args.usuarioId, r.provedorUsado, r.tokens);
   return responder(r.conteudo, [], r.provedorUsado);
 }
