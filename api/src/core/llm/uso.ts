@@ -7,8 +7,10 @@ export type StatusProvedor = {
   id: string; nome: string; modelo: string;
   percentual: number; disponivel: boolean; atualizadoEm: string | null;
   visao: boolean;
+  /** Consumo real do dia: requisições feitas e tokens gastos (0 quando ainda não usado). */
+  requisicoes: number; tokens: number;
 };
-export type DadosUso = { restante?: number | undefined; limite?: number | undefined };
+export type DadosUso = { restante?: number | undefined; limite?: number | undefined; tokens?: number | undefined };
 
 export interface PortaUso {
   status(provs: ProvedorAtivo[]): Promise<StatusProvedor[]>;
@@ -39,18 +41,22 @@ export const usoDb: PortaUso = {
         percentual, disponivel: percentual > 0,
         atualizadoEm: linha ? linha.atualizadoEm.toISOString() : null,
         visao: p.visao,
+        requisicoes: linha?.requisicoesUsadas ?? 0,
+        tokens: linha?.tokensUsados ?? 0,
       };
     }));
   },
 
   async registrar(id, dados) {
+    const tokens = dados.tokens ?? 0;
     await db.insert(provedorUso).values({
-      provedorId: id, dia: hoje(), requisicoesUsadas: 1,
+      provedorId: id, dia: hoje(), requisicoesUsadas: 1, tokensUsados: tokens,
       restanteConhecido: dados.restante ?? null, limiteConhecido: dados.limite ?? null,
     }).onConflictDoUpdate({
       target: [provedorUso.provedorId, provedorUso.dia],
       set: {
         requisicoesUsadas: sql`${provedorUso.requisicoesUsadas} + 1`,
+        tokensUsados: sql`${provedorUso.tokensUsados} + ${tokens}`,
         restanteConhecido: dados.restante ?? sql`${provedorUso.restanteConhecido}`,
         limiteConhecido: dados.limite ?? sql`${provedorUso.limiteConhecido}`,
         atualizadoEm: sql`now()`,

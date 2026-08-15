@@ -10,5 +10,8 @@ export const provedorStatus = z.object({
   atualizadoEm: z.string().nullable(),
   // Aceita imagens (visão). O chat usa para sugerir o melhor modelo por tarefa.
   visao: z.boolean().default(false),
+  // Consumo real do dia — requisições feitas e tokens gastos.
+  requisicoes: z.number().default(0),
+  tokens: z.number().default(0),
 });
 export type ProvedorStatus = z.infer<typeof provedorStatus>;

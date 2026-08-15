@@ -15,6 +15,10 @@ const legendaDe = (conteudo: string): string | null => {
   return m ? m[1]!.trim() : null;
 };
 
+// Tokens compactos: 1240 → "1,2k". Consumo do dia por modelo, no lugar do "100%".
+const fmtTokens = (n: number): string =>
+  n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n);
+
 export function PaginaAssistente() {
   const { eu } = useSessao();
   const [conversaId, setConversaId] = useState<string | null>(idDaUrl());
@@ -203,7 +207,9 @@ export function PaginaAssistente() {
             <select className="entrada chat-modelo" aria-label="Modelo de IA" value={provedor}
               onChange={(e) => setProvedor(e.target.value)}>
               {provedores.map((p) => (
-                <option key={p.id} value={p.id}>{p.nome} — {p.percentual}%{p.visao ? ' · visão' : ''}</option>
+                <option key={p.id} value={p.id}>
+                  {p.nome} — {fmtTokens(p.tokens)} tok · {p.requisicoes} req{p.visao ? ' · visão' : ''}
+                </option>
               ))}
             </select>
           )}

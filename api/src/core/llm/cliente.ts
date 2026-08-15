@@ -66,12 +66,16 @@ export function criarClienteLLM(cfg: ConfigCliente): ClienteLLM {
         signal: controlador.signal,
       });
       if (!resp.ok) throw new Error(`http_${resp.status}`);
-      const corpo = JSON.parse(await resp.text()) as { choices?: { finish_reason?: string; message?: { content?: string } }[] };
+      const corpo = JSON.parse(await resp.text()) as {
+        choices?: { finish_reason?: string; message?: { content?: string } }[];
+        usage?: { total_tokens?: number };
+      };
       const escolha = corpo.choices?.[0];
+      const tokens = corpo.usage?.total_tokens;
       return {
         conteudo: escolha?.message?.content ?? '',
         truncado: escolha?.finish_reason === 'length',
-        uso: p.leHeaders ? lerUso(resp.headers) : {},
+        uso: { ...(p.leHeaders ? lerUso(resp.headers) : {}), ...(tokens != null ? { tokens } : {}) },
       };
     } finally {
       clearTimeout(prazo);

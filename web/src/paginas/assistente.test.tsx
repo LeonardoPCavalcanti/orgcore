@@ -100,13 +100,15 @@ describe('PaginaAssistente', () => {
 
   it('com imagem anexada, seleciona o modelo de visão de primeira e mostra a dica', async () => {
     apiFetchMock.mockResolvedValueOnce([
-      { id: 'groq', nome: 'Groq', modelo: 'm', percentual: 90, disponivel: true, atualizadoEm: null, visao: false },
-      { id: 'gemini', nome: 'Gemini', modelo: 'm', percentual: 80, disponivel: true, atualizadoEm: null, visao: true },
+      { id: 'groq', nome: 'Groq', modelo: 'm', percentual: 90, disponivel: true, atualizadoEm: null, visao: false, requisicoes: 8, tokens: 1240 },
+      { id: 'gemini', nome: 'Gemini', modelo: 'm', percentual: 80, disponivel: true, atualizadoEm: null, visao: true, requisicoes: 0, tokens: 0 },
     ]);
     render(<PaginaAssistente />);
     await screen.findByText(/Olá, Leonardo/);
     const sel = screen.getByLabelText('Modelo de IA') as HTMLSelectElement;
     expect(sel.value).toBe('groq');
+    // Consumo real no lugar do "100%".
+    expect(screen.getByRole('option', { name: /Groq — 1,2k tok · 8 req/ })).toBeInTheDocument();
 
     const arquivo = new File(['x'], 'foto.png', { type: 'image/png' });
     fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [arquivo] } });

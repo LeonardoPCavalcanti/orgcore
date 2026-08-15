@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ProvedorAtivo } from './catalogo';
 import { criarClienteLLM, type FetchLike, type RespostaHttp } from './cliente';
-import type { PortaUso, StatusProvedor } from './uso';
+import type { DadosUso, PortaUso, StatusProvedor } from './uso';
 
 const prov = (id: string, _pct: number, visao = false): ProvedorAtivo =>
   ({ id, nome: id, envChave: 'X', baseUrl: `https://${id}`, modelo: 'm', limiteDiario: 100, leHeaders: true, chave: 'k', visao });
@@ -11,7 +11,7 @@ function usoFake(pcts: Record<string, number>): PortaUso & { registros: string[]
   return {
     registros,
     async status(provs): Promise<StatusProvedor[]> {
-      return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: pcts[p.id] ?? 100, disponivel: (pcts[p.id] ?? 100) > 0, atualizadoEm: null, visao: p.visao }));
+      return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: pcts[p.id] ?? 100, disponivel: (pcts[p.id] ?? 100) > 0, atualizadoEm: null, visao: p.visao, requisicoes: 0, tokens: 0 }));
     },
     async registrar(id) { registros.push(id); },
   };
@@ -99,6 +99,27 @@ describe('criarClienteLLM.completar', () => {
   });
 });
 
+describe('medicao de tokens', () => {
+  it('captura usage.total_tokens do corpo e registra no uso', async () => {
+    const capturado: DadosUso[] = [];
+    const uso: PortaUso = {
+      async status(provs) {
+        return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: 100, disponivel: true, atualizadoEm: null, visao: p.visao, requisicoes: 0, tokens: 0 }));
+      },
+      async registrar(_id, dados) { capturado.push(dados); },
+    };
+    const resp: RespostaHttp = {
+      ok: true, status: 200,
+      text: async () => JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: 'oi' } }], usage: { total_tokens: 123 } }),
+      headers: { get: () => null },
+    };
+    const fetchFake: FetchLike = vi.fn(async () => resp);
+    const cliente = criarClienteLLM({ provedores: [prov('groq', 90)], uso, fetchImpl: fetchFake });
+    await cliente.completar(msgs);
+    expect(capturado[0]?.tokens).toBe(123);
+  });
+});
+
 describe('continuacao e atualizarCotas', () => {
   it('continua do parcial quando o primeiro trunca (finish_reason length)', async () => {
     let n = 0;
@@ -117,7 +138,7 @@ describe('continuacao e atualizarCotas', () => {
     const fetchFake = vi.fn(async () => ok('x'));
     const agora = () => 1_000_000;
     const uso: PortaUso = {
-      async status(provs) { return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: 100, disponivel: true, atualizadoEm: new Date(1_000_000 - 2 * 60_000).toISOString(), visao: p.visao })); },
+      async status(provs) { return provs.map((p) => ({ id: p.id, nome: p.nome, modelo: p.modelo, percentual: 100, disponivel: true, atualizadoEm: new Date(1_000_000 - 2 * 60_000).toISOString(), visao: p.visao, requisicoes: 0, tokens: 0 })); },
       registrar: vi.fn(async () => {}),
     };
     const cliente = criarClienteLLM({ provedores: [prov('groq', 90)], uso, fetchImpl: fetchFake as unknown as FetchLike, agora });
