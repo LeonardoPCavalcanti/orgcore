@@ -8,6 +8,13 @@ import { Markdown } from './markdown';
 const primeiroNome = (nome: string) => nome.split(' ')[0] ?? nome;
 const idDaUrl = () => new URLSearchParams(window.location.search).get('c');
 
+// Extrai a legenda + hashtags de uma resposta de carrossel (formato fixo do servidor),
+// para o botão "Copiar legenda". Null quando a mensagem não é um carrossel.
+const legendaDe = (conteudo: string): string | null => {
+  const m = /\*\*Legenda sugerida:\*\*\n([\s\S]*?)(?:\n\nQuer outra versão|$)/.exec(conteudo);
+  return m ? m[1]!.trim() : null;
+};
+
 export function PaginaAssistente() {
   const { eu } = useSessao();
   const [conversaId, setConversaId] = useState<string | null>(idDaUrl());
@@ -20,6 +27,7 @@ export function PaginaAssistente() {
   const [anexos, setAnexos] = useState<string[]>([]);
   const [docs, setDocs] = useState<{ nome: string; dataUri: string }[]>([]);
   const [menu, setMenu] = useState(false);
+  const [copiado, setCopiado] = useState<string | null>(null);
   const fimRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
@@ -266,6 +274,16 @@ export function PaginaAssistente() {
             {m.papel === 'assistant'
               ? <Markdown texto={m.conteudo} />
               : <div className="chat-bolha-texto">{m.conteudo}</div>}
+            {m.papel === 'assistant' && legendaDe(m.conteudo) && (
+              <button type="button" className="botao botao--fantasma chat-copiar"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(legendaDe(m.conteudo) ?? '');
+                  setCopiado(m.id);
+                  setTimeout(() => setCopiado(null), 2000);
+                }}>
+                {copiado === m.id ? 'Legenda copiada!' : 'Copiar legenda'}
+              </button>
+            )}
             {m.papel === 'assistant' && m.provedor && (
               <div className="chat-bolha-fonte texto-fraco">via {m.provedor}</div>
             )}

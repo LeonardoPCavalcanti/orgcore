@@ -80,6 +80,24 @@ describe('PaginaAssistente', () => {
     expect(links[0]).toHaveAttribute('href', 'data:image/png;base64,AAA');
   });
 
+  it('mostra "Copiar legenda" no carrossel e copia legenda + hashtags', async () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    apiFetchMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'c1', titulo: 'x', atualizadoEm: 'x' })
+      .mockResolvedValueOnce({ mensagem: { id: 'm2', papel: 'assistant', conteudo: 'Aqui está seu carrossel com 2 slides.\n\n**Legenda sugerida:**\nCaminhe mais hoje.\n\n#saude #caminhada\n\nQuer outra versão? Posso refazer.', imagens: ['data:image/png;base64,AAA'], documentos: [], provedor: null, criadoEm: 'x' } });
+    render(<PaginaAssistente />);
+    await screen.findByText(/Olá, Leonardo/);
+    fireEvent.change(screen.getByPlaceholderText(/Peça/i), { target: { value: 'faça um carrossel' } });
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    const botao = await screen.findByRole('button', { name: 'Copiar legenda' });
+    fireEvent.click(botao);
+    expect(writeText).toHaveBeenCalledWith('Caminhe mais hoje.\n\n#saude #caminhada');
+    expect(await screen.findByRole('button', { name: 'Legenda copiada!' })).toBeInTheDocument();
+  });
+
   it('com imagem anexada, seleciona o modelo de visão de primeira e mostra a dica', async () => {
     apiFetchMock.mockResolvedValueOnce([
       { id: 'groq', nome: 'Groq', modelo: 'm', percentual: 90, disponivel: true, atualizadoEm: null, visao: false },
