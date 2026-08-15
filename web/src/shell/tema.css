@@ -493,7 +493,9 @@ a { color: inherit; }
 }
 .chat-texto {
   border: 0; background: transparent; color: var(--texto); resize: none;
-  font: inherit; line-height: 1.5; outline: none; min-height: 26px; max-height: 200px;
+  font: inherit; line-height: 1.5; outline: none; min-height: 27px;
+  /* Cresce até ~3 linhas (3 × 1.5em) e depois rola. Altura ajustada por JS. */
+  max-height: 4.5em; overflow-y: auto;
 }
 .chat-texto::placeholder { color: var(--texto-fraco); }
 .chat-caixa-acoes { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }

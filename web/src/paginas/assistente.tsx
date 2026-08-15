@@ -23,6 +23,7 @@ export function PaginaAssistente() {
   const fimRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
+  const textoRef = useRef<HTMLTextAreaElement>(null);
 
   // Provedores para o seletor de modelo (com %). Rota autenticada, sem RBAC de anúncio.
   useEffect(() => {
@@ -45,6 +46,14 @@ export function PaginaAssistente() {
   }, []);
 
   useEffect(() => { fimRef.current?.scrollIntoView?.({ behavior: 'smooth' }); }, [mensagens, enviando]);
+
+  // Auto-cresce o campo até 3 linhas (o CSS limita a altura e passa a rolar).
+  useEffect(() => {
+    const el = textoRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [texto]);
 
   // Melhor modelo por tarefa: com imagem anexada, oferece de primeira um modelo com visão.
   useEffect(() => {
@@ -161,7 +170,7 @@ export function PaginaAssistente() {
           </div>
         )}
         <textarea
-          className="chat-texto" value={texto} rows={1} placeholder="Peça à IA da Conect2AI…"
+          ref={textoRef} className="chat-texto" value={texto} rows={1} placeholder="Peça à IA da Conect2AI…"
           onChange={(e) => setTexto(e.target.value)} onKeyDown={aoTeclar} />
         <div className="chat-caixa-acoes">
           <input ref={imgRef} type="file" accept="image/*" multiple hidden onChange={anexar} />
