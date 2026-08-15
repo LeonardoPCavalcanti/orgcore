@@ -13,6 +13,8 @@ export type ConfigGerador = {
   LLM_MODELO?: string | undefined;
   /** Só para teste: injeta o cliente HTTP no gerador de LLM. */
   fetchImpl?: FetchLike | undefined;
+  /** Contabiliza os tokens gastos por chamada (usage.total_tokens). */
+  aoUsar?: ((tokens: number) => Promise<void> | void) | undefined;
 };
 
 function lerEnv(): ConfigGerador {
@@ -29,13 +31,15 @@ function lerEnv(): ConfigGerador {
  * caem sempre no fake — determinísticos e sem rede. Não há fallback silencioso do
  * real para o fake no meio de uma requisição: a escolha é feita uma vez, aqui.
  */
-export function criarGerador(config: ConfigGerador = lerEnv()): GeradorDeTexto {
-  const chave = config.LLM_API_KEY?.trim();
+export function criarGerador(config: ConfigGerador = {}): GeradorDeTexto {
+  const env = lerEnv();
+  const chave = (config.LLM_API_KEY ?? env.LLM_API_KEY)?.trim();
   if (!chave) return geradorFake;
   return geradorLLM({
     apiKey: chave,
-    baseUrl: config.LLM_BASE_URL ?? BASE_URL_PADRAO,
-    modelo: config.LLM_MODELO ?? MODELO_PADRAO,
+    baseUrl: config.LLM_BASE_URL ?? env.LLM_BASE_URL ?? BASE_URL_PADRAO,
+    modelo: config.LLM_MODELO ?? env.LLM_MODELO ?? MODELO_PADRAO,
     fetchImpl: config.fetchImpl,
+    aoUsar: config.aoUsar,
   });
 }

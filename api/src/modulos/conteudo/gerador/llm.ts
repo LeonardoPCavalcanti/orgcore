@@ -20,6 +20,8 @@ export type ConfigLLM = {
   modelo: string;
   fetchImpl?: FetchLike | undefined;
   timeoutMs?: number | undefined;
+  /** Chamado com os tokens gastos (usage.total_tokens) para contabilizar o consumo. */
+  aoUsar?: ((tokens: number) => Promise<void> | void) | undefined;
 };
 
 /** Falha de geração vira 503 com código próprio; o front mostra a mensagem. */
@@ -42,10 +44,13 @@ function prompt(tema: string, quantidadeSlides: number): { system: string; user:
   return { system, user };
 }
 
-function extrairConteudo(corpoBruto: string): unknown {
+async function extrairConteudo(corpoBruto: string, aoUsar?: ConfigLLM['aoUsar']): Promise<unknown> {
   const corpo = JSON.parse(corpoBruto) as {
     choices?: { message?: { content?: string } }[];
+    usage?: { total_tokens?: number };
   };
+  const tokens = corpo.usage?.total_tokens;
+  if (tokens != null) await aoUsar?.(tokens); // tokens foram gastos mesmo se o plano for inválido
   const conteudo = corpo.choices?.[0]?.message?.content;
   if (typeof conteudo !== 'string') throw indisponivel();
   return JSON.parse(conteudo);
@@ -70,7 +75,7 @@ async function chamarUmaVez(cfg: ConfigLLM, tema: string, quantidadeSlides: numb
     if (!resp.ok) throw indisponivel();
     // `planoCarrossel.parse` lança ZodError se a IA fugir do formato; tratamos como
     // indisponibilidade (a resposta veio, mas é inutilizável), nunca como slide cru.
-    return planoCarrossel.parse(extrairConteudo(await resp.text()));
+    return planoCarrossel.parse(await extrairConteudo(await resp.text(), cfg.aoUsar));
   } finally {
     clearTimeout(prazo);
   }

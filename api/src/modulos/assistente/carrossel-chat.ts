@@ -1,5 +1,6 @@
 import { criarGerador, type GeradorDeTexto } from '../conteudo/gerador';
 import { renderSlide } from '../conteudo/template/render';
+import { usoDb } from '../../core/llm/uso';
 
 /**
  * Geração de carrossel do Instagram por linguagem natural, dentro do chat. Reusa o
@@ -38,7 +39,8 @@ export async function gerarCarrosselNoChat(args: {
   mensagem: string;
   gerador?: GeradorDeTexto;
 }): Promise<CarrosselChat> {
-  const gerador = args.gerador ?? criarGerador();
+  // O carrossel usa o groq (8b) — contabiliza os tokens gastos no mesmo provedor.
+  const gerador = args.gerador ?? criarGerador({ aoUsar: (tokens) => usoDb.registrar('groq', { tokens }) });
   const plano = await gerador.gerar(args.mensagem, numeroDeSlides(args.mensagem));
   const buffers = await Promise.all(plano.slides.map((s) => renderSlide(s)));
   const imagens = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`);

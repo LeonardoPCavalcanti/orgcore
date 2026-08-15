@@ -30,4 +30,23 @@ describe('criarGerador', () => {
     expect(gerador).not.toBe(geradorFake);
     return expect(gerador.gerar('tema', 3)).resolves.toEqual(plano);
   });
+
+  it('contabiliza os tokens gastos via aoUsar (usage.total_tokens)', async () => {
+    const plano: PlanoCarrossel = {
+      legenda: 'l', hashtags: ['#c'],
+      slides: [
+        { tipo: 'capa', titulo: 'c', subtitulo: '' },
+        { tipo: 'conteudo', titulo: 'x', subtitulo: 'y' },
+        { tipo: 'cta', titulo: 'z', subtitulo: '' },
+      ],
+    };
+    const fetchFake: FetchLike = async (): Promise<RespostaHttp> => ({
+      ok: true, status: 200,
+      text: async () => JSON.stringify({ choices: [{ message: { content: JSON.stringify(plano) } }], usage: { total_tokens: 200 } }),
+    });
+    const registrados: number[] = [];
+    const gerador = criarGerador({ LLM_API_KEY: 'chave', fetchImpl: fetchFake, aoUsar: (t) => { registrados.push(t); } });
+    await gerador.gerar('tema', 3);
+    expect(registrados).toEqual([200]);
+  });
 });
