@@ -6,6 +6,7 @@ import type { ClienteLLM, Mensagem } from '../../core/llm';
 import { iaConversas, iaMensagens, type IaConversa, type IaMensagem } from './db/schema/assistente';
 import { extrairTexto } from './extrair-texto';
 import { detectarPedidoCarrossel, ehRefinamentoDeCarrossel, gerarCarrosselNoChat } from './carrossel-chat';
+import type { GeradorDeTexto } from '../conteudo/gerador';
 import { lerLinks } from './consumir-link';
 
 const SYSTEM =
@@ -119,6 +120,7 @@ export async function enviarMensagem(args: {
   usuarioId: string;
   dados: NovaMensagem;
   cliente: ClienteLLM | null;
+  gerador?: GeradorDeTexto; // injetável para teste; produção usa o padrão do catálogo
 }): Promise<{ mensagem: MensagemChat }> {
   const conversa = await conversaDoDono(args.conversaId, args.usuarioId);
   if (!args.cliente) {
@@ -175,8 +177,13 @@ export async function enviarMensagem(args: {
     if (base) temaCarrossel = `${base}\nAjuste pedido pelo usuário: ${args.dados.conteudo}`;
   }
   if (temaCarrossel) {
-    const carrossel = await gerarCarrosselNoChat({ mensagem: temaCarrossel });
-    return responder(carrossel.conteudo, carrossel.imagens, null);
+    try {
+      const carrossel = await gerarCarrosselNoChat({ mensagem: temaCarrossel, ...(args.gerador ? { gerador: args.gerador } : {}) });
+      return responder(carrossel.conteudo, carrossel.imagens, null);
+    } catch {
+      // Falha na geração (provedor instável, render) não pode quebrar a conversa.
+      return responder('Não consegui gerar o carrossel agora — o serviço de IA pode estar ocupado. Tente novamente em instantes.', [], null);
+    }
   }
 
   // Conversa normal: monta o histórico (system + toda a conversa até aqui) e chama o modelo.

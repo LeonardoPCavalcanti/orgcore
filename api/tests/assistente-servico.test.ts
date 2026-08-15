@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClienteLLM } from '../src/core/llm';
+import type { GeradorDeTexto } from '../src/modulos/conteudo/gerador';
 import { db } from '../src/core/db/client';
 import { usuarios } from '../src/core/db/schema/acesso';
 import {
@@ -102,6 +103,21 @@ describe('servico do assistente', () => {
     });
     expect(mensagem.imagens.length).toBeGreaterThan(0); // regenerou um carrossel
     expect(completar).not.toHaveBeenCalled();
+  }, 30_000);
+
+  it('falha na geração de carrossel vira mensagem coerente, não erro', async () => {
+    await semearDemonstracao();
+    const uid = await usuario('admin@conect2ai.com');
+    const conv = await criarConversa(uid);
+    const gerador: GeradorDeTexto = { gerar: async () => { throw new Error('provedor caiu'); } };
+    const { mensagem } = await enviarMensagem({
+      conversaId: conv.id, usuarioId: uid,
+      dados: { conteudo: 'faça um carrossel sobre o sono', imagens: [], documentos: [] },
+      cliente: clienteFake(), gerador,
+    });
+    expect(mensagem.papel).toBe('assistant');
+    expect(mensagem.imagens).toHaveLength(0);
+    expect(mensagem.conteudo).toContain('Não consegui gerar o carrossel');
   }, 30_000);
 
   it('renomeia a conversa', async () => {
