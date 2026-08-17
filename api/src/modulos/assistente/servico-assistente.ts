@@ -9,6 +9,7 @@ import { detectarPedidoCarrossel, ehRefinamentoDeCarrossel, gerarCarrosselNoChat
 import type { GeradorDeTexto } from '../conteudo/gerador';
 import { lerLinks } from './consumir-link';
 import { registrarConsumoUsuario } from './consumo-usuario';
+import { verificarOrcamentoIa } from './orcamento-ia';
 
 const SYSTEM =
   'Você é o assistente da intranet Conect2AI. Responda em português, de forma direta e útil.';
@@ -127,6 +128,10 @@ export async function enviarMensagem(args: {
   if (!args.cliente) {
     throw new ErroHttp(503, 'ia_indisponivel', 'Nenhum provedor de IA disponível no momento.');
   }
+
+  // Freio de custo ANTES de gravar a mensagem ou gastar IA: quem estourou o teto
+  // diário leva 429 e não deixa mensagem órfã nem queima cota (ver orcamento-ia.ts).
+  await verificarOrcamentoIa(args.usuarioId);
 
   // Contexto de referência: documentos anexados + links colados no texto. Documento com
   // formato inválido falha cedo (415); link inseguro/indisponível é apenas ignorado.

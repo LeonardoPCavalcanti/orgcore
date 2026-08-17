@@ -96,11 +96,21 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
 
   await sincronizarPermissoes(manifestos);
 
+  // Em produção, o segredo de cookie NÃO pode ser o default de desenvolvimento:
+  // ele assina os cookies (inclusive o de sessão), e um valor conhecido/publicado
+  // permitiria forjar sessões. Falha alto no boot em vez de subir um servidor
+  // público com segredo previsível. Fora de produção segue com o default, para o
+  // dev e os testes rodarem sem configurar nada.
+  const segredoCookie = process.env.COOKIE_SECRET?.trim();
+  if (process.env.NODE_ENV === 'production' && (!segredoCookie || segredoCookie === 'desenvolvimento')) {
+    throw new Error('COOKIE_SECRET ausente ou inseguro em producao: defina um segredo aleatorio e forte.');
+  }
+
   const app = Fastify({
     logger: { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization'] },
     genReqId: () => randomUUID(),
   });
-  await app.register(cookie, { secret: process.env.COOKIE_SECRET ?? 'desenvolvimento' });
+  await app.register(cookie, { secret: segredoCookie ?? 'desenvolvimento' });
 
   // CORS com allowlist FECHADA, e por um motivo de seguranca, nao de conveniencia:
   // o front manda `credentials: 'include'` (o cookie de sessao vai junto), e o
