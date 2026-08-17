@@ -25,3 +25,26 @@ export const consumoUsuario = z.object({
   tokens: z.number(),
 });
 export type ConsumoUsuario = z.infer<typeof consumoUsuario>;
+
+/** Um provedor do catálogo (id + nome), para o admin escolher no whitelist por cargo. */
+export const provedorCatalogo = z.object({
+  id: z.string(),
+  nome: z.string(),
+});
+export type ProvedorCatalogo = z.infer<typeof provedorCatalogo>;
+
+/** Estado das restrições de IA: catálogo + whitelist por cargo (só cargos restritos). */
+export const restricoesIa = z.object({
+  provedores: z.array(provedorCatalogo),
+  porCargo: z.array(z.object({
+    cargoId: z.string().uuid(),
+    provedores: z.array(z.string()),
+  })),
+});
+export type RestricoesIa = z.infer<typeof restricoesIa>;
+
+/** Define o whitelist de um cargo. Vazio ou catálogo inteiro = sem restrição. */
+export const entradaRestricaoCargo = z.object({
+  provedores: z.array(z.string()),
+});
+export type EntradaRestricaoCargo = z.infer<typeof entradaRestricaoCargo>;

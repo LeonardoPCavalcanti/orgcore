@@ -342,6 +342,23 @@ a { color: inherit; }
 .org-cargo-select:disabled { opacity: 0.6; cursor: progress; }
 .org-pessoa-erro { font-size: 0.76rem; color: var(--perigo); }
 
+.restricoes-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.restricao-linha {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-md);
+}
+.restricao-linha:hover { background: var(--superficie-2); }
+.restricao-cargo { display: inline-flex; align-items: center; gap: 8px; }
+.restricao-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.provedor-chip {
+  font-size: 0.76rem; font-weight: 600; padding: 4px 11px; border-radius: var(--r-full);
+  border: 1px solid var(--borda); background: var(--fundo-2); color: var(--texto-fraco);
+  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.provedor-chip:hover:not(:disabled) { border-color: color-mix(in srgb, var(--marca) 45%, transparent); }
+.provedor-chip--on { background: var(--marca-halo); color: var(--marca); border-color: transparent; }
+.provedor-chip:disabled { opacity: 0.55; cursor: progress; }
+
 /* ── Utilidades ──────────────────────────────────────────── */
 .pilha { display: flex; flex-direction: column; gap: 14px; }
 .linha { display: flex; align-items: center; gap: 10px; }

@@ -28,6 +28,14 @@ export const CATALOGO: Provedor[] = [
   { id: 'nvidia', nome: 'NVIDIA NIM', envChave: 'NVIDIA_API_KEY', baseUrl: 'https://integrate.api.nvidia.com/v1', modelo: 'meta/llama-3.3-70b-instruct', limiteDiario: 1000, leHeaders: false, visao: false },
 ];
 
+/** Ids de todos os provedores do catálogo (usados para validar whitelist por cargo). */
+export const IDS_CATALOGO: ReadonlySet<string> = new Set(CATALOGO.map((p) => p.id));
+
+/** Lista pública (id + nome) de todo o catálogo — inclui provedores sem chave, para o admin escolher. */
+export function catalogoPublico(): { id: string; nome: string }[] {
+  return CATALOGO.map((p) => ({ id: p.id, nome: p.nome }));
+}
+
 function chaveDe(p: Provedor, env: Record<string, string | undefined>): string | undefined {
   // Groq: compat com o LLM_API_KEY legado, além do GROQ_API_KEY.
   if (p.id === 'groq') return (env.GROQ_API_KEY ?? env.LLM_API_KEY)?.trim() || undefined;
