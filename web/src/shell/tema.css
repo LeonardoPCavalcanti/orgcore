@@ -328,6 +328,20 @@ a { color: inherit; }
 .arvore-linha:hover { background: var(--superficie-2); }
 .arvore-nome { font-weight: 500; }
 
+.org-pessoas { list-style: none; margin: 2px 0 4px; padding: 0 0 0 14px; }
+.org-pessoa {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 12px; border-radius: var(--r-md);
+}
+.org-pessoa:hover { background: var(--superficie-2); }
+.org-pessoa-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.org-pessoa-nome { font-size: 0.9rem; }
+.org-pessoa-email { font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; }
+.org-pessoa-cargo { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.org-cargo-select { width: auto; padding: 5px 10px; font-size: 0.85rem; }
+.org-cargo-select:disabled { opacity: 0.6; cursor: progress; }
+.org-pessoa-erro { font-size: 0.76rem; color: var(--perigo); }
+
 /* ── Utilidades ──────────────────────────────────────────── */
 .pilha { display: flex; flex-direction: column; gap: 14px; }
 .linha { display: flex; align-items: center; gap: 10px; }
