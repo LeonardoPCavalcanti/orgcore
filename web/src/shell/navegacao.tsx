@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ItemMenu } from '@4med/contracts';
+import { comBase } from './base';
 
 const svg = (filhos: ReactNode) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -35,7 +36,7 @@ export function Navegacao({ itens, caminhoAtual }: {
       {itens.map((item) => (
         <a
           key={item.caminho}
-          href={item.caminho}
+          href={comBase(item.caminho)}
           className="nav-item"
           aria-current={item.caminho === caminhoAtual ? 'page' : undefined}
         >

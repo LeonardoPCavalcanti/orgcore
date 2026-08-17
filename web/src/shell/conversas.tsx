@@ -1,6 +1,7 @@
 import type { ConversaResumo } from '@4med/contracts';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
+import { comBase } from './base';
 
 const idAtual = () => new URLSearchParams(window.location.search).get('c');
 
@@ -21,7 +22,7 @@ export function ConversasRecentes() {
     try {
       await apiFetch(`/assistente/conversas/${id}`, { method: 'DELETE' });
       setConversas((cs) => cs.filter((c) => c.id !== id));
-      if (ativo === id) window.location.assign('/');
+      if (ativo === id) window.location.assign(comBase('/'));
     } catch { /* silencioso: a lista continua como está */ }
   }
 
@@ -39,7 +40,7 @@ export function ConversasRecentes() {
 
   return (
     <div className="conversas">
-      <a href="/" className="conversas-nova">+ Nova conversa</a>
+      <a href={comBase('/')} className="conversas-nova">+ Nova conversa</a>
       {conversas.length > 0 && <div className="lateral-rotulo">Recentes</div>}
       <ul className="conversas-lista">
         {conversas.map((c) => (
@@ -53,7 +54,7 @@ export function ConversasRecentes() {
               />
             ) : (
               <>
-                <a href={`/assistente?c=${c.id}`} className="conversas-titulo">{c.titulo}</a>
+                <a href={comBase(`/assistente?c=${c.id}`)} className="conversas-titulo">{c.titulo}</a>
                 <span className="conversas-acoes">
                   <button type="button" aria-label={`Renomear ${c.titulo}`}
                     onClick={() => { setEditando(c.id); setRascunho(c.titulo); }}>✎</button>

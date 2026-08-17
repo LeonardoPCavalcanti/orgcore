@@ -40,6 +40,14 @@ function tokenCsrf(): string | null {
 const getEmVoo = new Map<string, Promise<unknown>>();
 
 export async function apiFetch<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+  // Modo demonstração (GitHub Pages, sem backend): as respostas vêm de dados de
+  // exemplo em vez da rede. Só entra sob o flag de build — o caminho normal segue
+  // idêntico fora dele.
+  if (import.meta.env.VITE_DEMO) {
+    const { respostaDemo } = await import('./demo/dados');
+    return respostaDemo<T>(caminho, init);
+  }
+
   const metodo = (init.method ?? 'GET').toUpperCase();
   const coalescivel = metodo === 'GET' && init.body == null;
   if (coalescivel) {

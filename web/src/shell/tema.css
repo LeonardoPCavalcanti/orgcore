@@ -359,6 +359,13 @@ a { color: inherit; }
 .provedor-chip--on { background: var(--marca-halo); color: var(--marca); border-color: transparent; }
 .provedor-chip:disabled { opacity: 0.55; cursor: progress; }
 
+.demo-faixa {
+  margin: 0 0 14px; padding: 9px 16px; border-radius: var(--r-md);
+  font-size: 0.82rem; font-weight: 500;
+  color: var(--marca); background: var(--marca-halo);
+  border: 1px solid color-mix(in srgb, var(--marca) 30%, transparent);
+}
+
 /* ── Utilidades ──────────────────────────────────────────── */
 .pilha { display: flex; flex-direction: column; gap: 14px; }
 .linha { display: flex; align-items: center; gap: 10px; }

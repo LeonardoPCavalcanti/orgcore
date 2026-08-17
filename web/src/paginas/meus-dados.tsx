@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { apiFetch } from '../api';
+import { comBase } from '../shell/base';
 import { AtivarMfa } from './ativar-mfa';
 
 type Vinculo = { unidade: string; cargo: string; inicio: string; fim: string | null; principal: boolean };
@@ -93,7 +94,7 @@ export function PaginaMeusDados() {
           </svg>
           Baixar meus dados
         </button>
-        <a className="botao botao--fantasma" href="/sessoes">Sessões ativas</a>
+        <a className="botao botao--fantasma" href={comBase('/sessoes')}>Sessões ativas</a>
       </div>
     </section>
   );

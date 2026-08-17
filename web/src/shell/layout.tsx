@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlternadorTema } from './alternador-tema';
+import { semBase } from './base';
 import { ConversasRecentes } from './conversas';
 import { Logo } from './logo';
 import { Navegacao } from './navegacao';
@@ -22,7 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         <ConversasRecentes />
         <div className="lateral-rotulo">Navegação</div>
-        <Navegacao itens={eu.menu} caminhoAtual={window.location.pathname} />
+        <Navegacao itens={eu.menu} caminhoAtual={semBase()} />
         <div className="lateral-rodape usuario">
           <div className="avatar" aria-hidden="true">{iniciais(eu.nome)}</div>
           <div style={{ minWidth: 0 }}>
@@ -50,6 +51,11 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+        {import.meta.env.VITE_DEMO && (
+          <div className="demo-faixa" role="note">
+            Demonstração visual — dados de exemplo, sem backend. As ações não são salvas.
+          </div>
+        )}
         <div className="pagina">{children}</div>
       </div>
     </div>

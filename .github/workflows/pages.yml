@@ -1,0 +1,56 @@
+name: Deploy demo (GitHub Pages)
+
+# Publica SÓ o front, em modo demonstração (dados de exemplo, sem backend), no
+# GitHub Pages. O bundle é minificado; o backend nunca vai para o navegador.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Um deploy por vez; não cancela um em andamento.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build do front (demo)
+    runs-on: ubuntu-latest
+    env:
+      # Subcaminho do Pages de projeto: https://<usuario>.github.io/orgcore/
+      VITE_BASE: /orgcore/
+      # Liga os dados de exemplo — sem isto o front tentaria falar com um backend.
+      VITE_DEMO: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @4med/web build
+      # Fallback de SPA: o Pages devolve 404.html em caminhos desconhecidos; sendo
+      # uma cópia do index, o app carrega e o roteador escolhe a tela pelo caminho.
+      - run: cp web/dist/index.html web/dist/404.html
+      # Impede o Jekyll de reprocessar o build (ex.: pastas com underscore).
+      - run: touch web/dist/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    name: publicar
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

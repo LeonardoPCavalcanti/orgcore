@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Subcaminho do deploy. Em dev/prod normal é '/'; no GitHub Pages de projeto o
+  // build passa VITE_BASE=/orgcore/ para os assets e as âncoras resolverem certo.
+  base: process.env.VITE_BASE || '/',
   plugins: [react()],
   test: {
     environment: 'jsdom',

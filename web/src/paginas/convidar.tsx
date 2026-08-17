@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch, ErroApi } from '../api';
+import { comBase } from '../shell/base';
 
 type UnidadeOpcao = { id: number; nome: string };
 type CargoOpcao = { id: string; nome: string };
@@ -10,7 +11,7 @@ type CargoOpcao = { id: string; nome: string };
  * senha — a mesma origem do front, no caminho público de aceite.
  */
 function linkDeAceite(token: string): string {
-  return `${window.location.origin}/aceitar-convite?token=${encodeURIComponent(token)}`;
+  return `${window.location.origin}${comBase('/aceitar-convite')}?token=${encodeURIComponent(token)}`;
 }
 
 export function PaginaConvidar() {
