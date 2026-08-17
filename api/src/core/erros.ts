@@ -64,6 +64,18 @@ export const segundoFatorBloqueado = () =>
   );
 
 /**
+ * Rate limit de rajada por IP (ver core/rate-limit.ts). 429 genérico: a decisão
+ * do front é só aguardar e tentar de novo. Não distingue login de geral de
+ * propósito — não vale contar a quem bate na porta quanto do teto ele já gastou.
+ */
+export const muitasRequisicoes = () =>
+  new ErroHttp(
+    429,
+    'muitas_requisicoes',
+    'Muitas requisições em pouco tempo. Aguarde um instante e tente novamente.',
+  );
+
+/**
  * Entrada de delegação que nunca poderia virar uma linha: fim antes do início,
  * delegação para si mesmo, data malformada, motivo em branco. 422 (e não 404)
  * de propósito: nada aqui depende de existir ou não um registro do outro lado,

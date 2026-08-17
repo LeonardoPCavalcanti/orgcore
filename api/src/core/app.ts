@@ -6,10 +6,11 @@ import { ZodError } from 'zod';
 import { registrarAuditoria } from './auditoria/registro';
 import { validarSessao } from './auth/sessoes';
 import {
-  csrfInvalido, ErroHttp, mfaPendenteErro, naoAutenticado, naoEncontrado,
+  csrfInvalido, ErroHttp, mfaPendenteErro, muitasRequisicoes, naoAutenticado, naoEncontrado,
 } from './erros';
 import { sincronizarPermissoes, validarManifestos } from './modulos/registro';
 import type { ManifestoModulo } from './modulos/tipos';
+import { excedeu } from './rate-limit';
 import { resolverContexto } from './rbac/contexto';
 import { criarRepositorio } from './rbac/repositorio';
 
@@ -174,6 +175,19 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
         // seguem o padrão de 1MB do Fastify. `undefined` deixa o default intacto.
         ...(rota.bodyLimit !== undefined ? { bodyLimit: rota.bodyLimit } : {}),
         preHandler: async (req) => {
+          // Rate limit ANTES de qualquer coisa (inclusive rotas públicas): é o
+          // freio de rajada/força-bruta, e vale mesmo para o login (público). Os
+          // tetos são opt-in por env — 0/ausente = desligado, no-op. O teto de
+          // login é por IP e mais apertado (anti brute force da senha); o geral
+          // cobre enxurrada de requisições. O orçamento de IA (custo por usuário/
+          // dia) é uma camada separada, em orcamento-ia.ts.
+          const limiteGeral = Number(process.env.RATE_LIMIT_GERAL_POR_MIN) || 0;
+          if (excedeu(`geral:${req.ip}`, limiteGeral, 60_000)) throw muitasRequisicoes();
+          if (rota.caminho === '/auth/login') {
+            const limiteLogin = Number(process.env.RATE_LIMIT_LOGIN_POR_MIN) || 0;
+            if (excedeu(`login:${req.ip}`, limiteLogin, 60_000)) throw muitasRequisicoes();
+          }
+
           if (rota.publica === true) return;
 
           const token = req.cookies[COOKIE_SESSAO];
