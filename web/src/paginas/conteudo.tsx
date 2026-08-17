@@ -1,8 +1,14 @@
-import type { CarrosselResposta, CarrosselResumo } from '@4med/contracts';
+import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel } from '@4med/contracts';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 
 const OPCOES_SLIDES = [3, 4, 5, 6, 7, 8, 9, 10];
+
+const ESTILOS: { id: EstiloCarrossel; nome: string; descricao: string }[] = [
+  { id: 'editorial', nome: 'Editorial', descricao: 'Sério, "revista"' },
+  { id: 'minimalista', nome: 'Minimalista', descricao: 'Muito respiro, tipografia grande' },
+  { id: 'bold', nome: 'Bold', descricao: 'Gradiente vibrante, número em destaque' },
+];
 
 export function PaginaConteudo() {
   const [lista, setLista] = useState<CarrosselResumo[]>([]);
@@ -11,6 +17,7 @@ export function PaginaConteudo() {
 
   const [tema, setTema] = useState('');
   const [quantidadeSlides, setQuantidadeSlides] = useState(7);
+  const [estilo, setEstilo] = useState<EstiloCarrossel>('editorial');
   const [gerando, setGerando] = useState(false);
 
   const [atual, setAtual] = useState<CarrosselResposta | null>(null);
@@ -40,7 +47,7 @@ export function PaginaConteudo() {
     try {
       const carrossel = await apiFetch<CarrosselResposta>('/conteudo/carrosseis', {
         method: 'POST',
-        body: JSON.stringify({ tema, quantidadeSlides }),
+        body: JSON.stringify({ tema, quantidadeSlides, estilo }),
       });
       mostrar(carrossel);
       setTema('');
@@ -123,6 +130,24 @@ export function PaginaConteudo() {
               <textarea className="entrada" id="tema" value={tema} required rows={3}
                 placeholder="Ex.: benefícios de edge AI em veículos conectados"
                 onChange={(e) => setTema(e.target.value)} />
+            </div>
+            <div className="campo">
+              <span className="rotulo-campo">Estilo visual</span>
+              <div className="estilos-grade">
+                {ESTILOS.map((op) => (
+                  <button
+                    key={op.id}
+                    type="button"
+                    className={`estilo-cartao${estilo === op.id ? ' estilo-cartao--ativo' : ''}`}
+                    aria-pressed={estilo === op.id}
+                    onClick={() => setEstilo(op.id)}
+                  >
+                    <span className={`estilo-amostra estilo-amostra--${op.id}`} aria-hidden="true" />
+                    <span className="estilo-nome">{op.nome}</span>
+                    <span className="estilo-descricao texto-fraco">{op.descricao}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="linha" style={{ gap: 12, alignItems: 'flex-end' }}>
               <div className="campo" style={{ flex: '0 0 180px' }}>

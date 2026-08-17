@@ -50,7 +50,7 @@ describe('PaginaConteudo', () => {
     await waitFor(() => {
       expect(apiFetchMock).toHaveBeenCalledWith('/conteudo/carrosseis', expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ tema: 'Edge AI', quantidadeSlides: 7 }),
+        body: JSON.stringify({ tema: 'Edge AI', quantidadeSlides: 7, estilo: 'editorial' }),
       }));
     });
 
