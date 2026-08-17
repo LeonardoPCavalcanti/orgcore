@@ -1,4 +1,4 @@
-import { cores, el, marca, numeroPagina, rodape, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -58,6 +58,7 @@ export const editorial: Template = {
   id: 'editorial',
   nome: 'Editorial',
   montarSlide(slide, ctx) {
+    if (ctx.foto) return slideComFoto(slide, ctx, cores.ciano);
     return slide.tipo === 'conteudo' ? painelClaro(slide, ctx) : painelTinta(slide, ctx);
   },
 };

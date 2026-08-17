@@ -1,6 +1,7 @@
 import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel } from '@4med/contracts';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
+import { lerComoDataUri } from '../imagem/arquivo';
 
 const OPCOES_SLIDES = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -18,7 +19,14 @@ export function PaginaConteudo() {
   const [tema, setTema] = useState('');
   const [quantidadeSlides, setQuantidadeSlides] = useState(7);
   const [estilo, setEstilo] = useState<EstiloCarrossel>('editorial');
+  const [fotoCapa, setFotoCapa] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
+
+  async function escolherFoto(e: ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (arquivo) setFotoCapa(await lerComoDataUri(arquivo));
+    e.target.value = '';
+  }
 
   const [atual, setAtual] = useState<CarrosselResposta | null>(null);
   const [indice, setIndice] = useState(0);
@@ -47,10 +55,14 @@ export function PaginaConteudo() {
     try {
       const carrossel = await apiFetch<CarrosselResposta>('/conteudo/carrosseis', {
         method: 'POST',
-        body: JSON.stringify({ tema, quantidadeSlides, estilo }),
+        body: JSON.stringify({
+          tema, quantidadeSlides, estilo,
+          ...(fotoCapa ? { fotos: [{ indice: 0, dataUri: fotoCapa }] } : {}),
+        }),
       });
       mostrar(carrossel);
       setTema('');
+      setFotoCapa(null);
       carregar();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível gerar o carrossel');
@@ -148,6 +160,25 @@ export function PaginaConteudo() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="campo">
+              <span className="rotulo-campo">Foto de capa (opcional)</span>
+              {fotoCapa ? (
+                <div className="foto-capa">
+                  <img src={fotoCapa} alt="Prévia da foto de capa" className="foto-capa-previa" />
+                  <button type="button" className="botao botao--fantasma" onClick={() => setFotoCapa(null)}>
+                    Remover foto
+                  </button>
+                </div>
+              ) : (
+                <label className="foto-capa-upload">
+                  <input type="file" accept="image/*" onChange={escolherFoto} hidden />
+                  <span>+ Adicionar foto</span>
+                  <span className="texto-fraco" style={{ fontSize: '0.76rem' }}>
+                    Vira a capa, com o texto por cima
+                  </span>
+                </label>
+              )}
             </div>
             <div className="linha" style={{ gap: 12, alignItems: 'flex-end' }}>
               <div className="campo" style={{ flex: '0 0 180px' }}>

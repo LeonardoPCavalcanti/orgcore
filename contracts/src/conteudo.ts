@@ -9,11 +9,22 @@ import { z } from 'zod';
 export const estiloCarrossel = z.enum(['editorial', 'minimalista', 'bold']);
 export type EstiloCarrossel = z.infer<typeof estiloCarrossel>;
 
+/** Foto anexada a um slide (por índice), como data URI base64. Opcional. */
+export const fotoDeSlide = z.object({
+  indice: z.number().int().min(0),
+  dataUri: z.string().startsWith('data:image/'),
+});
+export type FotoDeSlide = z.infer<typeof fotoDeSlide>;
+
 export const novoCarrossel = z.object({
   tema: z.string().trim().min(3).max(500),
   quantidadeSlides: z.number().int().min(3).max(10).default(7),
   // Escolha de APRESENTAÇÃO — o mesmo conteúdo renderiza em qualquer estilo.
   estilo: estiloCarrossel.default('editorial'),
+  // Fotos que o usuário anexa a slides específicos (ex.: uma foto de capa). O
+  // servidor as trata (realce + remoção de fundo, quando ligados) e compõe como
+  // hero do slide, com um scrim e o texto por cima.
+  fotos: z.array(fotoDeSlide).max(10).optional(),
 });
 
 export type NovoCarrossel = z.infer<typeof novoCarrossel>;

@@ -1,11 +1,26 @@
 import { randomUUID } from 'node:crypto';
-import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, SlideResposta } from '@4med/contracts';
+import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, FotoDeSlide, SlideResposta } from '@4med/contracts';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../../core/db/client';
+import { ErroHttp } from '../../core/erros';
+import { melhoradorPassthrough, type MelhoradorDeFoto } from './anuncio/template/melhorador';
+import { paraDataUri, removedorPassthrough, type RemovedorDeFundo } from './anuncio/template/silhueta';
 import type { GeradorDeTexto } from './gerador/tipos';
 import { carrosseis, slides } from './db/schema/conteudo';
+import type { FotoSlide } from './template/base';
 import { renderSlide } from './template/render';
 import { TEMPLATE_C2AI } from './template/tema-c2ai';
+
+// Teto por foto (bytes já decodificados), no mesmo espírito do anúncio. A rota
+// também tem `bodyLimit`; este é o limite por-foto.
+const MAX_FOTO_BYTES = 6 * 1024 * 1024;
+function bytesDeDataUri(uri: string): Buffer {
+  const m = /^data:([^;]+);base64,(.+)$/s.exec(uri);
+  if (!m) throw new ErroHttp(422, 'foto_invalida', 'Foto em formato inválido.');
+  const bytes = Buffer.from(m[2]!, 'base64');
+  if (bytes.length > MAX_FOTO_BYTES) throw new ErroHttp(422, 'foto_grande', 'Foto acima do tamanho permitido.');
+  return bytes;
+}
 
 const urlDaImagem = (slideId: string) => `/conteudo/slides/${slideId}/imagem`;
 
@@ -34,7 +49,25 @@ export type EntradaCriar = {
   autorId: string;
   unidadeId: number;
   gerador: GeradorDeTexto;
+  // Fotos por índice de slide (opcional) + os seams de tratamento (padrão passthrough).
+  fotos?: FotoDeSlide[];
+  melhorador?: MelhoradorDeFoto;
+  removedor?: RemovedorDeFundo;
 };
+
+/** Trata as fotos (realce → remoção de fundo) e as indexa por slide. Fora de faixa é ignorado. */
+async function prepararFotos(entrada: EntradaCriar, total: number): Promise<Map<number, FotoSlide>> {
+  const melhorador = entrada.melhorador ?? melhoradorPassthrough;
+  const removedor = entrada.removedor ?? removedorPassthrough;
+  const porIndice = new Map<number, FotoSlide>();
+  for (const f of entrada.fotos ?? []) {
+    if (f.indice >= total) continue;
+    const { png: melhorada } = await melhorador.melhorar(bytesDeDataUri(f.dataUri));
+    const { png, recortado } = await removedor.remover(melhorada);
+    porIndice.set(f.indice, { dataUri: paraDataUri(png), recortada: recortado });
+  }
+  return porIndice;
+}
 
 /**
  * Gera o roteiro (gerador fake ou LLM), compõe cada slide como PNG e grava tudo.
@@ -45,8 +78,12 @@ export type EntradaCriar = {
 export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselResposta> {
   const plano = await entrada.gerador.gerar(entrada.tema, entrada.quantidadeSlides);
   const total = plano.slides.length;
+  const fotos = await prepararFotos(entrada, total);
   const imagens = await Promise.all(
-    plano.slides.map((s, i) => renderSlide(s, entrada.estilo, { indice: i, total })),
+    plano.slides.map((s, i) => {
+      const foto = fotos.get(i);
+      return renderSlide(s, entrada.estilo, { indice: i, total, ...(foto ? { foto } : {}) });
+    }),
   );
 
   const carrosselId = randomUUID();

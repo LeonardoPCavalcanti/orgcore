@@ -18,8 +18,11 @@ import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, LADO, trianguloA } from './te
  */
 export type SlideRico = SlidePlanejado;
 
-/** Posição do slide no carrossel, para número de página e afins. */
-export type ContextoSlide = { indice: number; total: number };
+/** Foto já tratada (realce + remoção de fundo quando ligados), pronta para compor. */
+export type FotoSlide = { dataUri: string; recortada: boolean };
+
+/** Posição do slide no carrossel + foto opcional anexada a ele. */
+export type ContextoSlide = { indice: number; total: number; foto?: FotoSlide };
 
 export type Estilo = Record<string, unknown>;
 export type Elemento = { type: string; props: { style: Estilo; children?: unknown } };
@@ -74,6 +77,47 @@ const fontes = [
   { name: FONTE_CORPO, data: readFileSync(join(dirFontes, 'Inter-600.ttf')), weight: 600 as const, style: 'normal' as const },
   { name: FONTE_TITULO, data: readFileSync(join(dirFontes, 'SpaceGrotesk-700.ttf')), weight: 700 as const, style: 'normal' as const },
 ];
+
+/**
+ * Composição compartilhada para um slide COM foto (hero): a foto preenche o slide
+ * (cover), um scrim escuro de baixo pra cima garante leitura, e o texto + marca
+ * ficam por cima — no espírito das referências (foto + texto sobreposto). Cada
+ * estilo chama isto passando seu `accent`, então a marca do estilo continua
+ * presente mesmo na versão com foto. `ctx.foto` precisa existir.
+ */
+export function slideComFoto(slide: SlideRico, ctx: ContextoSlide, accent: string): Elemento {
+  const foto = ctx.foto!;
+  const corpo = slide.corpo ?? slide.subtitulo;
+  const bloco: Elemento[] = [
+    el('div', { width: 96, height: 10, borderRadius: 999, backgroundColor: accent, display: 'flex' }),
+    el('div', {
+      fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: slide.tipo === 'capa' ? 92 : 76,
+      lineHeight: 1.05, color: cores.branco, display: 'flex',
+    }, slide.titulo),
+  ];
+  if (corpo) {
+    bloco.push(el('div', { fontSize: 38, color: 'rgba(255,255,255,0.9)', lineHeight: 1.3, display: 'flex' }, corpo));
+  }
+
+  return el('div', {
+    width: LADO, height: LADO, display: 'flex', position: 'relative',
+    backgroundColor: cores.tinta, fontFamily: FONTE_CORPO,
+    backgroundImage: `url(${foto.dataUri})`, backgroundSize: 'cover', backgroundPosition: 'center',
+  }, [
+    el('div', {
+      position: 'absolute', top: 0, left: 0, width: LADO, height: LADO, display: 'flex',
+      backgroundImage: 'linear-gradient(to top, rgba(10,15,20,0.92) 0%, rgba(10,15,20,0.4) 46%, rgba(10,15,20,0.06) 100%)',
+    }),
+    el('div', {
+      position: 'relative', width: LADO, height: LADO, display: 'flex', flexDirection: 'column',
+      justifyContent: 'space-between', padding: 96, color: cores.branco,
+    }, [
+      marca(cores.branco),
+      el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, bloco),
+      rodape('rgba(255,255,255,0.82)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
+    ]),
+  ]);
+}
 
 /** Rasteriza uma árvore de slide: satori (→ SVG) e resvg (→ PNG 1080×1080). */
 export async function rasterizar(arvore: Elemento): Promise<Buffer> {

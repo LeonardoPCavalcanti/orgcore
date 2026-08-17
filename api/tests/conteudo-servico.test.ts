@@ -30,6 +30,30 @@ const criar = (
   criarCarrossel({ tema, quantidadeSlides: n, estilo, autorId: a.id, unidadeId: a.unidadeId, gerador: geradorFake });
 
 describe('servico de conteudo', () => {
+  it('aceita uma foto de capa e compoe o carrossel', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const resp = await criarCarrossel({
+      tema: 'Com foto', quantidadeSlides: 4, estilo: 'editorial',
+      autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorFake,
+      fotos: [{ indice: 0, dataUri: foto }],
+    });
+    expect(resp.slides).toHaveLength(4);
+    const bytes = await imagemDoSlide(resp.slides[0]!.id, ana.id);
+    expect(bytes?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  });
+
+  it('recusa foto em formato invalido (422)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    await expect(criarCarrossel({
+      tema: 'Foto ruim', quantidadeSlides: 3, estilo: 'bold',
+      autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorFake,
+      fotos: [{ indice: 0, dataUri: 'data:image/png,sem-parte-base64' }],
+    })).rejects.toMatchObject({ status: 422, codigo: 'foto_invalida' });
+  });
+
   it('guarda o estilo escolhido e o devolve na leitura', async () => {
     await semearDemonstracao();
     const ana = await autor('aluno@conect2ai.com');
