@@ -27,4 +27,25 @@ describe('renderSlide', () => {
     expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
   });
+
+  it('estilo desconhecido cai no padrao (nao quebra)', async () => {
+    const png = await renderSlide({ tipo: 'capa', titulo: 'Oi', subtitulo: 'Sub' }, 'inexistente');
+    expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
+  });
+});
+
+describe('estilos de carrossel', () => {
+  const slideCapa = { tipo: 'capa' as const, titulo: 'Edge AI', subtitulo: 'Guia', destaque: '18%' };
+  const slideConteudo = { tipo: 'conteudo' as const, titulo: 'O que e', subtitulo: 'Sub', corpo: 'Inferencia no proprio dispositivo, sem nuvem.' };
+
+  for (const estilo of ['editorial', 'minimalista', 'bold'] as const) {
+    it(`${estilo}: capa e conteudo saem como PNG 1080x1080`, async () => {
+      const capa = await renderSlide(slideCapa, estilo, { indice: 0, total: 7 });
+      const conteudo = await renderSlide(slideConteudo, estilo, { indice: 1, total: 7 });
+      for (const png of [capa, conteudo]) {
+        expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
+        expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
+      }
+    });
+  }
 });

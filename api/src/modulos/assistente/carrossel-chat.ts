@@ -46,7 +46,11 @@ export async function gerarCarrosselNoChat(args: {
     aoUsar: (t) => { tokensGastos += t; return usoDb.registrar('groq', { tokens: t }); },
   });
   const plano = await gerador.gerar(args.mensagem, numeroDeSlides(args.mensagem));
-  const buffers = await Promise.all(plano.slides.map((s) => renderSlide(s)));
+  // No chat o estilo padrão (editorial) é usado; a escolha de estilo vive na página de Conteúdo.
+  const total = plano.slides.length;
+  const buffers = await Promise.all(
+    plano.slides.map((s, i) => renderSlide(s, undefined, { indice: i, total })),
+  );
   const imagens = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`);
   const tags = plano.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ');
   const conteudo = [

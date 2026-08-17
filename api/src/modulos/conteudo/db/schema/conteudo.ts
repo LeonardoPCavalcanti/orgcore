@@ -20,6 +20,9 @@ export const carrosseis = pgTable('carrosseis', {
   legenda: text('legenda').notNull(),
   hashtags: text('hashtags').array().notNull().default([]),
   template: text('template').notNull(),
+  // Estilo visual escolhido (editorial|minimalista|bold). Apresentação, não
+  // conteúdo — o mesmo carrossel pode ser re-renderizado em outro estilo.
+  estilo: text('estilo').notNull().default('editorial'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -30,6 +33,10 @@ export const slides = pgTable('slides', {
   tipo: text('tipo').notNull(),
   titulo: text('titulo').notNull(),
   subtitulo: text('subtitulo').notNull(),
+  // Conteúdo mais rico, opcional: corpo do slide e um destaque em evidência.
+  // Persistidos para permitir re-render em outro estilo depois.
+  corpo: text('corpo'),
+  destaque: text('destaque'),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
 });

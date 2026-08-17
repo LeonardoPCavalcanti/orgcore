@@ -126,6 +126,7 @@ export async function semearCarrosselDemo(): Promise<void> {
   await criarCarrossel({
     tema: 'Edge AI em veículos conectados',
     quantidadeSlides: 6,
+    estilo: 'editorial',
     autorId: analista.id,
     unidadeId: vinculo.unidadeId,
     gerador: geradorFake,

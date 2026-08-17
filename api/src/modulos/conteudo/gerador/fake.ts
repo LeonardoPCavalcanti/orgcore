@@ -28,6 +28,8 @@ export const geradorFake: GeradorDeTexto = {
         tipo: 'conteudo',
         titulo: `Ponto ${i}`,
         subtitulo: `O que saber sobre ${temaLimpo} — parte ${i}.`,
+        corpo: `${temaLimpo}: aspecto ${i} explicado em uma frase direta e útil para quem acompanha a Conect2AI.`,
+        destaque: `0${i}`,
       });
     }
     slides.push({

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CarrosselResposta, CarrosselResumo, SlideResposta } from '@4med/contracts';
+import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, SlideResposta } from '@4med/contracts';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../../core/db/client';
 import type { GeradorDeTexto } from './gerador/tipos';
@@ -9,7 +9,10 @@ import { TEMPLATE_C2AI } from './template/tema-c2ai';
 
 const urlDaImagem = (slideId: string) => `/conteudo/slides/${slideId}/imagem`;
 
-type LinhaSlide = { id: string; ordem: number; tipo: string; titulo: string; subtitulo: string };
+type LinhaSlide = {
+  id: string; ordem: number; tipo: string; titulo: string; subtitulo: string;
+  corpo?: string | null; destaque?: string | null;
+};
 
 function slideResposta(s: LinhaSlide): SlideResposta {
   return {
@@ -18,6 +21,8 @@ function slideResposta(s: LinhaSlide): SlideResposta {
     tipo: s.tipo as SlideResposta['tipo'],
     titulo: s.titulo,
     subtitulo: s.subtitulo,
+    ...(s.corpo ? { corpo: s.corpo } : {}),
+    ...(s.destaque ? { destaque: s.destaque } : {}),
     imagemUrl: urlDaImagem(s.id),
   };
 }
@@ -25,6 +30,7 @@ function slideResposta(s: LinhaSlide): SlideResposta {
 export type EntradaCriar = {
   tema: string;
   quantidadeSlides: number;
+  estilo: EstiloCarrossel;
   autorId: string;
   unidadeId: number;
   gerador: GeradorDeTexto;
@@ -38,7 +44,10 @@ export type EntradaCriar = {
  */
 export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselResposta> {
   const plano = await entrada.gerador.gerar(entrada.tema, entrada.quantidadeSlides);
-  const imagens = await Promise.all(plano.slides.map((s) => renderSlide(s)));
+  const total = plano.slides.length;
+  const imagens = await Promise.all(
+    plano.slides.map((s, i) => renderSlide(s, entrada.estilo, { indice: i, total })),
+  );
 
   const carrosselId = randomUUID();
   const linhasSlides = plano.slides.map((s, i) => ({
@@ -48,6 +57,8 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
     tipo: s.tipo,
     titulo: s.titulo,
     subtitulo: s.subtitulo,
+    corpo: s.corpo ?? null,
+    destaque: s.destaque ?? null,
     imagem: imagens[i]!,
     imagemTipo: 'image/png',
   }));
@@ -61,6 +72,7 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
       legenda: plano.legenda,
       hashtags: plano.hashtags,
       template: TEMPLATE_C2AI,
+      estilo: entrada.estilo,
     }).returning({ criadoEm: carrosseis.criadoEm });
     await tx.insert(slides).values(linhasSlides);
     return linha;
@@ -69,6 +81,7 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
   return {
     id: carrosselId,
     tema: entrada.tema,
+    estilo: entrada.estilo,
     criadoEm: criado!.criadoEm.toISOString(),
     legenda: plano.legenda,
     hashtags: plano.hashtags,
@@ -79,9 +92,11 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
 /** Só os carrosséis do próprio autor, mais novos primeiro; resumo sem slides. */
 export async function listarCarrosseis(autorId: string): Promise<CarrosselResumo[]> {
   const linhas = await db.select({
-    id: carrosseis.id, tema: carrosseis.tema, criadoEm: carrosseis.criadoEm,
+    id: carrosseis.id, tema: carrosseis.tema, estilo: carrosseis.estilo, criadoEm: carrosseis.criadoEm,
   }).from(carrosseis).where(eq(carrosseis.autorId, autorId)).orderBy(desc(carrosseis.criadoEm));
-  return linhas.map((l) => ({ id: l.id, tema: l.tema, criadoEm: l.criadoEm.toISOString() }));
+  return linhas.map((l) => ({
+    id: l.id, tema: l.tema, estilo: l.estilo as EstiloCarrossel, criadoEm: l.criadoEm.toISOString(),
+  }));
 }
 
 /** Carrossel completo, mas só se for do autor. Fora do escopo → null (a rota faz 404). */
@@ -93,11 +108,13 @@ export async function obterCarrossel(id: string, autorId: string): Promise<Carro
   const linhas = await db.select({
     id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
     titulo: slides.titulo, subtitulo: slides.subtitulo,
+    corpo: slides.corpo, destaque: slides.destaque,
   }).from(slides).where(eq(slides.carrosselId, id)).orderBy(asc(slides.ordem));
 
   return {
     id: carrossel.id,
     tema: carrossel.tema,
+    estilo: carrossel.estilo as EstiloCarrossel,
     criadoEm: carrossel.criadoEm.toISOString(),
     legenda: carrossel.legenda,
     hashtags: carrossel.hashtags,

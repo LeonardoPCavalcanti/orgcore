@@ -37,10 +37,14 @@ function prompt(tema: string, quantidadeSlides: number): { system: string; user:
     'Responda SOMENTE com um objeto JSON com as chaves:',
     '"legenda" (string), "hashtags" (array de strings começando com #) e',
     '"slides" (array). Cada slide tem "tipo" ("capa" | "conteudo" | "cta"),',
-    '"titulo" (string) e "subtitulo" (string). O primeiro slide é "capa",',
+    '"titulo" (string curta e forte, um gancho) e "subtitulo" (string curta).',
+    'Slides de "conteudo" devem trazer também "corpo": 1 a 2 frases que explicam',
+    'o ponto de verdade (o conteúdo real do slide, não uma repetição do título).',
+    'Quando houver um número/estatística marcante, coloque-o em "destaque"',
+    '(ex.: "18%", "3x", "24h") — curto, só o dado. O primeiro slide é "capa",',
     'o último é "cta", os do meio são "conteudo".',
   ].join(' ');
-  const user = `Tema: ${tema}. Gere exatamente ${quantidadeSlides} slides.`;
+  const user = `Tema: ${tema}. Gere exatamente ${quantidadeSlides} slides, com "corpo" nos slides de conteudo.`;
   return { system, user };
 }
 

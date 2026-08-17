@@ -5,9 +5,15 @@ import { z } from 'zod';
  * slides tem padrão 7 e teto 10 (limite de um carrossel do Instagram, útil já para
  * a fatia de publicação). A geração do roteiro em si mora no gerador (fake ou LLM).
  */
+/** Estilos visuais do carrossel (todos com a marca C2AI). Ver template/catalogo.ts. */
+export const estiloCarrossel = z.enum(['editorial', 'minimalista', 'bold']);
+export type EstiloCarrossel = z.infer<typeof estiloCarrossel>;
+
 export const novoCarrossel = z.object({
   tema: z.string().trim().min(3).max(500),
   quantidadeSlides: z.number().int().min(3).max(10).default(7),
+  // Escolha de APRESENTAÇÃO — o mesmo conteúdo renderiza em qualquer estilo.
+  estilo: estiloCarrossel.default('editorial'),
 });
 
 export type NovoCarrossel = z.infer<typeof novoCarrossel>;
@@ -27,6 +33,10 @@ export const planoCarrossel = z.object({
     tipo: tipoSlide,
     titulo: z.string().min(1),
     subtitulo: z.string(),
+    // Conteúdo mais rico (opcional, retrocompatível): `corpo` é o texto do slide;
+    // `destaque` é um número/palavra em evidência (usado sobretudo pelo estilo bold).
+    corpo: z.string().optional(),
+    destaque: z.string().optional(),
   })).min(3).max(10),
 });
 
@@ -43,6 +53,8 @@ export const slideResposta = z.object({
   tipo: tipoSlide,
   titulo: z.string(),
   subtitulo: z.string(),
+  corpo: z.string().optional(),
+  destaque: z.string().optional(),
   imagemUrl: z.string(),
 });
 
@@ -52,6 +64,7 @@ export type SlideResposta = z.infer<typeof slideResposta>;
 export const carrosselResumo = z.object({
   id: z.string().uuid(),
   tema: z.string(),
+  estilo: estiloCarrossel.default('editorial'),
   criadoEm: z.string(),
 });
 

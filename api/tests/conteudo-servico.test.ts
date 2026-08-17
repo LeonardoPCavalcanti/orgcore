@@ -23,10 +23,24 @@ async function autor(email: string): Promise<{ id: string; unidadeId: number }> 
   return { id: u.id, unidadeId: v.unidadeId };
 }
 
-const criar = (a: { id: string; unidadeId: number }, tema = 'Edge AI em veiculos', n = 5) =>
-  criarCarrossel({ tema, quantidadeSlides: n, autorId: a.id, unidadeId: a.unidadeId, gerador: geradorFake });
+const criar = (
+  a: { id: string; unidadeId: number }, tema = 'Edge AI em veiculos', n = 5,
+  estilo: 'editorial' | 'minimalista' | 'bold' = 'editorial',
+) =>
+  criarCarrossel({ tema, quantidadeSlides: n, estilo, autorId: a.id, unidadeId: a.unidadeId, gerador: geradorFake });
 
 describe('servico de conteudo', () => {
+  it('guarda o estilo escolhido e o devolve na leitura', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const criado = await criar(ana, 'Telemetria', 4, 'bold');
+    expect(criado.estilo).toBe('bold');
+    const lido = await obterCarrossel(criado.id, ana.id);
+    expect(lido?.estilo).toBe('bold');
+    const [resumo] = await listarCarrosseis(ana.id);
+    expect(resumo?.estilo).toBe('bold');
+  });
+
   it('cria um carrossel com N slides escopados ao autor', async () => {
     await semearDemonstracao();
     const ana = await autor('aluno@conect2ai.com');

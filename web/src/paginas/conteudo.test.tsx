@@ -12,7 +12,7 @@ vi.mock('../api', async () => {
 const apiFetchMock = vi.mocked(apiFetch);
 
 const carrossel: CarrosselResposta = {
-  id: 'c1', tema: 'Edge AI', criadoEm: '2026-08-12T10:00:00Z',
+  id: 'c1', tema: 'Edge AI', estilo: 'editorial', criadoEm: '2026-08-12T10:00:00Z',
   legenda: 'Legenda de teste', hashtags: ['#conect2ai', '#edge'],
   slides: [
     { id: 's1', ordem: 0, tipo: 'capa', titulo: 'Edge AI', subtitulo: '', imagemUrl: '/conteudo/slides/s1/imagem' },

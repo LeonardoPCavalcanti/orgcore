@@ -20,7 +20,7 @@ export const rotasConteudo: DefinicaoRota[] = [
     metodo: 'POST', caminho: '/conteudo/carrosseis', permissao: PERMISSAO_CRIAR,
     handler: async (req, resp) => {
       const { contexto } = exigirAutenticacao(req);
-      const { tema, quantidadeSlides } = novoCarrossel.parse(req.body);
+      const { tema, quantidadeSlides, estilo } = novoCarrossel.parse(req.body);
 
       // Unidade associada ao ato, no padrão que `criarApp` usa para auditar leituras
       // sensíveis: a primeira unidade do escopo da permissão. Com a concessão
@@ -29,7 +29,7 @@ export const rotasConteudo: DefinicaoRota[] = [
       if (unidadeId === undefined) throw naoEncontrado();
 
       const carrossel = await criarCarrossel({
-        tema, quantidadeSlides, autorId: contexto.usuarioId, unidadeId,
+        tema, quantidadeSlides, estilo, autorId: contexto.usuarioId, unidadeId,
         gerador: criarGerador(),
       });
 
