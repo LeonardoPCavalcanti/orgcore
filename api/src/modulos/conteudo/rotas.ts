@@ -1,4 +1,4 @@
-import { novoCarrossel } from '@4med/contracts';
+import { edicaoSlide, novoCarrossel } from '@4med/contracts';
 import { z } from 'zod';
 import { registrarAuditoria } from '../../core/auditoria/registro';
 import { naoEncontrado } from '../../core/erros';
@@ -8,7 +8,7 @@ import { criarMelhorador, melhoradorPassthrough } from './anuncio/template/melho
 import { criarRemovedor, removedorPassthrough } from './anuncio/template/silhueta';
 import { criarGerador } from './gerador';
 import {
-  apagarCarrossel, criarCarrossel, imagemDoSlide, listarCarrosseis, obterCarrossel,
+  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis, obterCarrossel,
 } from './servico';
 
 export const PERMISSAO_CRIAR = 'conteudo.carrossel.criar';
@@ -88,6 +88,18 @@ export const rotasConteudo: DefinicaoRota[] = [
       if (!imagem) throw naoEncontrado();
       // Bytes binários pela rota dedicada — nunca embutidos no JSON de resposta.
       return resp.header('content-type', imagem.tipo).send(imagem.bytes);
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/conteudo/slides/:id', permissao: PERMISSAO_CRIAR,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      const id = idDeUuid.safeParse((req.params as { id: string }).id);
+      if (!id.success) throw naoEncontrado();
+      const edicao = edicaoSlide.parse(req.body);
+      const slide = await editarSlide(id.data, contexto.usuarioId, edicao);
+      if (!slide) throw naoEncontrado();
+      return slide;
     },
   },
   {

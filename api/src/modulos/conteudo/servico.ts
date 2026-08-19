@@ -94,18 +94,23 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
   );
 
   const carrosselId = randomUUID();
-  const linhasSlides = plano.slides.map((s, i) => ({
-    id: randomUUID(),
-    carrosselId,
-    ordem: i,
-    tipo: s.tipo,
-    titulo: s.titulo,
-    subtitulo: s.subtitulo,
-    corpo: s.corpo ?? null,
-    destaque: s.destaque ?? null,
-    imagem: imagens[i]!,
-    imagemTipo: 'image/png',
-  }));
+  const linhasSlides = plano.slides.map((s, i) => {
+    const foto = fotos.get(i);
+    return {
+      id: randomUUID(),
+      carrosselId,
+      ordem: i,
+      tipo: s.tipo,
+      titulo: s.titulo,
+      subtitulo: s.subtitulo,
+      corpo: s.corpo ?? null,
+      destaque: s.destaque ?? null,
+      foto: foto?.dataUri ?? null,
+      fotoRecortada: foto?.recortada ?? false,
+      imagem: imagens[i]!,
+      imagemTipo: 'image/png',
+    };
+  });
 
   const [criado] = await db.transaction(async (tx) => {
     const linha = await tx.insert(carrosseis).values({
@@ -117,6 +122,7 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
       hashtags: plano.hashtags,
       template: TEMPLATE_C2AI,
       estilo: entrada.estilo,
+      ...(entrada.logos?.length ? { logos: entrada.logos } : {}),
     }).returning({ criadoEm: carrosseis.criadoEm });
     await tx.insert(slides).values(linhasSlides);
     return linha;
@@ -184,4 +190,57 @@ export async function apagarCarrossel(id: string, autorId: string): Promise<bool
     .where(and(eq(carrosseis.id, id), eq(carrosseis.autorId, autorId)))
     .returning({ id: carrosseis.id });
   return apagados.length > 0;
+}
+
+export type EdicaoSlide = {
+  titulo: string; subtitulo: string; corpo?: string | undefined; destaque?: string | undefined;
+};
+
+/**
+ * Edita o TEXTO de um slide e re-renderiza SÓ ele — mesmo estilo, mesma posição,
+ * reaproveitando a foto e os logos persistidos (por isso a arte não se perde). Só o
+ * dono edita; fora do escopo → null (a rota faz 404).
+ */
+export async function editarSlide(
+  slideId: string, autorId: string, edicao: EdicaoSlide,
+): Promise<SlideResposta | null> {
+  const [linha] = await db.select({
+    ordem: slides.ordem, tipo: slides.tipo, carrosselId: slides.carrosselId,
+    foto: slides.foto, fotoRecortada: slides.fotoRecortada,
+    estilo: carrosseis.estilo, logos: carrosseis.logos,
+  }).from(slides)
+    .innerJoin(carrosseis, eq(carrosseis.id, slides.carrosselId))
+    .where(and(eq(slides.id, slideId), eq(carrosseis.autorId, autorId)));
+  if (!linha) return null;
+
+  const irmaos = await db.select({ id: slides.id }).from(slides).where(eq(slides.carrosselId, linha.carrosselId));
+  const foto: FotoSlide | undefined = linha.foto ? { dataUri: linha.foto, recortada: linha.fotoRecortada } : undefined;
+  const imagem = await renderSlide(
+    {
+      tipo: linha.tipo as SlideResposta['tipo'],
+      titulo: edicao.titulo,
+      subtitulo: edicao.subtitulo,
+      ...(edicao.corpo ? { corpo: edicao.corpo } : {}),
+      ...(edicao.destaque ? { destaque: edicao.destaque } : {}),
+    },
+    linha.estilo as EstiloCarrossel,
+    {
+      indice: linha.ordem, total: irmaos.length,
+      ...(linha.logos?.length ? { logos: linha.logos } : {}),
+      ...(foto ? { foto } : {}),
+    },
+  );
+
+  const [atualizado] = await db.update(slides).set({
+    titulo: edicao.titulo,
+    subtitulo: edicao.subtitulo,
+    corpo: edicao.corpo ?? null,
+    destaque: edicao.destaque ?? null,
+    imagem,
+  }).where(eq(slides.id, slideId)).returning({
+    id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
+    titulo: slides.titulo, subtitulo: slides.subtitulo,
+    corpo: slides.corpo, destaque: slides.destaque,
+  });
+  return atualizado ? slideResposta(atualizado) : null;
 }

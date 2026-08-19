@@ -422,6 +422,11 @@ a { color: inherit; }
 }
 .logo-add:hover { border-color: color-mix(in srgb, var(--marca) 45%, transparent); }
 
+.editar-slide {
+  margin-top: 4px; padding: 16px; border-radius: var(--r-md);
+  background: var(--fundo-2); border: 1px solid var(--borda);
+}
+
 .demo-faixa {
   margin: 0 0 14px; padding: 9px 16px; border-radius: var(--r-md);
   font-size: 0.82rem; font-weight: 500;

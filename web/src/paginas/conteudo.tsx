@@ -1,4 +1,4 @@
-import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel } from '@4med/contracts';
+import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, SlideResposta } from '@4med/contracts';
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 import { lerComoDataUri } from '../imagem/arquivo';
@@ -51,6 +51,16 @@ export function PaginaConteudo() {
   const [indice, setIndice] = useState(0);
   const [copiado, setCopiado] = useState(false);
 
+  const [editando, setEditando] = useState(false);
+  const [edicao, setEdicao] = useState({ titulo: '', subtitulo: '', corpo: '', destaque: '' });
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [versaoImg, setVersaoImg] = useState(0);
+
+  function irParaSlide(novo: number) {
+    setEditando(false);
+    setIndice(novo);
+  }
+
   const carregar = useCallback(() => {
     setCarregando(true);
     apiFetch<CarrosselResumo[]>('/conteudo/carrosseis')
@@ -65,6 +75,40 @@ export function PaginaConteudo() {
     setAtual(carrossel);
     setIndice(0);
     setCopiado(false);
+    setEditando(false);
+  }
+
+  function abrirEdicao() {
+    const s = atual?.slides[indice];
+    if (!s) return;
+    setEdicao({ titulo: s.titulo, subtitulo: s.subtitulo, corpo: s.corpo ?? '', destaque: s.destaque ?? '' });
+    setEditando(true);
+  }
+
+  async function salvarEdicao(evento: FormEvent) {
+    evento.preventDefault();
+    const s = atual?.slides[indice];
+    if (!s || !atual) return;
+    setSalvandoEdicao(true);
+    setErro('');
+    try {
+      const atualizado = await apiFetch<SlideResposta>(`/conteudo/slides/${s.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          titulo: edicao.titulo,
+          subtitulo: edicao.subtitulo,
+          ...(edicao.corpo.trim() ? { corpo: edicao.corpo } : {}),
+          ...(edicao.destaque.trim() ? { destaque: edicao.destaque } : {}),
+        }),
+      });
+      setAtual({ ...atual, slides: atual.slides.map((x) => (x.id === atualizado.id ? atualizado : x)) });
+      setVersaoImg((v) => v + 1);
+      setEditando(false);
+    } catch (err) {
+      setErro(err instanceof ErroApi ? err.message : 'Não foi possível salvar o slide');
+    } finally {
+      setSalvandoEdicao(false);
+    }
   }
 
   async function gerar(evento: FormEvent) {
@@ -269,20 +313,53 @@ export function PaginaConteudo() {
 
             <div className="linha" style={{ gap: 12, justifyContent: 'center' }}>
               <button type="button" className="botao botao--fantasma" aria-label="Slide anterior"
-                disabled={indice === 0} onClick={() => setIndice((i) => Math.max(0, i - 1))}>‹</button>
+                disabled={indice === 0} onClick={() => irParaSlide(Math.max(0, indice - 1))}>‹</button>
               <img
-                src={urlDaApi(slide.imagemUrl)}
+                src={`${urlDaApi(slide.imagemUrl)}${versaoImg ? `?v=${versaoImg}` : ''}`}
                 alt={`Slide ${indice + 1}: ${slide.titulo}`}
                 style={{ width: 'min(420px, 70vw)', aspectRatio: '1 / 1', borderRadius: 'var(--r-md)', border: '1px solid var(--borda)' }}
               />
               <button type="button" className="botao botao--fantasma" aria-label="Próximo slide"
                 disabled={indice === atual.slides.length - 1}
-                onClick={() => setIndice((i) => Math.min(atual.slides.length - 1, i + 1))}>›</button>
+                onClick={() => irParaSlide(Math.min(atual.slides.length - 1, indice + 1))}>›</button>
             </div>
 
             <div className="linha" style={{ gap: 8, justifyContent: 'center' }}>
               <button type="button" className="botao" onClick={baixarSlide}>Baixar este slide</button>
+              <button type="button" className="botao botao--fantasma" onClick={editando ? () => setEditando(false) : abrirEdicao}>
+                {editando ? 'Cancelar edição' : 'Editar texto'}
+              </button>
             </div>
+
+            {editando && (
+              <form className="form editar-slide" onSubmit={salvarEdicao}>
+                <div className="campo">
+                  <label htmlFor="ed-titulo">Título</label>
+                  <input className="entrada" id="ed-titulo" value={edicao.titulo} required maxLength={120}
+                    onChange={(e) => setEdicao((d) => ({ ...d, titulo: e.target.value }))} />
+                </div>
+                <div className="campo">
+                  <label htmlFor="ed-sub">Subtítulo</label>
+                  <input className="entrada" id="ed-sub" value={edicao.subtitulo} maxLength={200}
+                    onChange={(e) => setEdicao((d) => ({ ...d, subtitulo: e.target.value }))} />
+                </div>
+                <div className="campo">
+                  <label htmlFor="ed-corpo">Corpo (opcional)</label>
+                  <textarea className="entrada" id="ed-corpo" value={edicao.corpo} rows={2} maxLength={400}
+                    onChange={(e) => setEdicao((d) => ({ ...d, corpo: e.target.value }))} />
+                </div>
+                <div className="linha" style={{ gap: 12, alignItems: 'flex-end' }}>
+                  <div className="campo" style={{ flex: '0 0 160px' }}>
+                    <label htmlFor="ed-destaque">Destaque (opcional)</label>
+                    <input className="entrada" id="ed-destaque" value={edicao.destaque} maxLength={24}
+                      placeholder="ex.: 18%" onChange={(e) => setEdicao((d) => ({ ...d, destaque: e.target.value }))} />
+                  </div>
+                  <button className="botao botao--primario" type="submit" disabled={salvandoEdicao}>
+                    {salvandoEdicao ? 'Salvando…' : 'Salvar slide'}
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div>
               <div className="entre" style={{ marginBottom: 6 }}>

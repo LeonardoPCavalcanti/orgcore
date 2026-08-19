@@ -1,4 +1,4 @@
-import { bigint, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { usuarios } from '../../../../core/db/schema/acesso';
 import { unidades } from '../../../../core/db/schema/organograma';
 
@@ -23,6 +23,9 @@ export const carrosseis = pgTable('carrosseis', {
   // Estilo visual escolhido (editorial|minimalista|bold). Apresentação, não
   // conteúdo — o mesmo carrossel pode ser re-renderizado em outro estilo.
   estilo: text('estilo').notNull().default('editorial'),
+  // Logos de parceiros (data URIs já branqueados). Guardados para re-render fiel
+  // da capa quando um slide é editado depois.
+  logos: text('logos').array(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -37,6 +40,10 @@ export const slides = pgTable('slides', {
   // Persistidos para permitir re-render em outro estilo depois.
   corpo: text('corpo'),
   destaque: text('destaque'),
+  // Foto tratada (data URI) anexada ao slide + se veio recortada — persistidas
+  // para re-render fiel após edição de texto.
+  foto: text('foto'),
+  fotoRecortada: boolean('foto_recortada').notNull().default(false),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
 });

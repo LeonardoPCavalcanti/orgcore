@@ -5,7 +5,7 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { geradorFake } from '../src/modulos/conteudo/gerador/fake';
 import { slides } from '../src/modulos/conteudo/db/schema/conteudo';
 import {
-  apagarCarrossel, criarCarrossel, imagemDoSlide, listarCarrosseis, obterCarrossel,
+  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis, obterCarrossel,
 } from '../src/modulos/conteudo/servico';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -120,6 +120,32 @@ describe('servico de conteudo', () => {
     const img = await imagemDoSlide(resp.slides[0]!.id, ana.id);
     expect(img?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
     expect(img?.tipo).toBe('image/png');
+  }, 30_000);
+
+  it('edita o texto de um slide e re-renderiza a arte (dono)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const resp = await criar(ana, 'Telemetria', 4, 'bold');
+    const alvo = resp.slides[1]!;
+    const editado = await editarSlide(alvo.id, ana.id, {
+      titulo: 'Novo titulo', subtitulo: 'Novo sub', corpo: 'Novo corpo do slide', destaque: '42',
+    });
+    expect(editado?.titulo).toBe('Novo titulo');
+    expect(editado?.corpo).toBe('Novo corpo do slide');
+    expect(editado?.destaque).toBe('42');
+
+    const lido = await obterCarrossel(resp.id, ana.id);
+    expect(lido?.slides[1]?.titulo).toBe('Novo titulo');
+    const img = await imagemDoSlide(alvo.id, ana.id);
+    expect(img?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('nao edita slide de outro autor (null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
+    const resp = await criar(ana);
+    expect(await editarSlide(resp.slides[0]!.id, caio.id, { titulo: 'x', subtitulo: '' })).toBeNull();
   }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {

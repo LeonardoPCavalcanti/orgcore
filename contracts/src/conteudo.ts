@@ -77,6 +77,15 @@ export const slideResposta = z.object({
 
 export type SlideResposta = z.infer<typeof slideResposta>;
 
+/** Edição do texto de um slide (o servidor re-renderiza a arte com o mesmo estilo). */
+export const edicaoSlide = z.object({
+  titulo: z.string().trim().min(1).max(120),
+  subtitulo: z.string().trim().max(200),
+  corpo: z.string().trim().max(400).optional(),
+  destaque: z.string().trim().max(24).optional(),
+});
+export type EdicaoSlide = z.infer<typeof edicaoSlide>;
+
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
   id: z.string().uuid(),
