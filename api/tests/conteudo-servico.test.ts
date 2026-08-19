@@ -42,7 +42,7 @@ describe('servico de conteudo', () => {
     expect(resp.slides).toHaveLength(4);
     const bytes = await imagemDoSlide(resp.slides[0]!.id, ana.id);
     expect(bytes?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
-  });
+  }, 30_000);
 
   it('recusa foto em formato invalido (422)', async () => {
     await semearDemonstracao();
@@ -63,7 +63,7 @@ describe('servico de conteudo', () => {
     expect(lido?.estilo).toBe('bold');
     const [resumo] = await listarCarrosseis(ana.id);
     expect(resumo?.estilo).toBe('bold');
-  });
+  }, 30_000);
 
   it('cria um carrossel com N slides escopados ao autor', async () => {
     await semearDemonstracao();

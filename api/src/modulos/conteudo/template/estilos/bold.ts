@@ -36,7 +36,7 @@ export const bold: Template = {
       justifyContent: 'space-between', padding: 96, color: cores.branco, fontFamily: FONTE_CORPO,
       backgroundImage: `linear-gradient(140deg, ${cores.ciano} 0%, ${cores.cianoProfundo} 42%, ${cores.tinta} 100%)`,
     }, [
-      marca(cores.branco),
+      marca(cores.branco, 44, cores.branco),
       el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, filhosCentro),
       rodape('rgba(255,255,255,0.8)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
     ]);

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
 import type { SlidePlanejado } from '../gerador/tipos';
-import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, LADO, trianguloA } from './tema-c2ai';
+import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, LADO, trianguloA, volanteO } from './tema-c2ai';
 
 /**
  * Base compartilhada dos estilos de carrossel. Aqui vivem: os tipos da abstração
@@ -46,15 +46,24 @@ export function numeroPagina(ctx: ContextoSlide): string {
   return `${dois(ctx.indice + 1)}/${dois(ctx.total)}`;
 }
 
-/** Wordmark "C2AI": C2 + o "A" triangular + I, na cor dada. */
-export function marca(corTexto: string, tamanho = 54): Elemento {
+/**
+ * Wordmark completo "CONECT2AI": C + volante-O + NECT2 + A triangular + I. O `acento`
+ * é a cor do volante e do triângulo interno do A (ciano por padrão); em fundos onde o
+ * ciano some (ex.: o gradiente ciano do estilo bold) passe `corTexto` para a marca ficar
+ * monocromática e legível.
+ */
+export function marca(corTexto: string, tamanho = 44, acento: string = cores.ciano): Elemento {
   const letra: Estilo = {
-    fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: tamanho, letterSpacing: -3, color: corTexto, display: 'flex',
+    fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: tamanho, letterSpacing: 0.5, color: corTexto, display: 'flex',
   };
-  const escala = tamanho / 54;
+  const escala = tamanho / 44;
+  const glifo = (src: string, w: number, h: number, mt = 0): Elemento =>
+    img(src, { width: w * escala, height: h * escala, marginLeft: 2 * escala, marginRight: 2 * escala, marginTop: mt * escala });
   return el('div', { display: 'flex', alignItems: 'center' }, [
-    el('div', letra, 'C2'),
-    img(trianguloA(corTexto), { width: 45 * escala, height: 38 * escala, marginLeft: 4, marginTop: 7 * escala }),
+    el('div', letra, 'C'),
+    glifo(volanteO(acento), 42, 42),
+    el('div', letra, 'NECT2'),
+    glifo(trianguloA(corTexto, acento), 40, 34, 6),
     el('div', letra, 'I'),
   ]);
 }
