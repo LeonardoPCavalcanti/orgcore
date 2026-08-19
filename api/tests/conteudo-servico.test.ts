@@ -37,9 +37,22 @@ describe('servico de conteudo', () => {
     const resp = await criarCarrossel({
       tema: 'Com foto', quantidadeSlides: 4, estilo: 'editorial',
       autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorFake,
-      fotos: [{ indice: 0, dataUri: foto }],
+      fotos: [{ indice: 0, dataUri: foto, recortada: false }],
     });
     expect(resp.slides).toHaveLength(4);
+    const bytes = await imagemDoSlide(resp.slides[0]!.id, ana.id);
+    expect(bytes?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('aceita foto ja recortada e compoe (cutout)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const resp = await criarCarrossel({
+      tema: 'Recortada', quantidadeSlides: 4, estilo: 'bold',
+      autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorFake,
+      fotos: [{ indice: 0, dataUri: foto, recortada: true }],
+    });
     const bytes = await imagemDoSlide(resp.slides[0]!.id, ana.id);
     expect(bytes?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
   }, 30_000);
@@ -50,7 +63,7 @@ describe('servico de conteudo', () => {
     await expect(criarCarrossel({
       tema: 'Foto ruim', quantidadeSlides: 3, estilo: 'bold',
       autorId: ana.id, unidadeId: ana.unidadeId, gerador: geradorFake,
-      fotos: [{ indice: 0, dataUri: 'data:image/png,sem-parte-base64' }],
+      fotos: [{ indice: 0, dataUri: 'data:image/png,sem-parte-base64', recortada: false }],
     })).rejects.toMatchObject({ status: 422, codigo: 'foto_invalida' });
   });
 

@@ -13,6 +13,9 @@ export type EstiloCarrossel = z.infer<typeof estiloCarrossel>;
 export const fotoDeSlide = z.object({
   indice: z.number().int().min(0),
   dataUri: z.string().startsWith('data:image/'),
+  // Fundo já removido no cliente (WASM): o servidor pula o recorte e compõe a
+  // figura como cutout (silhueta) em vez de hero de capa.
+  recortada: z.boolean().default(false),
 });
 export type FotoDeSlide = z.infer<typeof fotoDeSlide>;
 

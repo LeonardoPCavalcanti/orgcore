@@ -62,6 +62,11 @@ async function prepararFotos(entrada: EntradaCriar, total: number): Promise<Map<
   const porIndice = new Map<number, FotoSlide>();
   for (const f of entrada.fotos ?? []) {
     if (f.indice >= total) continue;
+    // Já recortada no cliente (WASM): não mexe — compõe direto como cutout.
+    if (f.recortada) {
+      porIndice.set(f.indice, { dataUri: paraDataUri(bytesDeDataUri(f.dataUri)), recortada: true });
+      continue;
+    }
     const { png: melhorada } = await melhorador.melhorar(bytesDeDataUri(f.dataUri));
     const { png, recortado } = await removedor.remover(melhorada);
     porIndice.set(f.indice, { dataUri: paraDataUri(png), recortada: recortado });

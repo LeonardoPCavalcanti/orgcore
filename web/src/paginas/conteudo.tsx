@@ -2,6 +2,7 @@ import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel } from '@4med/
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 import { lerComoDataUri } from '../imagem/arquivo';
+import { removerFundo } from '../imagem/padronizar';
 
 const OPCOES_SLIDES = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -20,6 +21,7 @@ export function PaginaConteudo() {
   const [quantidadeSlides, setQuantidadeSlides] = useState(7);
   const [estilo, setEstilo] = useState<EstiloCarrossel>('editorial');
   const [fotoCapa, setFotoCapa] = useState<string | null>(null);
+  const [recortarCapa, setRecortarCapa] = useState(false);
   const [gerando, setGerando] = useState(false);
 
   async function escolherFoto(e: ChangeEvent<HTMLInputElement>) {
@@ -53,16 +55,23 @@ export function PaginaConteudo() {
     setErro('');
     setGerando(true);
     try {
+      let fotos: { indice: number; dataUri: string; recortada: boolean }[] | undefined;
+      if (fotoCapa) {
+        if (recortarCapa) {
+          const { dataUri, recortado } = await removerFundo(fotoCapa);
+          fotos = [{ indice: 0, dataUri, recortada: recortado }];
+        } else {
+          fotos = [{ indice: 0, dataUri: fotoCapa, recortada: false }];
+        }
+      }
       const carrossel = await apiFetch<CarrosselResposta>('/conteudo/carrosseis', {
         method: 'POST',
-        body: JSON.stringify({
-          tema, quantidadeSlides, estilo,
-          ...(fotoCapa ? { fotos: [{ indice: 0, dataUri: fotoCapa }] } : {}),
-        }),
+        body: JSON.stringify({ tema, quantidadeSlides, estilo, ...(fotos ? { fotos } : {}) }),
       });
       mostrar(carrossel);
       setTema('');
       setFotoCapa(null);
+      setRecortarCapa(false);
       carregar();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível gerar o carrossel');
@@ -166,9 +175,20 @@ export function PaginaConteudo() {
               {fotoCapa ? (
                 <div className="foto-capa">
                   <img src={fotoCapa} alt="Prévia da foto de capa" className="foto-capa-previa" />
-                  <button type="button" className="botao botao--fantasma" onClick={() => setFotoCapa(null)}>
-                    Remover foto
-                  </button>
+                  <div className="pilha" style={{ gap: 8 }}>
+                    <label className="foto-capa-recorte">
+                      <input type="checkbox" checked={recortarCapa}
+                        onChange={(e) => setRecortarCapa(e.target.checked)} />
+                      <span>Recortar fundo (pessoa/objeto)</span>
+                    </label>
+                    <span className="texto-fraco" style={{ fontSize: '0.72rem' }}>
+                      Vira uma silhueta ao lado do texto. O recorte roda no navegador
+                      (o 1º uso baixa o modelo e pode demorar).
+                    </span>
+                    <button type="button" className="botao botao--fantasma" onClick={() => setFotoCapa(null)}>
+                      Remover foto
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <label className="foto-capa-upload">

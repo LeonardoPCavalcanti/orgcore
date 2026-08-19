@@ -392,10 +392,15 @@ a { color: inherit; }
   font-size: 0.9rem; font-weight: 600; transition: border-color 0.14s;
 }
 .foto-capa-upload:hover { border-color: color-mix(in srgb, var(--marca) 45%, transparent); }
-.foto-capa { display: flex; align-items: center; gap: 14px; }
+.foto-capa { display: flex; align-items: flex-start; gap: 14px; }
 .foto-capa-previa {
   width: 88px; height: 88px; object-fit: cover; border-radius: var(--r-md); border: 1px solid var(--borda);
 }
+.foto-capa-recorte {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 0.86rem; font-weight: 600;
+}
+.foto-capa-recorte input { accent-color: var(--marca); }
 
 .demo-faixa {
   margin: 0 0 14px; padding: 9px 16px; border-radius: var(--r-md);
