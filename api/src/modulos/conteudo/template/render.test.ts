@@ -63,4 +63,12 @@ describe('estilos de carrossel', () => {
     expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
   });
+
+  for (const estilo of ['editorial', 'minimalista', 'bold'] as const) {
+    it(`${estilo}: capa com logos de parceiros compoe PNG 1080x1080`, async () => {
+      const png = await renderSlide(slideCapa, estilo, { indice: 0, total: 5, logos: [foto, foto, foto] });
+      expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
+      expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
+    });
+  }
 });

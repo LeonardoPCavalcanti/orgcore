@@ -28,6 +28,9 @@ export const novoCarrossel = z.object({
   // servidor as trata (realce + remoção de fundo, quando ligados) e compõe como
   // hero do slide, com um scrim e o texto por cima.
   fotos: z.array(fotoDeSlide).max(10).optional(),
+  // Logos de parceiros (já padronizados em BRANCO no cliente) exibidos numa faixa
+  // no rodapé da CAPA — que é escura nos três estilos.
+  logos: z.array(z.string().startsWith('data:image/')).max(6).optional(),
 });
 
 export type NovoCarrossel = z.infer<typeof novoCarrossel>;

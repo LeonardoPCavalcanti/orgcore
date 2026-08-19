@@ -402,6 +402,26 @@ a { color: inherit; }
 }
 .foto-capa-recorte input { accent-color: var(--marca); }
 
+.logos-grade { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+.logo-chip {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 96px; height: 56px; padding: 8px 10px; border-radius: var(--r-md);
+  background: #101418; border: 1px solid var(--borda);
+}
+.logo-chip img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-chip button {
+  position: absolute; top: -7px; right: -7px; width: 20px; height: 20px;
+  border-radius: 999px; border: none; cursor: pointer; line-height: 1;
+  background: var(--fundo-3, #2a2f37); color: #fff; font-size: 13px;
+}
+.logo-add {
+  display: flex; align-items: center; justify-content: center;
+  width: 96px; height: 56px; cursor: pointer; border-radius: var(--r-md);
+  border: 1px dashed var(--borda); background: var(--fundo-2);
+  font-size: 0.82rem; font-weight: 600; transition: border-color 0.14s;
+}
+.logo-add:hover { border-color: color-mix(in srgb, var(--marca) 45%, transparent); }
+
 .demo-faixa {
   margin: 0 0 14px; padding: 9px 16px; border-radius: var(--r-md);
   font-size: 0.82rem; font-weight: 500;

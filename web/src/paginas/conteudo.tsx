@@ -2,7 +2,7 @@ import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel } from '@4med/
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 import { lerComoDataUri } from '../imagem/arquivo';
-import { removerFundo } from '../imagem/padronizar';
+import { branquearLogo, removerFundo } from '../imagem/padronizar';
 
 const OPCOES_SLIDES = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -22,12 +22,29 @@ export function PaginaConteudo() {
   const [estilo, setEstilo] = useState<EstiloCarrossel>('editorial');
   const [fotoCapa, setFotoCapa] = useState<string | null>(null);
   const [recortarCapa, setRecortarCapa] = useState(false);
+  const [logos, setLogos] = useState<string[]>([]);
+  const [processandoLogo, setProcessandoLogo] = useState(false);
   const [gerando, setGerando] = useState(false);
 
   async function escolherFoto(e: ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (arquivo) setFotoCapa(await lerComoDataUri(arquivo));
     e.target.value = '';
+  }
+
+  async function escolherLogos(e: ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(e.target.files ?? []).slice(0, 6 - logos.length);
+    e.target.value = '';
+    if (arquivos.length === 0) return;
+    setProcessandoLogo(true);
+    try {
+      const novos = await Promise.all(
+        arquivos.map(async (a) => branquearLogo(await lerComoDataUri(a))),
+      );
+      setLogos((atuais) => [...atuais, ...novos].slice(0, 6));
+    } finally {
+      setProcessandoLogo(false);
+    }
   }
 
   const [atual, setAtual] = useState<CarrosselResposta | null>(null);
@@ -66,12 +83,17 @@ export function PaginaConteudo() {
       }
       const carrossel = await apiFetch<CarrosselResposta>('/conteudo/carrosseis', {
         method: 'POST',
-        body: JSON.stringify({ tema, quantidadeSlides, estilo, ...(fotos ? { fotos } : {}) }),
+        body: JSON.stringify({
+          tema, quantidadeSlides, estilo,
+          ...(fotos ? { fotos } : {}),
+          ...(logos.length ? { logos } : {}),
+        }),
       });
       mostrar(carrossel);
       setTema('');
       setFotoCapa(null);
       setRecortarCapa(false);
+      setLogos([]);
       carregar();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível gerar o carrossel');
@@ -199,6 +221,27 @@ export function PaginaConteudo() {
                   </span>
                 </label>
               )}
+            </div>
+            <div className="campo">
+              <span className="rotulo-campo">Logos de parceiros (opcional)</span>
+              <div className="logos-grade">
+                {logos.map((src, i) => (
+                  <div key={i} className="logo-chip">
+                    <img src={src} alt={`Logo ${i + 1}`} />
+                    <button type="button" aria-label="Remover logo"
+                      onClick={() => setLogos((a) => a.filter((_, j) => j !== i))}>×</button>
+                  </div>
+                ))}
+                {logos.length < 6 && (
+                  <label className="logo-add">
+                    <input type="file" accept="image/*" multiple hidden onChange={escolherLogos} />
+                    <span>{processandoLogo ? 'Processando…' : '+ Logo'}</span>
+                  </label>
+                )}
+              </div>
+              <span className="texto-fraco" style={{ fontSize: '0.72rem' }}>
+                Aparecem numa faixa na capa. Recortadas e deixadas em branco no navegador.
+              </span>
             </div>
             <div className="linha" style={{ gap: 12, alignItems: 'flex-end' }}>
               <div className="campo" style={{ flex: '0 0 180px' }}>

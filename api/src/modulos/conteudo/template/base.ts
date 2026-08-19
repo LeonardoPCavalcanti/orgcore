@@ -21,8 +21,8 @@ export type SlideRico = SlidePlanejado;
 /** Foto já tratada (realce + remoção de fundo quando ligados), pronta para compor. */
 export type FotoSlide = { dataUri: string; recortada: boolean };
 
-/** Posição do slide no carrossel + foto opcional anexada a ele. */
-export type ContextoSlide = { indice: number; total: number; foto?: FotoSlide };
+/** Posição do slide no carrossel + foto opcional + logos de parceiros (carrossel-level). */
+export type ContextoSlide = { indice: number; total: number; foto?: FotoSlide; logos?: string[] };
 
 export type Estilo = Record<string, unknown>;
 export type Elemento = { type: string; props: { style: Estilo; children?: unknown } };
@@ -92,6 +92,29 @@ export function fundoTexturizado(
       baseGradiente,
     ].join(', '),
   };
+}
+
+/**
+ * Faixa horizontal de logos de parceiros. As marcas já chegam padronizadas em
+ * BRANCO (recorte + branqueamento no navegador), então vão direto sobre o fundo
+ * escuro da capa. Até 6, com quebra de linha se precisar.
+ */
+export function faixaLogos(logos: string[]): Elemento {
+  return el('div', { display: 'flex', alignItems: 'center', gap: 36, flexWrap: 'wrap' },
+    logos.slice(0, 6).map((src) => img(src, { height: 44, objectFit: 'contain' })));
+}
+
+/**
+ * Rodapé da capa: quando há logos de parceiros, empilha a faixa acima do rodapé
+ * normal; senão devolve só o rodapé. Mantém o `space-between` do slide intacto
+ * (continua um único filho no fim).
+ */
+export function rodapeCapa(corTexto: string, direita: string, ctx: ContextoSlide): Elemento {
+  const base = rodape(corTexto, direita);
+  if (ctx.indice === 0 && ctx.logos?.length) {
+    return el('div', { display: 'flex', flexDirection: 'column', gap: 30 }, [faixaLogos(ctx.logos), base]);
+  }
+  return base;
 }
 
 /** Rodapé: handle à esquerda, um texto (etiqueta ou número de página) à direita. */

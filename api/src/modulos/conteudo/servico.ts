@@ -51,6 +51,7 @@ export type EntradaCriar = {
   gerador: GeradorDeTexto;
   // Fotos por índice de slide (opcional) + os seams de tratamento (padrão passthrough).
   fotos?: FotoDeSlide[];
+  logos?: string[];
   melhorador?: MelhoradorDeFoto;
   removedor?: RemovedorDeFundo;
 };
@@ -84,10 +85,11 @@ export async function criarCarrossel(entrada: EntradaCriar): Promise<CarrosselRe
   const plano = await entrada.gerador.gerar(entrada.tema, entrada.quantidadeSlides);
   const total = plano.slides.length;
   const fotos = await prepararFotos(entrada, total);
+  const comLogos = entrada.logos?.length ? { logos: entrada.logos } : {};
   const imagens = await Promise.all(
     plano.slides.map((s, i) => {
       const foto = fotos.get(i);
-      return renderSlide(s, entrada.estilo, { indice: i, total, ...(foto ? { foto } : {}) });
+      return renderSlide(s, entrada.estilo, { indice: i, total, ...comLogos, ...(foto ? { foto } : {}) });
     }),
   );
 

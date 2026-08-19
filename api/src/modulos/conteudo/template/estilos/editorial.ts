@@ -1,4 +1,4 @@
-import { cores, el, fundoTexturizado, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, fundoTexturizado, marca, numeroPagina, rodape, rodapeCapa, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -23,7 +23,7 @@ function painelTinta(slide: SlideRico, ctx: ContextoSlide): ReturnType<typeof el
       }, slide.titulo),
       el('div', { fontSize: 38, color: cores.neutroClaro, lineHeight: 1.3, display: 'flex' }, corpo),
     ]),
-    rodape(cores.neutroClaro, slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
+    rodapeCapa(cores.neutroClaro, slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx), ctx),
   ]);
 }
 

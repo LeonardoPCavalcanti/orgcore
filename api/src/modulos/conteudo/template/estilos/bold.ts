@@ -1,4 +1,4 @@
-import { cores, el, fundoTexturizado, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, fundoTexturizado, marca, numeroPagina, rodapeCapa, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -42,7 +42,7 @@ export const bold: Template = {
     }, [
       marca(cores.branco, 44, cores.branco),
       el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, filhosCentro),
-      rodape('rgba(255,255,255,0.8)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
+      rodapeCapa('rgba(255,255,255,0.8)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx), ctx),
     ]);
   },
 };

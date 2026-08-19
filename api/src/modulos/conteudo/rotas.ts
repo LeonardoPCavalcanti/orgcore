@@ -34,7 +34,7 @@ export const rotasConteudo: DefinicaoRota[] = [
     bodyLimit: LIMITE_CORPO,
     handler: async (req, resp) => {
       const { contexto } = exigirAutenticacao(req);
-      const { tema, quantidadeSlides, estilo, fotos } = novoCarrossel.parse(req.body);
+      const { tema, quantidadeSlides, estilo, fotos, logos } = novoCarrossel.parse(req.body);
 
       // Unidade associada ao ato, no padrão que `criarApp` usa para auditar leituras
       // sensíveis: a primeira unidade do escopo da permissão. Com a concessão
@@ -46,6 +46,7 @@ export const rotasConteudo: DefinicaoRota[] = [
         tema, quantidadeSlides, estilo, autorId: contexto.usuarioId, unidadeId,
         gerador: criarGerador(),
         ...(fotos ? { fotos } : {}),
+        ...(logos ? { logos } : {}),
         melhorador: realcarFoto(), removedor: recortarFundo(),
       });
 

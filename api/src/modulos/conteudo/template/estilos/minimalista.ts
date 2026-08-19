@@ -1,4 +1,4 @@
-import { cores, el, marca, numeroPagina, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, faixaLogos, marca, numeroPagina, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -31,10 +31,18 @@ export const minimalista: Template = {
         }, slide.titulo),
         el('div', { fontSize: 40, color: corCorpo, lineHeight: 1.3, display: 'flex' }, corpo),
       ]),
-      el('div', {
-        display: 'flex', justifyContent: 'flex-end',
-        fontFamily: FONTE_CORPO, fontSize: 24, letterSpacing: 3, color: corCorpo,
-      }, numeroPagina(ctx)),
+      capa && ctx.logos?.length
+        ? el('div', { display: 'flex', flexDirection: 'column', gap: 30 }, [
+            faixaLogos(ctx.logos),
+            el('div', {
+              display: 'flex', justifyContent: 'flex-end',
+              fontFamily: FONTE_CORPO, fontSize: 24, letterSpacing: 3, color: corCorpo,
+            }, numeroPagina(ctx)),
+          ])
+        : el('div', {
+            display: 'flex', justifyContent: 'flex-end',
+            fontFamily: FONTE_CORPO, fontSize: 24, letterSpacing: 3, color: corCorpo,
+          }, numeroPagina(ctx)),
     ]);
   },
 };
