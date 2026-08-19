@@ -25,7 +25,7 @@ export const CATALOGO: Provedor[] = [
   { id: 'openrouter', nome: 'OpenRouter', envChave: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', modelo: 'nvidia/nemotron-3.5-lightning:free', limiteDiario: 200, leHeaders: true, visao: false },
   { id: 'sambanova', nome: 'SambaNova', envChave: 'SAMBANOVA_API_KEY', baseUrl: 'https://api.sambanova.ai/v1', modelo: 'Meta-Llama-3.3-70B-Instruct', limiteDiario: 500, leHeaders: false, visao: false },
   { id: 'mistral', nome: 'Mistral', envChave: 'MISTRAL_API_KEY', baseUrl: 'https://api.mistral.ai/v1', modelo: 'mistral-small-latest', limiteDiario: 500, leHeaders: false, visao: false },
-  { id: 'nvidia', nome: 'NVIDIA NIM', envChave: 'NVIDIA_API_KEY', baseUrl: 'https://integrate.api.nvidia.com/v1', modelo: 'meta/llama-3.3-70b-instruct', limiteDiario: 1000, leHeaders: false, visao: false },
+  { id: 'nvidia', nome: 'NVIDIA NIM', envChave: 'NVIDIA_API_KEY', baseUrl: 'https://integrate.api.nvidia.com/v1', modelo: 'meta/llama-3.1-8b-instruct', limiteDiario: 1000, leHeaders: false, visao: false },
 ];
 
 /** Ids de todos os provedores do catálogo (usados para validar whitelist por cargo). */
