@@ -1,4 +1,4 @@
-import { edicaoSlide, novoCarrossel, regeneracaoSlide } from '@4med/contracts';
+import { edicaoSlide, fotoNoSlide, novoCarrossel, regeneracaoSlide } from '@4med/contracts';
 import { z } from 'zod';
 import { registrarAuditoria } from '../../core/auditoria/registro';
 import { naoEncontrado } from '../../core/erros';
@@ -8,8 +8,8 @@ import { criarMelhorador, melhoradorPassthrough } from './anuncio/template/melho
 import { criarRemovedor, removedorPassthrough } from './anuncio/template/silhueta';
 import { criarGerador } from './gerador';
 import {
-  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis,
-  obterCarrossel, regenerarSlide,
+  apagarCarrossel, criarCarrossel, definirFotoDoSlide, editarSlide, imagemDoSlide,
+  listarCarrosseis, obterCarrossel, regenerarSlide,
 } from './servico';
 
 export const PERMISSAO_CRIAR = 'conteudo.carrossel.criar';
@@ -99,6 +99,21 @@ export const rotasConteudo: DefinicaoRota[] = [
       if (!id.success) throw naoEncontrado();
       const edicao = edicaoSlide.parse(req.body);
       const slide = await editarSlide(id.data, contexto.usuarioId, edicao);
+      if (!slide) throw naoEncontrado();
+      return slide;
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/conteudo/slides/:id/foto', permissao: PERMISSAO_CRIAR,
+    bodyLimit: LIMITE_CORPO,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      const id = idDeUuid.safeParse((req.params as { id: string }).id);
+      if (!id.success) throw naoEncontrado();
+      const { dataUri, recortada } = fotoNoSlide.parse(req.body);
+      const slide = await definirFotoDoSlide(id.data, contexto.usuarioId, {
+        dataUri, recortada, melhorador: realcarFoto(), removedor: recortarFundo(),
+      });
       if (!slide) throw naoEncontrado();
       return slide;
     },

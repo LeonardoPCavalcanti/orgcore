@@ -57,6 +57,46 @@ export function PaginaConteudo() {
   const [versaoImg, setVersaoImg] = useState(0);
   const [instrucao, setInstrucao] = useState('');
   const [regenerando, setRegenerando] = useState(false);
+  const [fotoSlide, setFotoSlide] = useState<string | null>(null);
+  const [recortarSlide, setRecortarSlide] = useState(false);
+  const [aplicandoFoto, setAplicandoFoto] = useState(false);
+
+  async function escolherFotoSlide(e: ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (arquivo) setFotoSlide(await lerComoDataUri(arquivo));
+    e.target.value = '';
+  }
+
+  async function patchFotoSlide(dataUri: string | null, recortada: boolean) {
+    const s = atual?.slides[indice];
+    if (!s || !atual) return;
+    setAplicandoFoto(true);
+    setErro('');
+    try {
+      const atualizado = await apiFetch<SlideResposta>(`/conteudo/slides/${s.id}/foto`, {
+        method: 'PATCH',
+        body: JSON.stringify({ dataUri, recortada }),
+      });
+      setAtual({ ...atual, slides: atual.slides.map((x) => (x.id === atualizado.id ? atualizado : x)) });
+      setVersaoImg((v) => v + 1);
+      setFotoSlide(null);
+      setRecortarSlide(false);
+    } catch (err) {
+      setErro(err instanceof ErroApi ? err.message : 'Não foi possível atualizar a foto do slide');
+    } finally {
+      setAplicandoFoto(false);
+    }
+  }
+
+  async function aplicarFotoSlide() {
+    if (!fotoSlide) return;
+    if (recortarSlide) {
+      const { dataUri, recortado } = await removerFundo(fotoSlide);
+      await patchFotoSlide(dataUri, recortado);
+    } else {
+      await patchFotoSlide(fotoSlide, false);
+    }
+  }
 
   async function regenerarSlideAtual() {
     const s = atual?.slides[indice];
@@ -80,6 +120,9 @@ export function PaginaConteudo() {
 
   function irParaSlide(novo: number) {
     setEditando(false);
+    setFotoSlide(null);
+    setRecortarSlide(false);
+    setInstrucao('');
     setIndice(novo);
   }
 
@@ -360,6 +403,37 @@ export function PaginaConteudo() {
                 placeholder="Ângulo para a IA (opcional): ex. mais direto, com um dado"
                 style={{ maxWidth: 'min(520px, 90%)' }}
                 onChange={(e) => setInstrucao(e.target.value)} />
+            </div>
+
+            <div className="foto-slide">
+              {fotoSlide ? (
+                <div className="foto-capa">
+                  <img src={fotoSlide} alt="Prévia da foto do slide" className="foto-capa-previa" />
+                  <div className="pilha" style={{ gap: 8 }}>
+                    <label className="foto-capa-recorte">
+                      <input type="checkbox" checked={recortarSlide}
+                        onChange={(e) => setRecortarSlide(e.target.checked)} />
+                      <span>Recortar fundo (silhueta ao lado do texto)</span>
+                    </label>
+                    <div className="linha" style={{ gap: 8 }}>
+                      <button type="button" className="botao botao--primario" onClick={aplicarFotoSlide} disabled={aplicandoFoto}>
+                        {aplicandoFoto ? 'Aplicando…' : 'Aplicar foto'}
+                      </button>
+                      <button type="button" className="botao botao--fantasma" onClick={() => setFotoSlide(null)}>Cancelar</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="linha" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <label className="botao botao--fantasma" style={{ cursor: 'pointer' }}>
+                    <input type="file" accept="image/*" hidden onChange={escolherFotoSlide} />
+                    Foto neste slide
+                  </label>
+                  <button type="button" className="botao botao--fantasma" onClick={() => patchFotoSlide(null, false)} disabled={aplicandoFoto}>
+                    Remover foto
+                  </button>
+                </div>
+              )}
             </div>
 
             {editando && (

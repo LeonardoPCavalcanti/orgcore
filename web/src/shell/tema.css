@@ -426,6 +426,7 @@ a { color: inherit; }
   margin-top: 4px; padding: 16px; border-radius: var(--r-md);
   background: var(--fundo-2); border: 1px solid var(--borda);
 }
+.foto-slide { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
 .demo-faixa {
   margin: 0 0 14px; padding: 9px 16px; border-radius: var(--r-md);

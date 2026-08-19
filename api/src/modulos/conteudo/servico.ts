@@ -278,3 +278,62 @@ export async function regenerarSlide(
     ...(nova.destaque ? { destaque: nova.destaque } : {}),
   });
 }
+
+/**
+ * Define (ou remove, com `dataUri` null) a foto de UM slide e re-renderiza — texto e
+ * logos preservados. Foto não-recortada passa pelo pipeline (realce → recorte);
+ * recortada no cliente entra direto (cutout). Só o dono; fora do escopo → null.
+ */
+export async function definirFotoDoSlide(
+  slideId: string, autorId: string,
+  entrada: { dataUri: string | null; recortada: boolean; melhorador?: MelhoradorDeFoto; removedor?: RemovedorDeFundo },
+): Promise<SlideResposta | null> {
+  const [linha] = await db.select({
+    ordem: slides.ordem, tipo: slides.tipo, carrosselId: slides.carrosselId,
+    titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
+    estilo: carrosseis.estilo, logos: carrosseis.logos,
+  }).from(slides)
+    .innerJoin(carrosseis, eq(carrosseis.id, slides.carrosselId))
+    .where(and(eq(slides.id, slideId), eq(carrosseis.autorId, autorId)));
+  if (!linha) return null;
+
+  let foto: FotoSlide | undefined;
+  if (entrada.dataUri) {
+    if (entrada.recortada) {
+      foto = { dataUri: paraDataUri(bytesDeDataUri(entrada.dataUri)), recortada: true };
+    } else {
+      const melhorador = entrada.melhorador ?? melhoradorPassthrough;
+      const removedor = entrada.removedor ?? removedorPassthrough;
+      const { png: melhorada } = await melhorador.melhorar(bytesDeDataUri(entrada.dataUri));
+      const { png, recortado } = await removedor.remover(melhorada);
+      foto = { dataUri: paraDataUri(png), recortada: recortado };
+    }
+  }
+
+  const irmaos = await db.select({ id: slides.id }).from(slides).where(eq(slides.carrosselId, linha.carrosselId));
+  const imagem = await renderSlide(
+    {
+      tipo: linha.tipo as SlideResposta['tipo'],
+      titulo: linha.titulo, subtitulo: linha.subtitulo,
+      ...(linha.corpo ? { corpo: linha.corpo } : {}),
+      ...(linha.destaque ? { destaque: linha.destaque } : {}),
+    },
+    linha.estilo as EstiloCarrossel,
+    {
+      indice: linha.ordem, total: irmaos.length,
+      ...(linha.logos?.length ? { logos: linha.logos } : {}),
+      ...(foto ? { foto } : {}),
+    },
+  );
+
+  const [atualizado] = await db.update(slides).set({
+    foto: foto?.dataUri ?? null,
+    fotoRecortada: foto?.recortada ?? false,
+    imagem,
+  }).where(eq(slides.id, slideId)).returning({
+    id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
+    titulo: slides.titulo, subtitulo: slides.subtitulo,
+    corpo: slides.corpo, destaque: slides.destaque,
+  });
+  return atualizado ? slideResposta(atualizado) : null;
+}

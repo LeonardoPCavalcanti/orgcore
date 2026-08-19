@@ -5,8 +5,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { geradorFake } from '../src/modulos/conteudo/gerador/fake';
 import { slides } from '../src/modulos/conteudo/db/schema/conteudo';
 import {
-  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis,
-  obterCarrossel, regenerarSlide,
+  apagarCarrossel, criarCarrossel, definirFotoDoSlide, editarSlide, imagemDoSlide,
+  listarCarrosseis, obterCarrossel, regenerarSlide,
 } from '../src/modulos/conteudo/servico';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -167,6 +167,29 @@ describe('servico de conteudo', () => {
     const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
     expect(await regenerarSlide(resp.slides[0]!.id, caio.id, geradorFake)).toBeNull();
+  }, 30_000);
+
+  it('define e depois remove a foto de um slide, re-renderizando (dono)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const resp = await criar(ana, 'Fotos', 4, 'editorial');
+    const alvo = resp.slides[1]!;
+    const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const comFoto = await definirFotoDoSlide(alvo.id, ana.id, { dataUri: foto, recortada: true });
+    expect(comFoto?.id).toBe(alvo.id);
+    expect((await imagemDoSlide(alvo.id, ana.id))?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+
+    const semFoto = await definirFotoDoSlide(alvo.id, ana.id, { dataUri: null, recortada: false });
+    expect(semFoto?.id).toBe(alvo.id);
+    expect((await imagemDoSlide(alvo.id, ana.id))?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('nao define foto em slide de outro autor (null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
+    const resp = await criar(ana);
+    expect(await definirFotoDoSlide(resp.slides[0]!.id, caio.id, { dataUri: null, recortada: false })).toBeNull();
   }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {

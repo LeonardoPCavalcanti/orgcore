@@ -101,6 +101,13 @@ export const regeneracaoSlide = z.object({
 });
 export type RegeneracaoSlide = z.infer<typeof regeneracaoSlide>;
 
+/** Define (ou remove, com dataUri null) a foto de UM slide; o servidor re-renderiza. */
+export const fotoNoSlide = z.object({
+  dataUri: z.string().startsWith('data:image/').nullable(),
+  recortada: z.boolean().default(false),
+});
+export type FotoNoSlide = z.infer<typeof fotoNoSlide>;
+
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
   id: z.string().uuid(),

@@ -124,6 +124,28 @@ describe('PaginaConteudo', () => {
     expect(await screen.findByAltText('Slide 1: Capa refeita')).toBeInTheDocument();
   });
 
+  it('remove a foto de um slide (PATCH foto com dataUri null)', async () => {
+    const semFoto = { id: 's1', ordem: 0, tipo: 'capa', titulo: 'Edge AI', subtitulo: '', imagemUrl: '/conteudo/slides/s1/imagem' };
+    apiFetchMock
+      .mockResolvedValueOnce([]) // carga inicial
+      .mockResolvedValueOnce(carrossel) // POST gerar
+      .mockResolvedValueOnce([]) // recarga
+      .mockResolvedValueOnce(semFoto); // PATCH foto
+    render(<PaginaConteudo />);
+    await screen.findByText(/Nenhum carrossel ainda/);
+    fireEvent.change(screen.getByLabelText('Tema do carrossel'), { target: { value: 'Edge AI' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar carrossel' }));
+    await screen.findByText('Slide 1 de 3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remover foto' }));
+    await waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith('/conteudo/slides/s1/foto', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ dataUri: null, recortada: false }),
+      }));
+    });
+  });
+
   it('copia a legenda com as hashtags', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
