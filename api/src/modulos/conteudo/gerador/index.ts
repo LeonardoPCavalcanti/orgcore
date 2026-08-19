@@ -5,7 +5,7 @@ import type { GeradorDeTexto } from './tipos';
 export type { GeradorDeTexto, PlanoCarrossel, SlidePlanejado, TipoSlide } from './tipos';
 
 const BASE_URL_PADRAO = 'https://api.groq.com/openai/v1';
-const MODELO_PADRAO = 'llama-3.1-8b-instant';
+const MODELO_PADRAO = 'openai/gpt-oss-120b';
 
 export type ConfigGerador = {
   LLM_API_KEY?: string | undefined;

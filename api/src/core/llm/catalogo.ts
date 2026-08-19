@@ -19,7 +19,7 @@ export type Provedor = {
 export type ProvedorAtivo = Provedor & { chave: string };
 
 export const CATALOGO: Provedor[] = [
-  { id: 'groq', nome: 'Groq', envChave: 'GROQ_API_KEY', baseUrl: 'https://api.groq.com/openai/v1', modelo: 'llama-3.3-70b-versatile', limiteDiario: 1000, leHeaders: true, visao: false },
+  { id: 'groq', nome: 'Groq', envChave: 'GROQ_API_KEY', baseUrl: 'https://api.groq.com/openai/v1', modelo: 'openai/gpt-oss-120b', limiteDiario: 1000, leHeaders: true, visao: false },
   { id: 'cerebras', nome: 'Cerebras', envChave: 'CEREBRAS_API_KEY', baseUrl: 'https://api.cerebras.ai/v1', modelo: 'gpt-oss-120b', limiteDiario: 1000, leHeaders: true, visao: false },
   { id: 'gemini', nome: 'Google Gemini', envChave: 'GEMINI_API_KEY', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', modelo: 'gemini-flash-lite-latest', limiteDiario: 1500, leHeaders: false, visao: true },
   { id: 'openrouter', nome: 'OpenRouter', envChave: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', modelo: 'nvidia/nemotron-3.5-lightning:free', limiteDiario: 200, leHeaders: true, visao: false },
