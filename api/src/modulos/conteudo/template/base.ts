@@ -120,8 +120,50 @@ const fontes = [
  * estilo chama isto passando seu `accent`, então a marca do estilo continua
  * presente mesmo na versão com foto. `ctx.foto` precisa existir.
  */
+/**
+ * Composição para uma foto JÁ RECORTADA (fundo removido): a figura (pessoa) fica
+ * ancorada em baixo à direita sobre o fundo rico texturizado, e o texto ocupa a
+ * coluna da esquerda — no espírito das referências (pessoa recortada + fundo de
+ * cor + texto ao lado). Usa `backgroundSize: contain` para a silhueta não distorcer.
+ */
+export function slideComFotoRecortada(slide: SlideRico, ctx: ContextoSlide, accent: string): Elemento {
+  const foto = ctx.foto!;
+  const corpo = slide.corpo ?? slide.subtitulo;
+  const bloco: Elemento[] = [
+    el('div', { width: 96, height: 10, borderRadius: 999, backgroundColor: accent, display: 'flex' }),
+    el('div', {
+      fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: slide.tipo === 'capa' ? 84 : 70,
+      lineHeight: 1.06, color: cores.branco, display: 'flex',
+    }, slide.titulo),
+  ];
+  if (corpo) {
+    bloco.push(el('div', { fontSize: 36, color: 'rgba(255,255,255,0.88)', lineHeight: 1.3, display: 'flex' }, corpo));
+  }
+
+  return el('div', {
+    width: LADO, height: LADO, display: 'flex', position: 'relative', color: cores.branco,
+    fontFamily: FONTE_CORPO, backgroundColor: cores.tintaFundo,
+    ...fundoTexturizado(`linear-gradient(160deg, ${cores.tinta} 0%, ${cores.tintaFundo} 100%)`),
+  }, [
+    img(foto.dataUri, {
+      position: 'absolute', right: 24, bottom: 0,
+      width: Math.round(LADO * 0.54), height: Math.round(LADO * 0.92),
+      objectFit: 'contain', objectPosition: 'bottom right',
+    }),
+    el('div', {
+      position: 'relative', width: LADO, height: LADO, display: 'flex', flexDirection: 'column',
+      justifyContent: 'space-between', padding: 96,
+    }, [
+      marca(cores.branco, 44, accent),
+      el('div', { display: 'flex', flexDirection: 'column', gap: 24, maxWidth: Math.round(LADO * 0.54) }, bloco),
+      rodape('rgba(255,255,255,0.82)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
+    ]),
+  ]);
+}
+
 export function slideComFoto(slide: SlideRico, ctx: ContextoSlide, accent: string): Elemento {
   const foto = ctx.foto!;
+  if (foto.recortada) return slideComFotoRecortada(slide, ctx, accent);
   const corpo = slide.corpo ?? slide.subtitulo;
   const bloco: Elemento[] = [
     el('div', { width: 96, height: 10, borderRadius: 999, backgroundColor: accent, display: 'flex' }),

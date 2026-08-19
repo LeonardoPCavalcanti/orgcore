@@ -49,10 +49,17 @@ describe('estilos de carrossel', () => {
     });
   }
 
+  // PNG 1x1 transparente — basta para o satori aceitar a imagem.
+  const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
   it('slide com foto (hero) compoe PNG 1080x1080', async () => {
-    // PNG 1x1 transparente — basta para o satori aceitar o backgroundImage.
-    const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
     const png = await renderSlide(slideCapa, 'editorial', { indice: 0, total: 3, foto: { dataUri: foto, recortada: false } });
+    expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
+    expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
+  });
+
+  it('slide com foto RECORTADA (cutout) compoe PNG 1080x1080', async () => {
+    const png = await renderSlide(slideCapa, 'editorial', { indice: 0, total: 3, foto: { dataUri: foto, recortada: true } });
     expect(png.subarray(0, 8).equals(ASSINATURA_PNG)).toBe(true);
     expect(dimensoesPng(png)).toEqual({ largura: 1080, altura: 1080 });
   });
