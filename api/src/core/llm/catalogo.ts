@@ -26,7 +26,8 @@ export const CATALOGO: Provedor[] = [
   { id: 'sambanova', nome: 'SambaNova', envChave: 'SAMBANOVA_API_KEY', baseUrl: 'https://api.sambanova.ai/v1', modelo: 'Meta-Llama-3.3-70B-Instruct', limiteDiario: 500, leHeaders: false, visao: false },
   { id: 'mistral', nome: 'Mistral', envChave: 'MISTRAL_API_KEY', baseUrl: 'https://api.mistral.ai/v1', modelo: 'mistral-small-latest', limiteDiario: 500, leHeaders: false, visao: false },
   { id: 'nvidia', nome: 'NVIDIA NIM', envChave: 'NVIDIA_API_KEY', baseUrl: 'https://integrate.api.nvidia.com/v1', modelo: 'meta/llama-3.1-8b-instruct', limiteDiario: 1000, leHeaders: false, visao: false },
-  { id: 'github', nome: 'GitHub Models', envChave: 'GITHUB_MODELS_KEY', baseUrl: 'https://models.github.ai/inference', modelo: 'openai/gpt-4o-mini', limiteDiario: 150, leHeaders: false, visao: true },
+  // GitHub Models removido: o serviço entrou em "retirement brownout" (410 em todos os
+  // endpoints, 2026-08). Reativar só quando/se o GitHub republicar a API compatível.
 ];
 
 /** Ids de todos os provedores do catálogo (usados para validar whitelist por cargo). */
