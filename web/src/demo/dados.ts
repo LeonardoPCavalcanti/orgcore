@@ -33,7 +33,7 @@ const EU = {
 };
 
 const PROVEDORES = [
-  { id: 'groq', nome: 'Groq', modelo: 'llama-3.3-70b-versatile', percentual: 92, disponivel: true, atualizadoEm: agora(), visao: false, requisicoes: 34, tokens: 41200 },
+  { id: 'groq', nome: 'Groq', modelo: 'openai/gpt-oss-120b', percentual: 92, disponivel: true, atualizadoEm: agora(), visao: false, requisicoes: 34, tokens: 41200 },
   { id: 'gemini', nome: 'Google Gemini', modelo: 'gemini-flash-lite-latest', percentual: 88, disponivel: true, atualizadoEm: agora(), visao: true, requisicoes: 12, tokens: 15800 },
   { id: 'cerebras', nome: 'Cerebras', modelo: 'gpt-oss-120b', percentual: 76, disponivel: true, atualizadoEm: agora(), visao: false, requisicoes: 8, tokens: 9700 },
   { id: 'mistral', nome: 'Mistral', modelo: 'mistral-small-latest', percentual: 64, disponivel: true, atualizadoEm: agora(), visao: false, requisicoes: 5, tokens: 6100 },
@@ -101,6 +101,36 @@ const RESPOSTAS_DEMO = [
 ];
 let contadorResposta = 0;
 
+// Carrosséis de amostra: a arte é pré-renderizada e servida como asset estático em
+// web/public/demo/carrossel/ (via urlDaApi no modo demo). Mostram o gerador de posts
+// da Conect2AI — logo, fundos texturizados, foto recortada e grade de pessoas.
+const CARROSSEIS_DEMO = [
+  {
+    id: 'demo-c1', tema: 'Edge AI em veículos conectados', estilo: 'editorial', criadoEm: diasAtras(2),
+    legenda: 'Quer que o carro decida em milissegundos?\nEdge AI traz o processamento para dentro do veículo, cortando a dependência da nuvem.\nDo laboratório ao volante — pesquisa aplicada da Conect2AI.\nSalve este post e siga a gente.',
+    hashtags: ['#conect2ai', '#edgeai', '#veiculosconectados', '#sistemasembarcados', '#inteligenciaartificial', '#ufrn'],
+    slides: [
+      { id: 'demo-c1-0', ordem: 0, tipo: 'capa', titulo: 'Edge AI no volante', subtitulo: 'Conect2AI · UFRN', imagemUrl: '/demo/carrossel/c1-0.png' },
+      { id: 'demo-c1-1', ordem: 1, tipo: 'conteudo', titulo: 'Menos nuvem, mais borda', subtitulo: '', corpo: 'O modelo roda dentro do veículo: decisões em milissegundos, sem depender da rede.', imagemUrl: '/demo/carrossel/c1-1.png' },
+      { id: 'demo-c1-2', ordem: 2, tipo: 'conteudo', titulo: 'Do laboratório ao volante', subtitulo: '', corpo: 'Pesquisa aplicada em veículos conectados reais.', imagemUrl: '/demo/carrossel/c1-2.png' },
+      { id: 'demo-c1-3', ordem: 3, tipo: 'conteudo', titulo: 'Time Conect2AI', subtitulo: '', imagemUrl: '/demo/carrossel/c1-3.png' },
+      { id: 'demo-c1-4', ordem: 4, tipo: 'cta', titulo: 'Vamos conversar?', subtitulo: 'Siga @conect2ai e comente aqui.', imagemUrl: '/demo/carrossel/c1-4.png' },
+    ],
+  },
+  {
+    id: 'demo-c2', tema: 'Telemetria em tempo real', estilo: 'bold', criadoEm: diasAtras(6),
+    legenda: 'Processar na borda derruba a latência.\nMenos ida-e-volta com a nuvem, mais reação em tempo real.\nSalve e siga a Conect2AI.',
+    hashtags: ['#conect2ai', '#telemetria', '#edgeai', '#iot', '#ufrn'],
+    slides: [
+      { id: 'demo-c2-0', ordem: 0, tipo: 'capa', titulo: 'Telemetria em tempo real', subtitulo: 'Conect2AI', imagemUrl: '/demo/carrossel/c2-0.png' },
+      { id: 'demo-c2-1', ordem: 1, tipo: 'conteudo', titulo: 'Latência menor', subtitulo: '', corpo: 'Processamento na borda derruba o tempo de resposta.', destaque: '80%', imagemUrl: '/demo/carrossel/c2-1.png' },
+      { id: 'demo-c2-2', ordem: 2, tipo: 'cta', titulo: 'Curtiu?', subtitulo: 'Salve e siga a Conect2AI.', imagemUrl: '/demo/carrossel/c2-2.png' },
+    ],
+  },
+];
+const resumoCarrossel = (c: (typeof CARROSSEIS_DEMO)[number]) =>
+  ({ id: c.id, tema: c.tema, estilo: c.estilo, criadoEm: c.criadoEm });
+
 function resolver(metodo: string, rota: string, corpo: unknown): unknown {
   // ----- Mutações: eco/no-op para as telas reagirem sem persistir nada -----
   if (metodo !== 'GET') {
@@ -123,6 +153,17 @@ function resolver(metodo: string, rota: string, corpo: unknown): unknown {
       return { cargoId: rota.split('/').pop(), provedores: efetivo };
     }
     if (rota === '/auth/convites') return { token: 'demo-token-exemplo' };
+    // Conteúdo: "Gerar" devolve um carrossel de amostra; trocar estilo devolve o
+    // carrossel (a arte é estática, não re-renderiza no demo); edições de slide
+    // ecoam um slide válido para as telas reagirem sem quebrar.
+    if (rota === '/conteudo/carrosseis') return CARROSSEIS_DEMO[0];
+    if (/^\/conteudo\/carrosseis\/[^/]+\/estilo$/.test(rota)) {
+      const id = rota.split('/')[3];
+      const c = corpo as { estilo?: string };
+      const base = CARROSSEIS_DEMO.find((x) => x.id === id) ?? CARROSSEIS_DEMO[0]!;
+      return { ...base, estilo: c.estilo ?? base.estilo };
+    }
+    if (/^\/conteudo\/slides\//.test(rota)) return CARROSSEIS_DEMO[0]!.slides[0];
     return {}; // demais mutações: no-op
   }
 
@@ -153,12 +194,16 @@ function resolver(metodo: string, rota: string, corpo: unknown): unknown {
     case '/organograma/cargos': return CARGOS;
     case '/organograma/pessoas': return PESSOAS;
     case '/conteudo/anuncios': return [];
-    case '/conteudo/carrosseis': return [];
+    case '/conteudo/carrosseis': return CARROSSEIS_DEMO.map(resumoCarrossel);
     case '/conteudo/ia/provedores': return PROVEDORES;
     case '/delegacoes': return [];
     default: break;
   }
   if (rota.startsWith('/auditoria')) return AUDITORIA;
+  if (/^\/conteudo\/carrosseis\/[^/]+$/.test(rota)) {
+    const id = rota.split('/').pop();
+    return CARROSSEIS_DEMO.find((c) => c.id === id) ?? CARROSSEIS_DEMO[0];
+  }
   if (/^\/assistente\/conversas\/.+$/.test(rota)) {
     const id = rota.split('/').pop() ?? '';
     return MENSAGENS[id] ?? { id, titulo: 'Conversa', atualizadoEm: agora(), mensagens: [] };

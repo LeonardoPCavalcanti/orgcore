@@ -6,7 +6,14 @@ const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
  * (este devolve JSON). O cookie de sessão vai junto: web e API são same-site
  * (mesmo `localhost`), então o `SameSite=Lax` não bloqueia o subrecurso.
  */
-export const urlDaApi = (caminho: string): string => `${BASE}${caminho}`;
+export const urlDaApi = (caminho: string): string => {
+  // Em modo demo (GitHub Pages, sem backend) as imagens de slide são assets
+  // ESTÁTICOS servidos sob o base path do Vite (ex.: /orgcore/), não pela API.
+  if (import.meta.env.VITE_DEMO) {
+    return `${import.meta.env.BASE_URL.replace(/\/$/, '')}${caminho}`;
+  }
+  return `${BASE}${caminho}`;
+};
 
 // Métodos que o servidor protege com o token de dupla submissão (ver o preHandler
 // em api/core/app.ts). Só neles o cookie `csrf` precisa ser ecoado no cabeçalho;
