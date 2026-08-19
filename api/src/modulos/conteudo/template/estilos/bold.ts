@@ -1,4 +1,4 @@
-import { cores, el, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, fundoTexturizado, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -34,7 +34,11 @@ export const bold: Template = {
     return el('div', {
       width: LADO, height: LADO, display: 'flex', flexDirection: 'column',
       justifyContent: 'space-between', padding: 96, color: cores.branco, fontFamily: FONTE_CORPO,
-      backgroundImage: `linear-gradient(140deg, ${cores.ciano} 0%, ${cores.cianoProfundo} 42%, ${cores.tinta} 100%)`,
+      backgroundColor: cores.cianoProfundo,
+      ...fundoTexturizado(
+        `linear-gradient(140deg, ${cores.ciano} 0%, ${cores.cianoProfundo} 45%, ${cores.tinta} 100%)`,
+        { brilho: 'rgba(255,255,255,0.16)', sombra: 'rgba(10,15,20,0.5)', facho: 'rgba(255,255,255,0.08)' },
+      ),
     }, [
       marca(cores.branco, 44, cores.branco),
       el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, filhosCentro),

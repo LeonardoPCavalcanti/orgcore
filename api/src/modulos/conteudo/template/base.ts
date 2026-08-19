@@ -68,6 +68,32 @@ export function marca(corTexto: string, tamanho = 44, acento: string = cores.cia
   ]);
 }
 
+/**
+ * Fundo "rico": sobre um gradiente-base, empilha um brilho (light-leak) no canto
+ * superior-esquerdo, um aprofundamento no inferior-direito e um facho diagonal
+ * sutil — dá textura/energia no espírito das referências (fundo texturizado), na
+ * paleta Conect2AI. Devolve props de `backgroundImage` (camadas, topo→base: a
+ * base vai por ÚLTIMO). Espalhe num container junto de um `backgroundColor` de
+ * fallback. As cores dos leaks são configuráveis para casar com o fundo (ex.:
+ * brilho branco sobre o ciano do bold; brilho ciano sobre a tinta do editorial).
+ */
+export function fundoTexturizado(
+  baseGradiente: string,
+  opts: { brilho?: string; sombra?: string; facho?: string } = {},
+): Estilo {
+  const brilho = opts.brilho ?? 'rgba(27,180,216,0.32)';
+  const sombra = opts.sombra ?? 'rgba(8,12,16,0.55)';
+  const facho = opts.facho ?? 'rgba(27,180,216,0.10)';
+  return {
+    backgroundImage: [
+      `radial-gradient(95% 75% at 10% -8%, ${brilho} 0%, rgba(0,0,0,0) 55%)`,
+      `radial-gradient(85% 90% at 108% 112%, ${sombra} 0%, rgba(0,0,0,0) 60%)`,
+      `linear-gradient(118deg, rgba(0,0,0,0) 44%, ${facho} 50%, rgba(0,0,0,0) 56%)`,
+      baseGradiente,
+    ].join(', '),
+  };
+}
+
 /** Rodapé: handle à esquerda, um texto (etiqueta ou número de página) à direita. */
 export function rodape(corTexto: string, direita: string): Elemento {
   return el('div', {

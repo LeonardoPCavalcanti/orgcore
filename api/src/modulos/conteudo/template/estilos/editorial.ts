@@ -1,4 +1,4 @@
-import { cores, el, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, fundoTexturizado, marca, numeroPagina, rodape, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -12,6 +12,7 @@ function painelTinta(slide: SlideRico, ctx: ContextoSlide): ReturnType<typeof el
     width: LADO, height: LADO, display: 'flex', flexDirection: 'column',
     justifyContent: 'space-between', padding: 96,
     backgroundColor: cores.tinta, color: cores.branco, fontFamily: FONTE_CORPO,
+    ...fundoTexturizado(`linear-gradient(160deg, ${cores.tinta} 0%, ${cores.tintaFundo} 100%)`),
   }, [
     marca(cores.branco),
     el('div', { display: 'flex', flexDirection: 'column', gap: 28 }, [
