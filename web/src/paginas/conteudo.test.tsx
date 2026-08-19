@@ -146,6 +146,28 @@ describe('PaginaConteudo', () => {
     });
   });
 
+  it('troca o estilo do carrossel pelo seletor do preview', async () => {
+    const carrosselBold = { ...carrossel, estilo: 'bold' as const };
+    apiFetchMock
+      .mockResolvedValueOnce([]) // carga inicial
+      .mockResolvedValueOnce(carrossel) // POST gerar
+      .mockResolvedValueOnce([]) // recarga
+      .mockResolvedValueOnce(carrosselBold); // PATCH estilo
+    render(<PaginaConteudo />);
+    await screen.findByText(/Nenhum carrossel ainda/);
+    fireEvent.change(screen.getByLabelText('Tema do carrossel'), { target: { value: 'Edge AI' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar carrossel' }));
+    await screen.findByText('Slide 1 de 3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    await waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith('/conteudo/carrosseis/c1/estilo', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ estilo: 'bold' }),
+      }));
+    });
+  });
+
   it('copia a legenda com as hashtags', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

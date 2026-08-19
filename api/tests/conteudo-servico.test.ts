@@ -6,7 +6,7 @@ import { geradorFake } from '../src/modulos/conteudo/gerador/fake';
 import { slides } from '../src/modulos/conteudo/db/schema/conteudo';
 import {
   apagarCarrossel, criarCarrossel, definirFotoDoSlide, editarSlide, imagemDoSlide,
-  listarCarrosseis, obterCarrossel, regenerarSlide,
+  listarCarrosseis, mudarEstiloDoCarrossel, obterCarrossel, regenerarSlide,
 } from '../src/modulos/conteudo/servico';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -190,6 +190,25 @@ describe('servico de conteudo', () => {
     const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
     expect(await definirFotoDoSlide(resp.slides[0]!.id, caio.id, { dataUri: null, recortada: false })).toBeNull();
+  }, 30_000);
+
+  it('troca o estilo do carrossel e re-renderiza todos os slides (dono)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const resp = await criar(ana, 'Estilos', 4, 'editorial');
+    const mudado = await mudarEstiloDoCarrossel(resp.id, ana.id, 'bold');
+    expect(mudado?.estilo).toBe('bold');
+    expect(mudado?.slides).toHaveLength(4);
+    expect((await obterCarrossel(resp.id, ana.id))?.estilo).toBe('bold');
+    expect((await imagemDoSlide(resp.slides[0]!.id, ana.id))?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('nao troca estilo de carrossel de outro autor (null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
+    const resp = await criar(ana);
+    expect(await mudarEstiloDoCarrossel(resp.id, caio.id, 'bold')).toBeNull();
   }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {

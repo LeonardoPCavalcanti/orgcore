@@ -184,6 +184,52 @@ export async function imagemDoSlide(
   return { bytes: linha.imagem, tipo: linha.imagemTipo };
 }
 
+/**
+ * Troca o estilo de um carrossel e re-renderiza TODOS os slides (conteúdo é
+ * agnóstico de estilo; foto e logos persistidos são reaproveitados). Só o dono;
+ * fora do escopo → null.
+ */
+export async function mudarEstiloDoCarrossel(
+  carrosselId: string, autorId: string, estilo: EstiloCarrossel,
+): Promise<CarrosselResposta | null> {
+  const [carrossel] = await db.select().from(carrosseis)
+    .where(and(eq(carrosseis.id, carrosselId), eq(carrosseis.autorId, autorId)));
+  if (!carrossel) return null;
+
+  const linhas = await db.select({
+    id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
+    titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
+    foto: slides.foto, fotoRecortada: slides.fotoRecortada,
+  }).from(slides).where(eq(slides.carrosselId, carrosselId)).orderBy(asc(slides.ordem));
+
+  const total = linhas.length;
+  const logos = carrossel.logos;
+  const imagens = await Promise.all(linhas.map((s) => {
+    const foto: FotoSlide | undefined = s.foto ? { dataUri: s.foto, recortada: s.fotoRecortada } : undefined;
+    return renderSlide(
+      {
+        tipo: s.tipo as SlideResposta['tipo'], titulo: s.titulo, subtitulo: s.subtitulo,
+        ...(s.corpo ? { corpo: s.corpo } : {}), ...(s.destaque ? { destaque: s.destaque } : {}),
+      },
+      estilo,
+      { indice: s.ordem, total, ...(logos?.length ? { logos } : {}), ...(foto ? { foto } : {}) },
+    );
+  }));
+
+  await db.transaction(async (tx) => {
+    await tx.update(carrosseis).set({ estilo }).where(eq(carrosseis.id, carrosselId));
+    for (let i = 0; i < linhas.length; i += 1) {
+      await tx.update(slides).set({ imagem: imagens[i]! }).where(eq(slides.id, linhas[i]!.id));
+    }
+  });
+
+  return {
+    id: carrossel.id, tema: carrossel.tema, estilo, criadoEm: carrossel.criadoEm.toISOString(),
+    legenda: carrossel.legenda, hashtags: carrossel.hashtags,
+    slides: linhas.map(slideResposta),
+  };
+}
+
 /** Apaga o carrossel (cascade nos slides), só se for do autor. Devolve se apagou. */
 export async function apagarCarrossel(id: string, autorId: string): Promise<boolean> {
   const apagados = await db.delete(carrosseis)

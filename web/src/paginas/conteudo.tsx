@@ -98,6 +98,25 @@ export function PaginaConteudo() {
     }
   }
 
+  const [trocandoEstilo, setTrocandoEstilo] = useState(false);
+  async function trocarEstilo(novo: EstiloCarrossel) {
+    if (!atual || atual.estilo === novo || trocandoEstilo) return;
+    setTrocandoEstilo(true);
+    setErro('');
+    try {
+      const c = await apiFetch<CarrosselResposta>(`/conteudo/carrosseis/${atual.id}/estilo`, {
+        method: 'PATCH',
+        body: JSON.stringify({ estilo: novo }),
+      });
+      setAtual(c);
+      setVersaoImg((v) => v + 1);
+    } catch (err) {
+      setErro(err instanceof ErroApi ? err.message : 'Não foi possível trocar o estilo');
+    } finally {
+      setTrocandoEstilo(false);
+    }
+  }
+
   async function regenerarSlideAtual() {
     const s = atual?.slides[indice];
     if (!s || !atual) return;
@@ -374,6 +393,18 @@ export function PaginaConteudo() {
             <div className="entre">
               <h2>{atual.tema}</h2>
               <span className="texto-fraco">Slide {indice + 1} de {atual.slides.length}</span>
+            </div>
+
+            <div className="linha" style={{ gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <span className="texto-fraco" style={{ alignSelf: 'center', fontSize: '0.8rem' }}>Estilo:</span>
+              {ESTILOS.map((op) => (
+                <button key={op.id} type="button"
+                  className={`botao ${atual.estilo === op.id ? '' : 'botao--fantasma'}`}
+                  aria-pressed={atual.estilo === op.id} disabled={trocandoEstilo}
+                  onClick={() => trocarEstilo(op.id)}>
+                  {op.nome}
+                </button>
+              ))}
             </div>
 
             <div className="linha" style={{ gap: 12, justifyContent: 'center' }}>

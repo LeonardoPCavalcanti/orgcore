@@ -108,6 +108,10 @@ export const fotoNoSlide = z.object({
 });
 export type FotoNoSlide = z.infer<typeof fotoNoSlide>;
 
+/** Troca o estilo de um carrossel inteiro (re-renderiza todos os slides). */
+export const mudancaEstilo = z.object({ estilo: estiloCarrossel });
+export type MudancaEstilo = z.infer<typeof mudancaEstilo>;
+
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
   id: z.string().uuid(),

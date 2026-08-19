@@ -1,4 +1,4 @@
-import { edicaoSlide, fotoNoSlide, novoCarrossel, regeneracaoSlide } from '@4med/contracts';
+import { edicaoSlide, fotoNoSlide, mudancaEstilo, novoCarrossel, regeneracaoSlide } from '@4med/contracts';
 import { z } from 'zod';
 import { registrarAuditoria } from '../../core/auditoria/registro';
 import { naoEncontrado } from '../../core/erros';
@@ -9,7 +9,7 @@ import { criarRemovedor, removedorPassthrough } from './anuncio/template/silhuet
 import { criarGerador } from './gerador';
 import {
   apagarCarrossel, criarCarrossel, definirFotoDoSlide, editarSlide, imagemDoSlide,
-  listarCarrosseis, obterCarrossel, regenerarSlide,
+  listarCarrosseis, mudarEstiloDoCarrossel, obterCarrossel, regenerarSlide,
 } from './servico';
 
 export const PERMISSAO_CRIAR = 'conteudo.carrossel.criar';
@@ -101,6 +101,18 @@ export const rotasConteudo: DefinicaoRota[] = [
       const slide = await editarSlide(id.data, contexto.usuarioId, edicao);
       if (!slide) throw naoEncontrado();
       return slide;
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/conteudo/carrosseis/:id/estilo', permissao: PERMISSAO_CRIAR,
+    handler: async (req) => {
+      const { contexto } = exigirAutenticacao(req);
+      const id = idDeUuid.safeParse((req.params as { id: string }).id);
+      if (!id.success) throw naoEncontrado();
+      const { estilo } = mudancaEstilo.parse(req.body);
+      const carrossel = await mudarEstiloDoCarrossel(id.data, contexto.usuarioId, estilo);
+      if (!carrossel) throw naoEncontrado();
+      return carrossel;
     },
   },
   {
