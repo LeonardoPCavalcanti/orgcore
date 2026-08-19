@@ -44,4 +44,22 @@ export const geradorFake: GeradorDeTexto = {
       slides,
     };
   },
+
+  async gerarSlide(ctx): Promise<SlidePlanejado> {
+    const tema = ctx.tema.trim();
+    const nota = ctx.instrucao?.trim() ? ` (${ctx.instrucao.trim()})` : '';
+    if (ctx.tipo === 'capa') {
+      return { tipo: 'capa', titulo: tema, subtitulo: `Guia da Conect2AI${nota}` };
+    }
+    if (ctx.tipo === 'cta') {
+      return { tipo: 'cta', titulo: 'Vamos conversar?', subtitulo: `Siga @conect2ai e comente${nota}.` };
+    }
+    return {
+      tipo: 'conteudo',
+      titulo: `Ponto ${ctx.indice}`,
+      subtitulo: `Outra visão sobre ${tema}.`,
+      corpo: `${tema}: aspecto ${ctx.indice} reescrito em uma frase direta e útil${nota}.`,
+      destaque: `0${ctx.indice}`,
+    };
+  },
 };

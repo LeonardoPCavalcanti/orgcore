@@ -99,6 +99,31 @@ describe('PaginaConteudo', () => {
     expect(await screen.findByAltText('Slide 1: Edge AI na borda')).toBeInTheDocument();
   });
 
+  it('refaz um slide com IA (com ângulo) e reflete no preview', async () => {
+    const slideRefeito = { id: 's1', ordem: 0, tipo: 'capa', titulo: 'Capa refeita', subtitulo: 'nova', imagemUrl: '/conteudo/slides/s1/imagem' };
+    apiFetchMock
+      .mockResolvedValueOnce([]) // carga inicial
+      .mockResolvedValueOnce(carrossel) // POST gerar
+      .mockResolvedValueOnce([]) // recarga
+      .mockResolvedValueOnce(slideRefeito); // POST regenerar
+    render(<PaginaConteudo />);
+    await screen.findByText(/Nenhum carrossel ainda/);
+    fireEvent.change(screen.getByLabelText('Tema do carrossel'), { target: { value: 'Edge AI' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar carrossel' }));
+    await screen.findByText('Slide 1 de 3');
+
+    fireEvent.change(screen.getByPlaceholderText(/Ângulo para a IA/), { target: { value: 'mais direto' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Refazer com IA' }));
+
+    await waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith('/conteudo/slides/s1/regenerar', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ instrucao: 'mais direto' }),
+      }));
+    });
+    expect(await screen.findByAltText('Slide 1: Capa refeita')).toBeInTheDocument();
+  });
+
   it('copia a legenda com as hashtags', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

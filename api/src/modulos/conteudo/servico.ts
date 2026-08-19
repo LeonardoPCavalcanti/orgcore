@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, FotoDeSlide, SlideResposta } from '@4med/contracts';
+import type { CarrosselResposta, CarrosselResumo, EstiloCarrossel, FotoDeSlide, SlideResposta, TipoSlide } from '@4med/contracts';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../../core/db/client';
 import { ErroHttp } from '../../core/erros';
@@ -243,4 +243,38 @@ export async function editarSlide(
     corpo: slides.corpo, destaque: slides.destaque,
   });
   return atualizado ? slideResposta(atualizado) : null;
+}
+
+/**
+ * Regenera o TEXTO de um slide por IA (mantendo seu papel e a vaga) e re-renderiza —
+ * reaproveita `editarSlide` para a re-renderização fiel. Só o dono; fora do escopo → null.
+ */
+export async function regenerarSlide(
+  slideId: string, autorId: string, gerador: GeradorDeTexto, instrucao?: string,
+): Promise<SlideResposta | null> {
+  const [linha] = await db.select({
+    ordem: slides.ordem, tipo: slides.tipo, carrosselId: slides.carrosselId,
+    titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
+    tema: carrosseis.tema,
+  }).from(slides)
+    .innerJoin(carrosseis, eq(carrosseis.id, slides.carrosselId))
+    .where(and(eq(slides.id, slideId), eq(carrosseis.autorId, autorId)));
+  if (!linha) return null;
+
+  const irmaos = await db.select({ id: slides.id }).from(slides).where(eq(slides.carrosselId, linha.carrosselId));
+  const nova = await gerador.gerarSlide({
+    tema: linha.tema, tipo: linha.tipo as TipoSlide, indice: linha.ordem, total: irmaos.length,
+    atual: {
+      titulo: linha.titulo, subtitulo: linha.subtitulo,
+      ...(linha.corpo ? { corpo: linha.corpo } : {}),
+      ...(linha.destaque ? { destaque: linha.destaque } : {}),
+    },
+    ...(instrucao ? { instrucao } : {}),
+  });
+
+  return editarSlide(slideId, autorId, {
+    titulo: nova.titulo, subtitulo: nova.subtitulo,
+    ...(nova.corpo ? { corpo: nova.corpo } : {}),
+    ...(nova.destaque ? { destaque: nova.destaque } : {}),
+  });
 }

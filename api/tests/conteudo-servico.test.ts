@@ -5,7 +5,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { geradorFake } from '../src/modulos/conteudo/gerador/fake';
 import { slides } from '../src/modulos/conteudo/db/schema/conteudo';
 import {
-  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis, obterCarrossel,
+  apagarCarrossel, criarCarrossel, editarSlide, imagemDoSlide, listarCarrosseis,
+  obterCarrossel, regenerarSlide,
 } from '../src/modulos/conteudo/servico';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -146,6 +147,26 @@ describe('servico de conteudo', () => {
     const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
     expect(await editarSlide(resp.slides[0]!.id, caio.id, { titulo: 'x', subtitulo: '' })).toBeNull();
+  }, 30_000);
+
+  it('regenera o texto de um slide por IA e re-renderiza (dono)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const resp = await criar(ana, 'Telemetria', 4, 'editorial');
+    const alvo = resp.slides[1]!;
+    const novo = await regenerarSlide(alvo.id, ana.id, geradorFake, 'com mais dados');
+    expect(novo?.id).toBe(alvo.id);
+    expect(novo?.corpo).toContain('com mais dados');
+    const img = await imagemDoSlide(alvo.id, ana.id);
+    expect(img?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('nao regenera slide de outro autor (null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
+    const resp = await criar(ana);
+    expect(await regenerarSlide(resp.slides[0]!.id, caio.id, geradorFake)).toBeNull();
   }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {

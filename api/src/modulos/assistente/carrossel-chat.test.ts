@@ -53,7 +53,10 @@ describe('gerarCarrosselNoChat', () => {
         { tipo: 'cta', titulo: 'Cuide-se', subtitulo: 'siga a gente' },
       ],
     };
-    const gerador: GeradorDeTexto = { gerar: async () => plano };
+    const gerador: GeradorDeTexto = {
+      gerar: async () => plano,
+      gerarSlide: async () => ({ tipo: 'conteudo', titulo: 'x', subtitulo: 'y' }),
+    };
     const r = await gerarCarrosselNoChat({ mensagem: 'faça um carrossel sobre o sono', gerador });
     expect(r.imagens).toHaveLength(2);
     expect(r.imagens.every((u) => u.startsWith('data:image/png;base64,'))).toBe(true);

@@ -1,6 +1,6 @@
-import { planoCarrossel } from '@4med/contracts';
+import { copiaSlide, planoCarrossel } from '@4med/contracts';
 import { ErroHttp } from '../../../core/erros';
-import type { GeradorDeTexto, PlanoCarrossel } from './tipos';
+import type { ContextoRegenerar, GeradorDeTexto, PlanoCarrossel, SlidePlanejado } from './tipos';
 
 /**
  * Resposta HTTP mínima de que precisamos — o suficiente para o `fetch` nativo e
@@ -66,6 +66,31 @@ function prompt(tema: string, quantidadeSlides: number): { system: string; user:
   return { system, user };
 }
 
+function promptSlide(ctx: ContextoRegenerar): { system: string; user: string } {
+  const papel = ctx.tipo === 'capa'
+    ? 'CAPA — um gancho de abertura (curiosidade ou benefício claro, nunca genérico)'
+    : ctx.tipo === 'cta'
+      ? 'CTA — o fechamento, com UMA ação específica e um motivo (salvar, comentar, seguir, link na bio)'
+      : 'CONTEÚDO — uma única ideia que avança o arco, com "corpo" de 1 a 2 frases concretas';
+  const system = [
+    'Você é estrategista de conteúdo da Conect2AI (laboratório de IA, veículos conectados e',
+    'sistemas embarcados, UFRN). Reescreve UM slide de um carrossel de Instagram, em português',
+    'do Brasil, tom técnico porém acessível, SEM emojis. Responda SOMENTE com um objeto JSON',
+    'com "titulo" (string curta, até ~6 palavras, específica), "subtitulo" (string curta) e,',
+    'quando fizer sentido, "corpo" (1 a 2 frases que entregam o ponto, voz ativa, sem repetir o',
+    'título, explicando termo técnico em palavras simples) e "destaque" (um número/dado curto e',
+    'EXATO, ex.: "18%", "3x"). Não invente dados. Mantenha o papel do slide.',
+  ].join(' ');
+  const atual = ctx.atual
+    ? `Texto atual (para MELHORAR/variar, não repetir igual): ${JSON.stringify(ctx.atual)}. `
+    : '';
+  const instr = ctx.instrucao ? `Ajuste pedido pelo autor: ${ctx.instrucao}. ` : '';
+  const user =
+    `Tema do carrossel: ${ctx.tema}. Reescreva o slide ${ctx.indice + 1} de ${ctx.total}, que é o ` +
+    `slide de ${papel}. ${atual}${instr}Responda só o JSON do slide.`;
+  return { system, user };
+}
+
 async function extrairConteudo(corpoBruto: string, aoUsar?: ConfigLLM['aoUsar']): Promise<unknown> {
   const corpo = JSON.parse(corpoBruto) as {
     choices?: { message?: { content?: string } }[];
@@ -78,9 +103,9 @@ async function extrairConteudo(corpoBruto: string, aoUsar?: ConfigLLM['aoUsar'])
   return JSON.parse(conteudo);
 }
 
-async function chamarUmaVez(cfg: ConfigLLM, tema: string, quantidadeSlides: number): Promise<PlanoCarrossel> {
+/** Uma requisição de chat/completions (JSON forçado), com timeout. Devolve o conteúdo já parseado. */
+async function pedir(cfg: ConfigLLM, system: string, user: string): Promise<unknown> {
   const fetchImpl = cfg.fetchImpl ?? (fetch as unknown as FetchLike);
-  const { system, user } = prompt(tema, quantidadeSlides);
   const controlador = new AbortController();
   const prazo = setTimeout(() => controlador.abort(), cfg.timeoutMs ?? 20_000);
   try {
@@ -95,12 +120,30 @@ async function chamarUmaVez(cfg: ConfigLLM, tema: string, quantidadeSlides: numb
       signal: controlador.signal,
     });
     if (!resp.ok) throw indisponivel();
-    // `planoCarrossel.parse` lança ZodError se a IA fugir do formato; tratamos como
-    // indisponibilidade (a resposta veio, mas é inutilizável), nunca como slide cru.
-    return planoCarrossel.parse(await extrairConteudo(await resp.text(), cfg.aoUsar));
+    return await extrairConteudo(await resp.text(), cfg.aoUsar);
   } finally {
     clearTimeout(prazo);
   }
+}
+
+async function chamarUmaVez(cfg: ConfigLLM, tema: string, quantidadeSlides: number): Promise<PlanoCarrossel> {
+  const { system, user } = prompt(tema, quantidadeSlides);
+  // `planoCarrossel.parse` lança ZodError se a IA fugir do formato; tratamos como
+  // indisponibilidade (a resposta veio, mas é inutilizável), nunca como slide cru.
+  return planoCarrossel.parse(await pedir(cfg, system, user));
+}
+
+async function chamarSlideUmaVez(cfg: ConfigLLM, ctx: ContextoRegenerar): Promise<SlidePlanejado> {
+  const { system, user } = promptSlide(ctx);
+  const copia = copiaSlide.parse(await pedir(cfg, system, user));
+  // O tipo (papel) vem do slide existente, não da IA — regenerar não muda a vaga.
+  return {
+    tipo: ctx.tipo,
+    titulo: copia.titulo,
+    subtitulo: copia.subtitulo,
+    ...(copia.corpo ? { corpo: copia.corpo } : {}),
+    ...(copia.destaque ? { destaque: copia.destaque } : {}),
+  };
 }
 
 /**
@@ -118,6 +161,18 @@ export function geradorLLM(cfg: ConfigLLM): GeradorDeTexto {
         if (primeira instanceof ErroHttp && primeira.codigo !== 'geracao_indisponivel') throw primeira;
         try {
           return await chamarUmaVez(cfg, tema, quantidadeSlides);
+        } catch {
+          throw indisponivel();
+        }
+      }
+    },
+    async gerarSlide(ctx) {
+      try {
+        return await chamarSlideUmaVez(cfg, ctx);
+      } catch (primeira) {
+        if (primeira instanceof ErroHttp && primeira.codigo !== 'geracao_indisponivel') throw primeira;
+        try {
+          return await chamarSlideUmaVez(cfg, ctx);
         } catch {
           throw indisponivel();
         }

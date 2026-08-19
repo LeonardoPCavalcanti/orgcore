@@ -55,6 +55,28 @@ export function PaginaConteudo() {
   const [edicao, setEdicao] = useState({ titulo: '', subtitulo: '', corpo: '', destaque: '' });
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [versaoImg, setVersaoImg] = useState(0);
+  const [instrucao, setInstrucao] = useState('');
+  const [regenerando, setRegenerando] = useState(false);
+
+  async function regenerarSlideAtual() {
+    const s = atual?.slides[indice];
+    if (!s || !atual) return;
+    setRegenerando(true);
+    setErro('');
+    try {
+      const atualizado = await apiFetch<SlideResposta>(`/conteudo/slides/${s.id}/regenerar`, {
+        method: 'POST',
+        body: JSON.stringify(instrucao.trim() ? { instrucao } : {}),
+      });
+      setAtual({ ...atual, slides: atual.slides.map((x) => (x.id === atualizado.id ? atualizado : x)) });
+      setVersaoImg((v) => v + 1);
+      setInstrucao('');
+    } catch (err) {
+      setErro(err instanceof ErroApi ? err.message : 'Não foi possível refazer o slide');
+    } finally {
+      setRegenerando(false);
+    }
+  }
 
   function irParaSlide(novo: number) {
     setEditando(false);
@@ -324,11 +346,20 @@ export function PaginaConteudo() {
                 onClick={() => irParaSlide(Math.min(atual.slides.length - 1, indice + 1))}>›</button>
             </div>
 
-            <div className="linha" style={{ gap: 8, justifyContent: 'center' }}>
+            <div className="linha" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button type="button" className="botao" onClick={baixarSlide}>Baixar este slide</button>
               <button type="button" className="botao botao--fantasma" onClick={editando ? () => setEditando(false) : abrirEdicao}>
                 {editando ? 'Cancelar edição' : 'Editar texto'}
               </button>
+              <button type="button" className="botao botao--fantasma" onClick={regenerarSlideAtual} disabled={regenerando}>
+                {regenerando ? 'Refazendo…' : 'Refazer com IA'}
+              </button>
+            </div>
+            <div className="linha" style={{ gap: 8, justifyContent: 'center' }}>
+              <input className="entrada" value={instrucao} maxLength={300}
+                placeholder="Ângulo para a IA (opcional): ex. mais direto, com um dado"
+                style={{ maxWidth: 'min(520px, 90%)' }}
+                onChange={(e) => setInstrucao(e.target.value)} />
             </div>
 
             {editando && (

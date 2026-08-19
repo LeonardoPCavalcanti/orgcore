@@ -110,7 +110,10 @@ describe('servico do assistente', () => {
     await semearDemonstracao();
     const uid = await usuario('admin@conect2ai.com');
     const conv = await criarConversa(uid);
-    const gerador: GeradorDeTexto = { gerar: async () => { throw new Error('provedor caiu'); } };
+    const gerador: GeradorDeTexto = {
+      gerar: async () => { throw new Error('provedor caiu'); },
+      gerarSlide: async () => { throw new Error('provedor caiu'); },
+    };
     const { mensagem } = await enviarMensagem({
       conversaId: conv.id, usuarioId: uid,
       dados: { conteudo: 'faça um carrossel sobre o sono', imagens: [], documentos: [] },

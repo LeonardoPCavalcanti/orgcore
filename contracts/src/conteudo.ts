@@ -86,6 +86,21 @@ export const edicaoSlide = z.object({
 });
 export type EdicaoSlide = z.infer<typeof edicaoSlide>;
 
+/** Copia que a IA devolve para UM slide (o tipo vem do slide que já existe). */
+export const copiaSlide = z.object({
+  titulo: z.string().min(1),
+  subtitulo: z.string(),
+  corpo: z.string().optional(),
+  destaque: z.string().optional(),
+});
+export type CopiaSlide = z.infer<typeof copiaSlide>;
+
+/** Pedido de regeneração de um slide por IA: uma instrução/ângulo opcional. */
+export const regeneracaoSlide = z.object({
+  instrucao: z.string().trim().max(300).optional(),
+});
+export type RegeneracaoSlide = z.infer<typeof regeneracaoSlide>;
+
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
   id: z.string().uuid(),
