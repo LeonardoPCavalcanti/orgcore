@@ -1,4 +1,4 @@
-import { planoAnuncio } from '@4med/contracts';
+import { planoAnuncio, type Agenda } from '@4med/contracts';
 import { ErroHttp } from '../../../../core/erros';
 import type { ClienteLLM, Mensagem } from '../../../../core/llm';
 import type { ExemploFewShot, GeradorDeAnuncio, NovoAnuncio, ResultadoGeracao } from './tipos';
@@ -7,25 +7,45 @@ const indisponivel = () =>
   new ErroHttp(503, 'geracao_indisponivel', 'A geração por IA está indisponível no momento.');
 
 const SISTEMA = [
-  'Você é o social media da Conect2AI. Monta cards de anúncio acadêmico em português do',
-  'Brasil, sem emojis. Responda SOMENTE com um JSON com "headline" (objeto {"prefixo",',
-  '"destaque"} em CAIXA ALTA), "titulo", "pessoas" (array {"nome","papel"}), "legenda"',
-  '(pronta para Instagram, com hashtags incluindo #Conect2AI) e opcionalmente "veiculo",',
-  '"dataRotulo", "localRotulo". Use as pessoas fornecidas. Trocas anteriores são exemplos',
-  'APROVADOS: siga o mesmo tom e formato.',
+  // Persona e objetivo
+  'Você é o social media da Conect2AI, laboratório de pesquisa (UFRN) em inteligência',
+  'artificial, veículos conectados e sistemas embarcados. Monta cards de anúncio acadêmico',
+  '(artigo aprovado, defesa, aprovados) em português do Brasil, tom técnico porém acessível,',
+  'SEM emojis. Responda SOMENTE com um objeto JSON.',
+  // Formato de saída
+  'Chaves: "headline" (objeto {"prefixo","destaque"} em CAIXA ALTA), "titulo", "pessoas"',
+  '(array {"nome","papel"}), "legenda", e opcionalmente "veiculo".',
+  // Regras por campo — o que importa de verdade
+  'HEADLINE: é FIXA pelo tipo e o servidor a controla — devolva o par do tipo',
+  '(artigo_aprovado→{"ARTIGO","APROVADO"}, defesa→{"DEFESA DE","MESTRADO"}, aprovados→',
+  '{"CANDIDATOS","APROVADOS"}) e NUNCA coloque o título do trabalho nela.',
+  'TITULO: é o título do trabalho LIMPO — corrija capitalização, acentos e espaços, mas',
+  'NÃO traduza, NÃO resuma e NÃO invente; mantenha fiel ao original, sem ponto final.',
+  'PESSOAS: eco EXATO dos nomes e cargos fornecidos — não invente, não reordene, não traduza cargos.',
+  'LEGENDA: legenda de Instagram de qualidade — 1ª linha um gancho curto (ex.: parabéns/anúncio);',
+  'depois 2 a 4 frases curtas explicando o trabalho em linguagem acessível (sem jargão vazio,',
+  'sem inventar resultados); cite as pessoas pelo nome e o evento/veículo quando houver; feche',
+  'com uma chamada leve. Termine com 8 a 15 hashtags misturando amplas (#InteligenciaArtificial),',
+  'de nicho (#Pesquisa, #Publicacao, #PosGraduacao) e de marca (#Conect2AI). Trocas anteriores',
+  'são exemplos APROVADOS pelo autor: siga o mesmo tom e formato.',
 ].join(' ');
 
 type EntradaDescrevivel = {
   tipo: string; titulo: string; pessoas: { nome: string; papel: string }[];
   destaque?: string | undefined; veiculo?: string | undefined;
   dataRotulo?: string | undefined; localRotulo?: string | undefined;
+  agenda?: Agenda | undefined;
 };
 
 function descrever(e: EntradaDescrevivel): string {
   const pessoas = e.pessoas.map((p) => `${p.nome}${p.papel ? ` (${p.papel})` : ''}`).join('; ');
+  const quando = e.agenda
+    ? [e.agenda.dia, e.agenda.mes, e.agenda.hora, e.agenda.local, e.agenda.online].filter(Boolean).join(' ')
+    : '';
   const extra = [
     e.destaque ? `Use EXATAMENTE "${e.destaque.toUpperCase()}" como destaque.` : '',
-    e.veiculo ? `Veículo: ${e.veiculo}.` : '',
+    e.veiculo ? `Veículo/evento: ${e.veiculo}.` : '',
+    quando ? `Quando: ${quando}.` : '',
     e.dataRotulo ? `Data: ${e.dataRotulo}.` : '',
     e.localRotulo ? `Local: ${e.localRotulo}.` : '',
   ].filter(Boolean).join(' ');
