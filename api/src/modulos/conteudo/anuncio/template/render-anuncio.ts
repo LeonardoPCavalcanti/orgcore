@@ -3,15 +3,16 @@ import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import type { Agenda, GrupoTabela, PlanoAnuncio } from '@4med/contracts';
 import satori from 'satori';
-import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, RETRATO, trianguloA } from '../../template/tema-c2ai';
+import { cores, FONTE_CORPO, FONTE_DISPLAY, FONTE_TITULO, HANDLE, RETRATO, trianguloA } from '../../template/tema-c2ai';
 
-// Reusa as MESMAS fontes do carrossel (lidas uma vez na carga). Space Grotesk 700
-// nos títulos/headline, Inter 400/600 no corpo.
+// Reusa as MESMAS fontes do carrossel + a display Anton (pôster). Anton nas headlines
+// grandes e no dia da agenda; Space Grotesk nos títulos menores; Inter 400/600 no corpo.
 const dirFontes = join(import.meta.dirname, '..', '..', 'template', 'fontes');
 const fontes = [
   { name: FONTE_CORPO, data: readFileSync(join(dirFontes, 'Inter-400.ttf')), weight: 400 as const, style: 'normal' as const },
   { name: FONTE_CORPO, data: readFileSync(join(dirFontes, 'Inter-600.ttf')), weight: 600 as const, style: 'normal' as const },
   { name: FONTE_TITULO, data: readFileSync(join(dirFontes, 'SpaceGrotesk-700.ttf')), weight: 700 as const, style: 'normal' as const },
+  { name: FONTE_DISPLAY, data: readFileSync(join(dirFontes, 'Anton-Regular.ttf')), weight: 400 as const, style: 'normal' as const },
 ];
 
 type Estilo = Record<string, unknown>;
@@ -55,11 +56,18 @@ function seloVeiculo(texto: string): Elemento {
   ]);
 }
 
+// Plaquinha branca suave atrás de um logo (o "shader" das refs): garante que
+// marcas coloridas/azuis fiquem legíveis sobre o card escuro sem se perderem.
+function placaLogo(src: string, altura: number, padV: number, padH: number): Elemento {
+  return el('div', {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: `${padV}px ${padH}px`, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.94)',
+  }, [img(src, { height: altura, objectFit: 'contain' })]);
+}
+
 /** Logo do evento/revista (badge) centralizado — entra no lugar da pílula de texto. */
 function badgeEvento(logo: string): Elemento {
-  return el('div', { display: 'flex', justifyContent: 'center' }, [
-    img(logo, { height: 88, objectFit: 'contain' }),
-  ]);
+  return el('div', { display: 'flex', justifyContent: 'center' }, [placaLogo(logo, 104, 16, 26)]);
 }
 
 /**
@@ -202,19 +210,19 @@ function tabelas(grupos: GrupoTabela[]): Elemento {
 }
 
 /**
- * Headline: prefixo branco + a palavra em destaque numa PÍLULA CONTORNADA sutil
- * (borda branca fina, fundo transparente) — como "ARTIGO APROVADO"/"DEFESA DE
- * MESTRADO" das referências. Nada de caixa cheia: só a palavra fica circulada.
+ * Headline em UMA linha (Anton, pôster): prefixo branco + a palavra em destaque numa
+ * PÍLULA BRANCA PREENCHIDA com o texto ESCURO (knockout) — igual "DEFESA DE MESTRADO"
+ * das refs. O tamanho se ajusta ao comprimento para nunca quebrar de linha.
  */
 function headline(prefixo: string, destaque: string): Elemento {
-  const tamanho = (prefixo.length + destaque.length) > 18 ? 74 : 92;
-  return el('div', {
-    display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, fontFamily: FONTE_TITULO, fontWeight: 700,
-  }, [
-    el('div', { color: cores.branco, fontSize: tamanho, letterSpacing: -1, display: 'flex' }, prefixo.toUpperCase()),
+  const chars = prefixo.length + destaque.length;
+  const size = Math.max(64, Math.min(104, Math.floor(910 / ((chars + 3) * 0.44))));
+  const base: Estilo = { fontFamily: FONTE_DISPLAY, fontSize: size, letterSpacing: 1, lineHeight: 1, display: 'flex' };
+  return el('div', { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 16 }, [
+    el('div', { ...base, color: cores.branco }, prefixo.toUpperCase()),
     el('div', {
-      display: 'flex', color: cores.branco, fontSize: tamanho, letterSpacing: -1,
-      padding: '2px 26px', borderRadius: 999, border: `3px solid ${cores.branco}`,
+      ...base, color: cores.tinta, backgroundColor: cores.branco,
+      padding: `${Math.round(size * 0.14)}px ${Math.round(size * 0.3)}px`, borderRadius: 999,
     }, destaque.toUpperCase()),
   ]);
 }
@@ -227,8 +235,8 @@ function headline(prefixo: string, destaque: string): Elemento {
 function faixaLogos(logos: string[]): Elemento {
   return el('div', {
     display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
-    justifyContent: 'center', gap: 28,
-  }, logos.map((src) => img(src, { height: 46, objectFit: 'contain' })));
+    justifyContent: 'center', gap: 18,
+  }, logos.map((src) => placaLogo(src, 60, 12, 20)));
 }
 
 /** Selo de data/local (defesa): dia grande + horário/local menores. */
@@ -274,11 +282,17 @@ function raiz(
 
   return el('div', {
     width: RETRATO.largura, height: RETRATO.altura, display: 'flex', flexDirection: 'column',
-    padding: 80, gap: 32,
-    // Base de tinta + brilho ciano no alto (radial) sobre um leve degradê vertical —
-    // o equivalente do gradiente vermelho das referências, na nossa cor.
-    backgroundColor: cores.tintaFundo,
-    backgroundImage: `radial-gradient(60% 45% at 50% 22%, ${cores.cianoProfundo}66 0%, ${cores.tintaFundo}00 70%), linear-gradient(160deg, ${cores.tinta} 0%, ${cores.tintaFundo} 100%)`,
+    padding: 80, gap: 30,
+    // Fundo VIVO (equivalente do vermelho texturizado das refs, na paleta Conect2AI):
+    // glow ciano forte no topo, acento teal atrás das pessoas, aprofundamento no rodapé
+    // e base teal→quase-preto. Dá profundidade/energia em vez do dark chapado.
+    backgroundColor: '#0a171d',
+    backgroundImage: [
+      `radial-gradient(72% 42% at 50% 4%, rgba(27,180,216,0.55) 0%, rgba(27,180,216,0) 58%)`,
+      `radial-gradient(85% 55% at 78% 40%, rgba(18,141,170,0.34) 0%, rgba(18,141,170,0) 60%)`,
+      `radial-gradient(95% 55% at 50% 116%, rgba(4,8,11,0.9) 0%, rgba(4,8,11,0) 62%)`,
+      `linear-gradient(158deg, #123640 0%, #0b1c23 52%, #06090c 100%)`,
+    ].join(', '),
   }, [
     el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, topo),
     // Variante tabela (candidatos) mostra os grupos; caso contrário, a grade de pessoas.

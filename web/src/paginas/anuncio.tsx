@@ -2,7 +2,7 @@ import type { AnuncioResposta, AnuncioResumo, AvaliacaoAnuncio, GrupoTabela, Pro
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { apiFetch, ErroApi, urlDaApi } from '../api';
 import { lerComoDataUri } from '../imagem/arquivo';
-import { removerFundo, branquearLogo } from '../imagem/padronizar';
+import { removerFundo } from '../imagem/padronizar';
 
 const TIPOS: { valor: TipoAnuncio; rotulo: string }[] = [
   { valor: 'artigo_aprovado', rotulo: 'Artigo aprovado' },
@@ -101,9 +101,10 @@ export function PaginaAnuncio() {
     setProcessando((n) => n + 1);
     try {
       const brutos = await Promise.all(arquivos.map(lerComoDataUri));
-      // Padroniza cada logo: fundo removido e marca repintada de branco (no navegador).
-      const brancos = await Promise.all(brutos.map(branquearLogo));
-      setLogos((atuais) => [...atuais, ...brancos].slice(0, 6));
+      // Só REMOVE o fundo (mantém as cores originais): os logos entram naturais sobre
+      // uma plaquinha branca no card, então NÃO devem ser branqueados (sumiriam nela).
+      const recortados = await Promise.all(brutos.map(async (b) => (await removerFundo(b)).dataUri));
+      setLogos((atuais) => [...atuais, ...recortados].slice(0, 6));
     } catch {
       setErro('Não foi possível ler os logos');
     } finally {
@@ -114,9 +115,12 @@ export function PaginaAnuncio() {
   async function escolherEventoLogo(evento: ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
     evento.target.value = '';
-    // O logo do evento entra como veio (badge da revista/congresso, muitas vezes
-    // colorido) — sem branquear, porque não é uma marca parceira monocromática.
-    if (arquivo) setEventoLogo(await lerComoDataUri(arquivo));
+    // Remove o fundo do badge do evento (mantendo as cores) — no navegador (WASM),
+    // com fallback pra imagem original em caso de falha. Vai sobre plaquinha branca.
+    if (arquivo) {
+      const { dataUri } = await removerFundo(await lerComoDataUri(arquivo));
+      setEventoLogo(dataUri);
+    }
   }
 
   function alterarGrupo(i: number, campo: 'titulo', valor: string) {

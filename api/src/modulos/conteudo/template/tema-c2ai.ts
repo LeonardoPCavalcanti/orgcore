@@ -19,6 +19,9 @@ export const cores = {
 
 export const FONTE_TITULO = 'Space Grotesk';
 export const FONTE_CORPO = 'Inter';
+// Fonte de DISPLAY (pôster): pesada e condensada, para as headlines grandes
+// ("DEFESA DE MESTRADO", "ARTIGO APROVADO") e o dia da agenda — o peso das refs.
+export const FONTE_DISPLAY = 'Anton';
 export const HANDLE = '@conect2ai';
 
 /**
