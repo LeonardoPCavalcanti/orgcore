@@ -8,6 +8,7 @@ import { db } from '../../../core/db/client';
 import { ErroHttp } from '../../../core/erros';
 import { TEMPLATE_C2AI } from '../template/tema-c2ai';
 import { anuncioAvaliacoes, anuncioPessoas, anuncios, type EntradaSnapshot } from './db/schema/anuncio';
+import { headlineDoTipo } from './gerador/headlines';
 import type { ExemploFewShot, GeradorDeAnuncio } from './gerador/tipos';
 import {
   type FotoPessoa, renderAnuncio,
@@ -60,6 +61,9 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
   // fake ignora; o LLM segue. É o primeiro uso concreto do sinal de recompensa.
   const exemplos = await exemplosAprovados(entrada.autorId, entrada.dados.tipo);
   const { plano, modelo, provedorSolicitado } = await entrada.gerador.compor(entrada.dados, exemplos);
+  // A headline (prefixo + palavra na pílula) é DADO DE MARCA, não cópia do modelo:
+  // forço pelo tipo (+ override) para nenhuma IA conseguir enfiar o título na pílula.
+  plano.headline = headlineDoTipo(entrada.dados.tipo, entrada.dados.destaque);
 
   // Recorta as fotos na ORDEM do plano. Sem foto → null (placeholder de iniciais).
   const compostas: PessoaComposta[] = await Promise.all(plano.pessoas.map(async (p, i) => {
@@ -99,7 +103,15 @@ export async function criarAnuncio(entrada: EntradaCriarAnuncio): Promise<Anunci
     decodificarDataUri(uri);
     return uri;
   });
-  const imagemCard = await renderAnuncio(plano, compostas.map((c) => c.render), grupos, logos, entrada.dados.logosPosicao);
+  // Logo do evento (badge) e agenda: marca/apresentação, não cópia — vão direto ao
+  // render (fora do plano da IA). Valida o formato/tamanho do logo do evento.
+  const eventoLogo = entrada.dados.eventoLogo;
+  if (eventoLogo) decodificarDataUri(eventoLogo);
+  const agenda = entrada.dados.agenda;
+  const imagemCard = await renderAnuncio(
+    plano, compostas.map((c) => c.render), grupos, logos, entrada.dados.logosPosicao,
+    { ...(eventoLogo ? { eventoLogo } : {}), ...(agenda ? { agenda } : {}) },
+  );
 
   // Snapshot textual da ENTRADA (sem bytes de foto) — o outro lado do par de treino.
   const entradaSnapshot: EntradaSnapshot = {

@@ -1,15 +1,7 @@
 import type { GeradorDeAnuncio, NovoAnuncio, PlanoAnuncio, ResultadoGeracao, TipoAnuncio } from './tipos';
+import { headlineDoTipo } from './headlines';
 
-/**
- * Headline padrão por tipo — o par (prefixo branco, destaque na caixa ciano). O LLM
- * pode afinar (ex.: "MESTRADO" vs "DOUTORADO" a partir do título); o fake fica no
- * padrão de cada tipo.
- */
-export const HEADLINES: Record<TipoAnuncio, PlanoAnuncio['headline']> = {
-  artigo_aprovado: { prefixo: 'ARTIGO', destaque: 'APROVADO' },
-  defesa: { prefixo: 'DEFESA DE', destaque: 'MESTRADO' },
-  aprovados: { prefixo: 'CANDIDATOS', destaque: 'APROVADOS' },
-};
+export { HEADLINES } from './headlines';
 
 // Abertura da legenda por tipo — determinística, sem emojis (padrão de estilo do projeto).
 const ABERTURA: Record<TipoAnuncio, string> = {
@@ -45,12 +37,9 @@ function legendaFake(entrada: NovoAnuncio): string {
  */
 export const geradorAnuncioFake: GeradorDeAnuncio = {
   async compor(entrada: NovoAnuncio): Promise<ResultadoGeracao> {
-    const padrao = HEADLINES[entrada.tipo];
-    const destaque = entrada.destaque?.trim();
     const plano: PlanoAnuncio = {
-      // O destaque do usuário (ex.: DOUTORADO) sobrepõe o padrão do tipo; o prefixo
-      // continua vindo do tipo.
-      headline: destaque ? { prefixo: padrao.prefixo, destaque: destaque.toUpperCase() } : padrao,
+      // A headline vem SEMPRE do tipo (+ override do usuário) — nunca do texto livre.
+      headline: headlineDoTipo(entrada.tipo, entrada.destaque),
       titulo: entrada.titulo.trim(),
       pessoas: entrada.pessoas.map((p) => ({ nome: p.nome, papel: p.papel })),
       legenda: legendaFake(entrada),

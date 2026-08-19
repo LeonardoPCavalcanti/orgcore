@@ -61,9 +61,22 @@ export const novoAnuncio = z.object({
   // virar campo obrigatório no tipo inferido.
   destaque: z.string().trim().max(30).optional(),
   veiculo: z.string().trim().max(120).optional(),
+  // Logo do evento/revista (ex.: badge do CBIS) como data URI. Quando presente, aparece
+  // no lugar da pílula de texto do veículo — marca, não cópia (não passa pela IA).
+  eventoLogo: z.string().startsWith('data:').optional(),
+  // Agenda do evento (sobretudo defesa): dia grande + mês + horário + local + online,
+  // no formato do bloco das referências. Tudo opcional; também é marca, não cópia.
+  agenda: z.object({
+    dia: z.string().trim().max(4).optional(),
+    mes: z.string().trim().max(24).optional(),
+    hora: z.string().trim().max(40).optional(),
+    local: z.string().trim().max(80).optional(),
+    online: z.string().trim().max(80).optional(),
+  }).optional(),
   dataRotulo: z.string().trim().max(60).optional(),
   localRotulo: z.string().trim().max(120).optional(),
 });
+export type Agenda = NonNullable<z.infer<typeof novoAnuncio>['agenda']>;
 export type NovoAnuncio = z.infer<typeof novoAnuncio>;
 
 /**

@@ -396,6 +396,10 @@ a { color: inherit; }
 .foto-capa-previa {
   width: 88px; height: 88px; object-fit: cover; border-radius: var(--r-md); border: 1px solid var(--borda);
 }
+.evento-logo-previa {
+  height: 56px; max-width: 200px; object-fit: contain; padding: 6px 12px;
+  background: #101418; border-radius: var(--r-md); border: 1px solid var(--borda);
+}
 .foto-capa-recorte {
   display: flex; align-items: center; gap: 8px; cursor: pointer;
   font-size: 0.86rem; font-weight: 600;

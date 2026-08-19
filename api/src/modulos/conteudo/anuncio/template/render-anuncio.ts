@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import type { GrupoTabela, PlanoAnuncio } from '@4med/contracts';
+import type { Agenda, GrupoTabela, PlanoAnuncio } from '@4med/contracts';
 import satori from 'satori';
 import { cores, FONTE_CORPO, FONTE_TITULO, HANDLE, RETRATO, trianguloA } from '../../template/tema-c2ai';
 
@@ -55,6 +55,35 @@ function seloVeiculo(texto: string): Elemento {
   ]);
 }
 
+/** Logo do evento/revista (badge) centralizado — entra no lugar da pílula de texto. */
+function badgeEvento(logo: string): Elemento {
+  return el('div', { display: 'flex', justifyContent: 'center' }, [
+    img(logo, { height: 88, objectFit: 'contain' }),
+  ]);
+}
+
+/**
+ * Bloco de agenda (defesa): dia grande + mês à esquerda, e horário/local/online
+ * empilhados à direita — o formato do "07 / DE AGOSTO / Às 9:00 horas / …" das
+ * referências. Cada campo é opcional; só renderiza o que existe.
+ */
+function blocoAgenda(a: Agenda): Elemento {
+  const linhasDir = [a.hora, a.local, a.online].filter(Boolean) as string[];
+  const filhos: Elemento[] = [];
+  if (a.dia || a.mes) {
+    filhos.push(el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center' }, [
+      ...(a.dia ? [el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 72, lineHeight: 1, color: cores.branco, display: 'flex' }, a.dia)] : []),
+      ...(a.mes ? [el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 22, letterSpacing: 2, color: cores.ciano, display: 'flex' }, a.mes.toUpperCase())] : []),
+    ]));
+  }
+  if (linhasDir.length) {
+    filhos.push(el('div', { width: 3, alignSelf: 'stretch', backgroundColor: cores.cianoProfundo, display: 'flex' }));
+    filhos.push(el('div', { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 },
+      linhasDir.map((t) => el('div', { fontFamily: FONTE_CORPO, fontWeight: 600, fontSize: 24, color: cores.neutroClaro, display: 'flex' }, t))));
+  }
+  return el('div', { display: 'flex', alignItems: 'center', gap: 20 }, filhos);
+}
+
 /**
  * O "retrato" de uma pessoa. Três casos, do mais rico ao mais simples:
  *  - foto com fundo removido (`recortado`): silhueta sobre o gradiente, sem moldura,
@@ -83,21 +112,27 @@ function retrato(nome: string, foto: FotoPessoa | null, diametro: number): Eleme
   return el('div', moldura, [dentro]);
 }
 
-/** Retrato da pessoa + nome (Space Grotesk) e papel (Inter) embaixo. */
+/**
+ * Retrato + o CARGO em cima (Space Grotesk, negrito) e o NOME embaixo (Inter) — a
+ * ordem das referências ("Orientadora" / "Patrícia Endo"). Sem papel, mostra só o nome.
+ */
 function celulaPessoa(nome: string, papel: string, foto: FotoPessoa | null, diametro: number): Elemento {
   const nomeFonte = diametro >= 180 ? 26 : 22;
   return el('div', {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: diametro + 32,
   }, [
     retrato(nome, foto, diametro),
-    el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }, [
-      el('div', {
-        fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: nomeFonte, color: cores.branco,
-        textAlign: 'center', display: 'flex', lineHeight: 1.1,
-      }, nome),
+    el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }, [
       ...(papel
-        ? [el('div', { fontSize: 18, color: cores.neutroClaro, textAlign: 'center', display: 'flex' }, papel)]
+        ? [el('div', {
+            fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: nomeFonte, color: cores.branco,
+            textAlign: 'center', display: 'flex', lineHeight: 1.1,
+          }, papel)]
         : []),
+      el('div', {
+        fontFamily: FONTE_CORPO, fontWeight: 600, fontSize: nomeFonte - 2, color: cores.neutroClaro,
+        textAlign: 'center', display: 'flex', lineHeight: 1.15,
+      }, nome),
     ]),
   ]);
 }
@@ -166,7 +201,11 @@ function tabelas(grupos: GrupoTabela[]): Elemento {
   }, grupos.map(blocoTabela));
 }
 
-/** Headline em duas cores: prefixo branco + destaque na caixa ciano arredondada. */
+/**
+ * Headline: prefixo branco + a palavra em destaque numa PÍLULA CONTORNADA sutil
+ * (borda branca fina, fundo transparente) — como "ARTIGO APROVADO"/"DEFESA DE
+ * MESTRADO" das referências. Nada de caixa cheia: só a palavra fica circulada.
+ */
 function headline(prefixo: string, destaque: string): Elemento {
   const tamanho = (prefixo.length + destaque.length) > 18 ? 74 : 92;
   return el('div', {
@@ -174,8 +213,8 @@ function headline(prefixo: string, destaque: string): Elemento {
   }, [
     el('div', { color: cores.branco, fontSize: tamanho, letterSpacing: -1, display: 'flex' }, prefixo.toUpperCase()),
     el('div', {
-      display: 'flex', backgroundColor: cores.ciano, color: cores.tinta, fontSize: tamanho,
-      letterSpacing: -1, padding: '2px 24px', borderRadius: 20,
+      display: 'flex', color: cores.branco, fontSize: tamanho, letterSpacing: -1,
+      padding: '2px 26px', borderRadius: 999, border: `3px solid ${cores.branco}`,
     }, destaque.toUpperCase()),
   ]);
 }
@@ -207,9 +246,13 @@ function seloData(dataRotulo: string, localRotulo: string | undefined): Elemento
   ]);
 }
 
+type ExtrasAnuncio = { eventoLogo?: string | undefined; agenda?: Agenda | undefined };
+const agendaTemConteudo = (a?: Agenda): a is Agenda =>
+  !!a && [a.dia, a.mes, a.hora, a.local, a.online].some(Boolean);
+
 function raiz(
   plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[], logos: string[],
-  logosPosicao: 'topo' | 'rodape',
+  logosPosicao: 'topo' | 'rodape', extras: ExtrasAnuncio,
 ): Elemento {
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
@@ -218,11 +261,15 @@ function raiz(
       lineHeight: 1.28, display: 'flex',
     }, plano.titulo),
   ];
-  if (plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
+  // Agenda rica (dia/mês/hora/local/online) tem prioridade sobre o selo simples legado.
+  if (agendaTemConteudo(extras.agenda)) rodapeBlocos.push(blocoAgenda(extras.agenda));
+  else if (plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
   if (logos.length > 0 && logosPosicao === 'rodape') rodapeBlocos.push(faixaLogos(logos));
 
   const topo: Elemento[] = [marca()];
-  if (plano.veiculo) topo.push(seloVeiculo(plano.veiculo));
+  // Logo do evento (imagem) tem prioridade sobre a pílula de texto do veículo.
+  if (extras.eventoLogo) topo.push(badgeEvento(extras.eventoLogo));
+  else if (plano.veiculo) topo.push(seloVeiculo(plano.veiculo));
   if (logos.length > 0 && logosPosicao === 'topo') topo.push(faixaLogos(logos));
 
   return el('div', {
@@ -247,9 +294,9 @@ function raiz(
  */
 export async function renderAnuncio(
   plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[] = [], logos: string[] = [],
-  logosPosicao: 'topo' | 'rodape' = 'rodape',
+  logosPosicao: 'topo' | 'rodape' = 'rodape', extras: ExtrasAnuncio = {},
 ): Promise<Buffer> {
-  const arvore = raiz(plano, fotos, grupos, logos, logosPosicao);
+  const arvore = raiz(plano, fotos, grupos, logos, logosPosicao, extras);
   const svg = await satori(arvore as never, { width: RETRATO.largura, height: RETRATO.altura, fonts: fontes });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: RETRATO.largura } }).render().asPng();
   return Buffer.from(png);

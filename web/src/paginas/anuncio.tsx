@@ -24,8 +24,8 @@ export function PaginaAnuncio() {
   const [titulo, setTitulo] = useState('');
   const [veiculo, setVeiculo] = useState('');
   const [destaque, setDestaque] = useState('');
-  const [dataRotulo, setDataRotulo] = useState('');
-  const [localRotulo, setLocalRotulo] = useState('');
+  const [eventoLogo, setEventoLogo] = useState<string | null>(null);
+  const [agenda, setAgenda] = useState({ dia: '', mes: '', hora: '', local: '', online: '' });
   const [pessoas, setPessoas] = useState<PessoaForm[]>([pessoaVazia()]);
   const [grupos, setGrupos] = useState<GrupoTabela[]>([]);
   const [logos, setLogos] = useState<string[]>([]);
@@ -111,6 +111,14 @@ export function PaginaAnuncio() {
     }
   }
 
+  async function escolherEventoLogo(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = '';
+    // O logo do evento entra como veio (badge da revista/congresso, muitas vezes
+    // colorido) — sem branquear, porque não é uma marca parceira monocromática.
+    if (arquivo) setEventoLogo(await lerComoDataUri(arquivo));
+  }
+
   function alterarGrupo(i: number, campo: 'titulo', valor: string) {
     setGrupos((gs) => gs.map((g, k) => (k === i ? { ...g, [campo]: valor } : g)));
   }
@@ -146,14 +154,16 @@ export function PaginaAnuncio() {
           .map((l) => [l[0].trim(), l[1].trim()] as [string, string]),
       }))
       .filter((g) => g.titulo && g.linhas.length > 0);
+    const agendaEntradas = Object.entries(agenda).filter(([, v]) => v.trim()).map(([k, v]) => [k, v.trim()]);
+    const agendaLimpa = agendaEntradas.length ? Object.fromEntries(agendaEntradas) : null;
     const corpo = {
       tipo, titulo, pessoas: pessoasValidas, grupos: gruposValidos, logosPosicao,
       ...(provedor ? { provedor } : {}),
       ...(logos.length ? { logos } : {}),
       ...(veiculo.trim() ? { veiculo: veiculo.trim() } : {}),
+      ...(eventoLogo ? { eventoLogo } : {}),
       ...(tipo === 'defesa' && destaque ? { destaque } : {}),
-      ...(tipo === 'defesa' && dataRotulo.trim() ? { dataRotulo: dataRotulo.trim() } : {}),
-      ...(tipo === 'defesa' && localRotulo.trim() ? { localRotulo: localRotulo.trim() } : {}),
+      ...(tipo === 'defesa' && agendaLimpa ? { agenda: agendaLimpa } : {}),
     };
     try {
       const anuncio = await apiFetch<AnuncioResposta>('/conteudo/anuncios', {
@@ -165,7 +175,8 @@ export function PaginaAnuncio() {
       setPessoas([pessoaVazia()]);
       setGrupos([]);
       setLogos([]);
-      setVeiculo(''); setDestaque(''); setDataRotulo(''); setLocalRotulo('');
+      setVeiculo(''); setDestaque(''); setEventoLogo(null);
+      setAgenda({ dia: '', mes: '', hora: '', local: '', online: '' });
       carregar();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível gerar o anúncio');
@@ -307,6 +318,26 @@ export function PaginaAnuncio() {
             </div>
 
             <div className="campo">
+              <span className="rotulo-campo">Logo do evento / revista (opcional)</span>
+              {eventoLogo ? (
+                <div className="foto-capa">
+                  <img src={eventoLogo} alt="Prévia do logo do evento" className="evento-logo-previa" />
+                  <button type="button" className="botao botao--fantasma" onClick={() => setEventoLogo(null)}>
+                    Remover logo
+                  </button>
+                </div>
+              ) : (
+                <label className="foto-capa-upload">
+                  <input type="file" accept="image/*" hidden onChange={escolherEventoLogo} />
+                  <span>+ Logo do evento</span>
+                  <span className="texto-fraco" style={{ fontSize: '0.76rem' }}>
+                    Entra no topo, no lugar do texto do veículo (ex.: badge do CBIS).
+                  </span>
+                </label>
+              )}
+            </div>
+
+            <div className="campo">
               <label htmlFor="titulo">Título do trabalho</label>
               <textarea className="entrada" id="titulo" value={titulo} required rows={2}
                 placeholder="Ex.: Generative Language Models for Disease Treatment Recommendations"
@@ -323,15 +354,30 @@ export function PaginaAnuncio() {
                     <option value="DOUTORADO">Doutorado</option>
                   </select>
                 </div>
-                <div className="campo" style={{ flex: '0 0 200px' }}>
-                  <label htmlFor="data">Data (opcional)</label>
-                  <input className="entrada" id="data" value={dataRotulo}
-                    placeholder="Ex.: 07 DE AGOSTO" onChange={(e) => setDataRotulo(e.target.value)} />
+                <div className="campo" style={{ flex: '0 0 90px' }}>
+                  <label htmlFor="ag-dia">Dia</label>
+                  <input className="entrada" id="ag-dia" value={agenda.dia} maxLength={4}
+                    placeholder="07" onChange={(e) => setAgenda((a) => ({ ...a, dia: e.target.value }))} />
                 </div>
-                <div className="campo" style={{ flex: '1 1 240px' }}>
-                  <label htmlFor="local">Horário / local (opcional)</label>
-                  <input className="entrada" id="local" value={localRotulo}
-                    placeholder="Ex.: 9h · Google Meet" onChange={(e) => setLocalRotulo(e.target.value)} />
+                <div className="campo" style={{ flex: '0 0 150px' }}>
+                  <label htmlFor="ag-mes">Mês</label>
+                  <input className="entrada" id="ag-mes" value={agenda.mes} maxLength={24}
+                    placeholder="de agosto" onChange={(e) => setAgenda((a) => ({ ...a, mes: e.target.value }))} />
+                </div>
+                <div className="campo" style={{ flex: '1 1 180px' }}>
+                  <label htmlFor="ag-hora">Horário</label>
+                  <input className="entrada" id="ag-hora" value={agenda.hora} maxLength={40}
+                    placeholder="Às 9:00 horas" onChange={(e) => setAgenda((a) => ({ ...a, hora: e.target.value }))} />
+                </div>
+                <div className="campo" style={{ flex: '1 1 200px' }}>
+                  <label htmlFor="ag-local">Onde</label>
+                  <input className="entrada" id="ag-local" value={agenda.local} maxLength={80}
+                    placeholder="no PPGEEC Caruaru" onChange={(e) => setAgenda((a) => ({ ...a, local: e.target.value }))} />
+                </div>
+                <div className="campo" style={{ flex: '1 1 200px' }}>
+                  <label htmlFor="ag-online">Online (opcional)</label>
+                  <input className="entrada" id="ag-online" value={agenda.online} maxLength={80}
+                    placeholder="ou no Google Meet" onChange={(e) => setAgenda((a) => ({ ...a, online: e.target.value }))} />
                 </div>
               </div>
             )}

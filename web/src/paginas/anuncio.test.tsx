@@ -80,14 +80,15 @@ describe('PaginaAnuncio', () => {
     expect(await screen.findByText(/Nenhum anúncio ainda/)).toBeInTheDocument();
   });
 
-  it('mostra os campos de data/local apenas para defesa', async () => {
+  it('mostra os campos de agenda apenas para defesa', async () => {
     apiFetchMock.mockResolvedValueOnce([]);
     render(<PaginaAnuncio />);
     await screen.findByText(/Nenhum anúncio ainda/);
 
-    expect(screen.queryByLabelText('Data (opcional)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Dia')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Tipo de anúncio'), { target: { value: 'defesa' } });
-    expect(screen.getByLabelText('Data (opcional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Dia')).toBeInTheDocument();
+    expect(screen.getByLabelText('Horário')).toBeInTheDocument();
   });
 
   it('adiciona e remove pessoas do formulario', async () => {
