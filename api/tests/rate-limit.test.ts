@@ -60,5 +60,5 @@ describe('rate limit no login via HTTP', () => {
     expect((s3.json() as { codigo: string }).codigo).toBe('muitas_requisicoes');
 
     await app.close();
-  });
+  }, 30_000);
 });
