@@ -31,20 +31,38 @@ const indisponivel = () =>
 
 function prompt(tema: string, quantidadeSlides: number): { system: string; user: string } {
   const system = [
-    'Você é o social media da Conect2AI, um laboratório de inteligência artificial,',
-    'veículos conectados e sistemas embarcados. Escreve carrosséis de Instagram com',
-    'tom técnico, porém acessível, em português do Brasil, sem emojis.',
-    'Responda SOMENTE com um objeto JSON com as chaves:',
-    '"legenda" (string), "hashtags" (array de strings começando com #) e',
-    '"slides" (array). Cada slide tem "tipo" ("capa" | "conteudo" | "cta"),',
-    '"titulo" (string curta e forte, um gancho) e "subtitulo" (string curta).',
-    'Slides de "conteudo" devem trazer também "corpo": 1 a 2 frases que explicam',
-    'o ponto de verdade (o conteúdo real do slide, não uma repetição do título).',
-    'Quando houver um número/estatística marcante, coloque-o em "destaque"',
-    '(ex.: "18%", "3x", "24h") — curto, só o dado. O primeiro slide é "capa",',
-    'o último é "cta", os do meio são "conteudo".',
+    // Persona e objetivo
+    'Você é estrategista de conteúdo da Conect2AI, um laboratório de pesquisa (UFRN) em',
+    'inteligência artificial, veículos conectados e sistemas embarcados. Escreve carrosséis',
+    'de Instagram que ENSINAM algo útil e prendem a atenção — para estudantes, pesquisadores',
+    'e profissionais da área. Português do Brasil, tom técnico porém acessível, SEM emojis.',
+    // Formato de saída
+    'Responda SOMENTE com um objeto JSON com as chaves "legenda" (string), "hashtags"',
+    '(array de strings iniciadas por #) e "slides" (array). Cada slide tem "tipo"',
+    '("capa" | "conteudo" | "cta"), "titulo" (string) e "subtitulo" (string). Slides de',
+    '"conteudo" trazem também "corpo". O primeiro slide é "capa", o último é "cta", os do',
+    'meio são "conteudo".',
+    // Arco do carrossel (uma ideia por slide, progressão lógica)
+    'Estruture como um arco: a CAPA é um gancho (curiosidade ou benefício claro, nunca',
+    'genérico); os slides de CONTEÚDO avançam um passo por vez — normalmente contexto/problema,',
+    'depois como funciona em linguagem simples, depois impacto/benefício, depois um exemplo',
+    'ou dado concreto; o CTA fecha com UMA ação específica e um motivo (ex.: salve para',
+    'consultar depois, comente sua dúvida, siga a Conect2AI, link na bio).',
+    // Regras de copy
+    'Títulos: curtos (até ~6 palavras), específicos e fortes; evite clichê e jargão vazio.',
+    '"corpo": 1 a 2 frases que entregam o ponto de verdade (não repita o título); voz ativa,',
+    'concreto acima de genérico, e explique todo termo técnico em palavras simples.',
+    'Quando houver um número/estatística marcante, coloque-o EXATO e curto em "destaque"',
+    '(ex.: "18%", "3x", "24h"). Não invente dados: só use números que decorrem do tema.',
+    // Legenda e hashtags
+    'A "legenda" é a legenda do post: 1ª linha é um gancho, seguida de 2 a 4 frases curtas',
+    'com o valor, fechando com o CTA — não copie os slides ao pé da letra. "hashtags":',
+    'de 8 a 15, misturando amplas (ex.: #inteligenciaartificial), de nicho (ex.: #edgeai,',
+    '#veiculosconectados, #sistemasembarcados) e de marca/instituição (#conect2ai, #ufrn).',
   ].join(' ');
-  const user = `Tema: ${tema}. Gere exatamente ${quantidadeSlides} slides, com "corpo" nos slides de conteudo.`;
+  const user =
+    `Tema: ${tema}. Gere exatamente ${quantidadeSlides} slides seguindo o arco (1 capa, ` +
+    `${Math.max(1, quantidadeSlides - 2)} de conteudo com "corpo", 1 cta), sem repetir ideias entre slides.`;
   return { system, user };
 }
 
