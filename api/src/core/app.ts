@@ -141,6 +141,23 @@ export async function criarApp(manifestos: ManifestoModulo[]): Promise<FastifyIn
   // setErrorHandler tratar).
   app.addHook('onSend', async (req, resp, payload) => {
     resp.header('request-id', req.id);
+    // Cabecalhos de seguranca em TODA resposta. A API so devolve JSON e bytes PNG
+    // (nunca HTML/scripts), entao a postura pode ser estrita: `nosniff` impede o
+    // navegador de reinterpretar o content-type (relevante ja que servimos imagens);
+    // `DENY`/`frame-ancestors none` barram enquadramento; `no-referrer` nao vaza URLs;
+    // e `default-src 'none'` neutraliza qualquer resposta que fosse aberta como
+    // documento (o CSP da resposta da imagem NAO afeta o `<img>` do front, que e
+    // governado pelo CSP do documento dele). CORP fica de fora de proposito: o front
+    // carrega as imagens cross-origin e o CORS ja controla o acesso credenciado.
+    resp.header('x-content-type-options', 'nosniff');
+    resp.header('x-frame-options', 'DENY');
+    resp.header('referrer-policy', 'no-referrer');
+    resp.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+    // HSTS so em producao (e sob HTTPS): forca o navegador a nunca mais falar HTTP
+    // com este host. Em dev (HTTP no localhost) seria contraproducente.
+    if (process.env.NODE_ENV === 'production') {
+      resp.header('strict-transport-security', 'max-age=15552000; includeSubDomains');
+    }
     return payload;
   });
 
