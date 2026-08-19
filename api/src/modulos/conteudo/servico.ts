@@ -185,6 +185,51 @@ export async function imagemDoSlide(
 }
 
 /**
+ * Define (ou limpa, com lista vazia) a GRADE de pessoas de um slide e re-renderiza.
+ * As fotos chegam idealmente já recortadas do cliente. Exclusiva com a foto única:
+ * definir pessoas zera a foto. Só o dono; fora do escopo → null.
+ */
+export async function definirPessoasDoSlide(
+  slideId: string, autorId: string, pessoas: { dataUri: string; nome: string }[],
+): Promise<SlideResposta | null> {
+  const [linha] = await db.select({
+    ordem: slides.ordem, tipo: slides.tipo, carrosselId: slides.carrosselId,
+    titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
+    estilo: carrosseis.estilo, logos: carrosseis.logos,
+  }).from(slides)
+    .innerJoin(carrosseis, eq(carrosseis.id, slides.carrosselId))
+    .where(and(eq(slides.id, slideId), eq(carrosseis.autorId, autorId)));
+  if (!linha) return null;
+
+  // Valida/normaliza cada foto (data URI válido e dentro do tamanho por-foto).
+  const lista = pessoas.map((p) => ({ dataUri: paraDataUri(bytesDeDataUri(p.dataUri)), nome: p.nome }));
+
+  const irmaos = await db.select({ id: slides.id }).from(slides).where(eq(slides.carrosselId, linha.carrosselId));
+  const imagem = await renderSlide(
+    {
+      tipo: linha.tipo as SlideResposta['tipo'], titulo: linha.titulo, subtitulo: linha.subtitulo,
+      ...(linha.corpo ? { corpo: linha.corpo } : {}), ...(linha.destaque ? { destaque: linha.destaque } : {}),
+    },
+    linha.estilo as EstiloCarrossel,
+    {
+      indice: linha.ordem, total: irmaos.length,
+      ...(linha.logos?.length ? { logos: linha.logos } : {}),
+      ...(lista.length ? { pessoas: lista } : {}),
+    },
+  );
+
+  const [atualizado] = await db.update(slides).set({
+    pessoas: lista.length ? lista : null,
+    foto: null, fotoRecortada: false,
+    imagem,
+  }).where(eq(slides.id, slideId)).returning({
+    id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
+    titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
+  });
+  return atualizado ? slideResposta(atualizado) : null;
+}
+
+/**
  * Troca o estilo de um carrossel e re-renderiza TODOS os slides (conteúdo é
  * agnóstico de estilo; foto e logos persistidos são reaproveitados). Só o dono;
  * fora do escopo → null.
@@ -199,7 +244,7 @@ export async function mudarEstiloDoCarrossel(
   const linhas = await db.select({
     id: slides.id, ordem: slides.ordem, tipo: slides.tipo,
     titulo: slides.titulo, subtitulo: slides.subtitulo, corpo: slides.corpo, destaque: slides.destaque,
-    foto: slides.foto, fotoRecortada: slides.fotoRecortada,
+    foto: slides.foto, fotoRecortada: slides.fotoRecortada, pessoas: slides.pessoas,
   }).from(slides).where(eq(slides.carrosselId, carrosselId)).orderBy(asc(slides.ordem));
 
   const total = linhas.length;
@@ -212,7 +257,12 @@ export async function mudarEstiloDoCarrossel(
         ...(s.corpo ? { corpo: s.corpo } : {}), ...(s.destaque ? { destaque: s.destaque } : {}),
       },
       estilo,
-      { indice: s.ordem, total, ...(logos?.length ? { logos } : {}), ...(foto ? { foto } : {}) },
+      {
+        indice: s.ordem, total,
+        ...(logos?.length ? { logos } : {}),
+        ...(s.pessoas?.length ? { pessoas: s.pessoas } : {}),
+        ...(foto ? { foto } : {}),
+      },
     );
   }));
 
@@ -252,7 +302,7 @@ export async function editarSlide(
 ): Promise<SlideResposta | null> {
   const [linha] = await db.select({
     ordem: slides.ordem, tipo: slides.tipo, carrosselId: slides.carrosselId,
-    foto: slides.foto, fotoRecortada: slides.fotoRecortada,
+    foto: slides.foto, fotoRecortada: slides.fotoRecortada, pessoas: slides.pessoas,
     estilo: carrosseis.estilo, logos: carrosseis.logos,
   }).from(slides)
     .innerJoin(carrosseis, eq(carrosseis.id, slides.carrosselId))
@@ -273,6 +323,7 @@ export async function editarSlide(
     {
       indice: linha.ordem, total: irmaos.length,
       ...(linha.logos?.length ? { logos: linha.logos } : {}),
+      ...(linha.pessoas?.length ? { pessoas: linha.pessoas } : {}),
       ...(foto ? { foto } : {}),
     },
   );
@@ -375,6 +426,7 @@ export async function definirFotoDoSlide(
   const [atualizado] = await db.update(slides).set({
     foto: foto?.dataUri ?? null,
     fotoRecortada: foto?.recortada ?? false,
+    pessoas: null, // foto e grade de pessoas são mutuamente exclusivas
     imagem,
   }).where(eq(slides.id, slideId)).returning({
     id: slides.id, ordem: slides.ordem, tipo: slides.tipo,

@@ -1,4 +1,4 @@
-import { bigint, boolean, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { usuarios } from '../../../../core/db/schema/acesso';
 import { unidades } from '../../../../core/db/schema/organograma';
 
@@ -44,6 +44,8 @@ export const slides = pgTable('slides', {
   // para re-render fiel após edição de texto.
   foto: text('foto'),
   fotoRecortada: boolean('foto_recortada').notNull().default(false),
+  // Grade de pessoas (posts tipo "aprovados"): [{dataUri, nome}]. Exclusiva com foto.
+  pessoas: jsonb('pessoas').$type<{ dataUri: string; nome: string }[]>(),
   imagem: bytea('imagem').notNull(),
   imagemTipo: text('imagem_tipo').notNull().default('image/png'),
 });

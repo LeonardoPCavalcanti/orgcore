@@ -98,6 +98,43 @@ export function PaginaConteudo() {
     }
   }
 
+  const [pessoas, setPessoas] = useState<{ dataUri: string; nome: string }[]>([]);
+  const [processandoPessoa, setProcessandoPessoa] = useState(false);
+  const [aplicandoPessoas, setAplicandoPessoas] = useState(false);
+
+  async function escolherPessoa(e: ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!arquivo || pessoas.length >= 9) return;
+    setProcessandoPessoa(true);
+    try {
+      const { dataUri } = await removerFundo(await lerComoDataUri(arquivo));
+      setPessoas((atuais) => [...atuais, { dataUri, nome: '' }]);
+    } finally {
+      setProcessandoPessoa(false);
+    }
+  }
+
+  async function patchPessoas(lista: { dataUri: string; nome: string }[]) {
+    const s = atual?.slides[indice];
+    if (!s || !atual) return;
+    setAplicandoPessoas(true);
+    setErro('');
+    try {
+      const atualizado = await apiFetch<SlideResposta>(`/conteudo/slides/${s.id}/pessoas`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pessoas: lista }),
+      });
+      setAtual({ ...atual, slides: atual.slides.map((x) => (x.id === atualizado.id ? atualizado : x)) });
+      setVersaoImg((v) => v + 1);
+      setPessoas([]);
+    } catch (err) {
+      setErro(err instanceof ErroApi ? err.message : 'Não foi possível montar a grade de pessoas');
+    } finally {
+      setAplicandoPessoas(false);
+    }
+  }
+
   const [trocandoEstilo, setTrocandoEstilo] = useState(false);
   async function trocarEstilo(novo: EstiloCarrossel) {
     if (!atual || atual.estilo === novo || trocandoEstilo) return;
@@ -142,6 +179,7 @@ export function PaginaConteudo() {
     setFotoSlide(null);
     setRecortarSlide(false);
     setInstrucao('');
+    setPessoas([]);
     setIndice(novo);
   }
 
@@ -465,6 +503,40 @@ export function PaginaConteudo() {
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="grade-pessoas">
+              <span className="rotulo-campo">Grade de pessoas (ex.: aprovados)</span>
+              {pessoas.length > 0 && (
+                <div className="grade-pessoas-lista">
+                  {pessoas.map((p, i) => (
+                    <div key={i} className="pessoa-cartao">
+                      <img src={p.dataUri} alt={`Pessoa ${i + 1}`} />
+                      <input className="entrada" value={p.nome} maxLength={40} placeholder="Nome"
+                        onChange={(e) => setPessoas((a) => a.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} />
+                      <button type="button" className="botao botao--fantasma" aria-label="Remover pessoa"
+                        onClick={() => setPessoas((a) => a.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="linha" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {pessoas.length < 9 && (
+                  <label className="botao botao--fantasma" style={{ cursor: 'pointer' }}>
+                    <input type="file" accept="image/*" hidden onChange={escolherPessoa} />
+                    {processandoPessoa ? 'Recortando…' : '+ Pessoa'}
+                  </label>
+                )}
+                <button type="button" className="botao botao--primario"
+                  onClick={() => patchPessoas(pessoas.filter((p) => p.nome.trim()))}
+                  disabled={aplicandoPessoas || pessoas.filter((p) => p.nome.trim()).length === 0}>
+                  {aplicandoPessoas ? 'Aplicando…' : 'Aplicar grade'}
+                </button>
+                <button type="button" className="botao botao--fantasma"
+                  onClick={() => patchPessoas([])} disabled={aplicandoPessoas}>
+                  Limpar grade
+                </button>
+              </div>
             </div>
 
             {editando && (

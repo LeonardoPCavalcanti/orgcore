@@ -1,4 +1,4 @@
-import { cores, el, faixaLogos, marca, numeroPagina, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, faixaLogos, marca, numeroPagina, slideComFoto, slideComPessoas, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -10,6 +10,7 @@ export const minimalista: Template = {
   id: 'minimalista',
   nome: 'Minimalista',
   montarSlide(slide: SlideRico, ctx: ContextoSlide) {
+    if (ctx.pessoas?.length) return slideComPessoas(slide, ctx, cores.ciano);
     if (ctx.foto) return slideComFoto(slide, ctx, cores.ciano);
     const capa = slide.tipo === 'capa';
     const fundo = capa ? cores.tinta : cores.branco;

@@ -1,4 +1,4 @@
-import { cores, el, fundoTexturizado, marca, numeroPagina, rodapeCapa, slideComFoto, type ContextoSlide, type SlideRico, type Template } from '../base';
+import { cores, el, fundoTexturizado, marca, numeroPagina, rodapeCapa, slideComFoto, slideComPessoas, type ContextoSlide, type SlideRico, type Template } from '../base';
 import { FONTE_CORPO, FONTE_TITULO, LADO } from '../tema-c2ai';
 
 /**
@@ -11,6 +11,7 @@ export const bold: Template = {
   id: 'bold',
   nome: 'Bold',
   montarSlide(slide: SlideRico, ctx: ContextoSlide) {
+    if (ctx.pessoas?.length) return slideComPessoas(slide, ctx, cores.ciano);
     if (ctx.foto) return slideComFoto(slide, ctx, cores.ciano);
     const corpo = slide.corpo ?? slide.subtitulo;
     const filhosCentro: ReturnType<typeof el>[] = [];

@@ -168,6 +168,28 @@ describe('PaginaConteudo', () => {
     });
   });
 
+  it('limpa a grade de pessoas de um slide (PATCH pessoas vazio)', async () => {
+    const semGrade = { id: 's1', ordem: 0, tipo: 'capa', titulo: 'Edge AI', subtitulo: '', imagemUrl: '/conteudo/slides/s1/imagem' };
+    apiFetchMock
+      .mockResolvedValueOnce([]) // carga inicial
+      .mockResolvedValueOnce(carrossel) // POST gerar
+      .mockResolvedValueOnce([]) // recarga
+      .mockResolvedValueOnce(semGrade); // PATCH pessoas
+    render(<PaginaConteudo />);
+    await screen.findByText(/Nenhum carrossel ainda/);
+    fireEvent.change(screen.getByLabelText('Tema do carrossel'), { target: { value: 'Edge AI' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar carrossel' }));
+    await screen.findByText('Slide 1 de 3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar grade' }));
+    await waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith('/conteudo/slides/s1/pessoas', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ pessoas: [] }),
+      }));
+    });
+  });
+
   it('copia a legenda com as hashtags', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

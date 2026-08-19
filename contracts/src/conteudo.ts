@@ -112,6 +112,17 @@ export type FotoNoSlide = z.infer<typeof fotoNoSlide>;
 export const mudancaEstilo = z.object({ estilo: estiloCarrossel });
 export type MudancaEstilo = z.infer<typeof mudancaEstilo>;
 
+/** Uma pessoa numa grade: foto (idealmente já recortada) + nome. */
+export const pessoaSlide = z.object({
+  dataUri: z.string().startsWith('data:image/'),
+  nome: z.string().trim().min(1).max(40),
+});
+export type PessoaSlide = z.infer<typeof pessoaSlide>;
+
+/** Define (ou limpa, com lista vazia) a grade de pessoas de um slide; re-renderiza. */
+export const pessoasNoSlide = z.object({ pessoas: z.array(pessoaSlide).max(9) });
+export type PessoasNoSlide = z.infer<typeof pessoasNoSlide>;
+
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
   id: z.string().uuid(),

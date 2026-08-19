@@ -21,8 +21,13 @@ export type SlideRico = SlidePlanejado;
 /** Foto já tratada (realce + remoção de fundo quando ligados), pronta para compor. */
 export type FotoSlide = { dataUri: string; recortada: boolean };
 
-/** Posição do slide no carrossel + foto opcional + logos de parceiros (carrossel-level). */
-export type ContextoSlide = { indice: number; total: number; foto?: FotoSlide; logos?: string[] };
+/** Uma pessoa numa grade (post tipo "aprovados"): foto recortada + nome. */
+export type PessoaSlide = { dataUri: string; nome: string };
+
+/** Posição do slide + foto OU grade de pessoas + logos de parceiros (carrossel-level). */
+export type ContextoSlide = {
+  indice: number; total: number; foto?: FotoSlide; pessoas?: PessoaSlide[]; logos?: string[];
+};
 
 export type Estilo = Record<string, unknown>;
 export type Elemento = { type: string; props: { style: Estilo; children?: unknown } };
@@ -181,6 +186,47 @@ export function slideComFotoRecortada(slide: SlideRico, ctx: ContextoSlide, acce
       el('div', { display: 'flex', flexDirection: 'column', gap: 24, maxWidth: Math.round(LADO * 0.54) }, bloco),
       rodape('rgba(255,255,255,0.82)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
     ]),
+  ]);
+}
+
+/**
+ * Composição de GRADE DE PESSOAS (post tipo "aprovados"): retratos recortados em
+ * círculos com o nome embaixo, numa grade centralizada sobre o fundo rico, com a
+ * marca + filete + título no topo — no espírito das referências acadêmicas.
+ */
+export function slideComPessoas(slide: SlideRico, ctx: ContextoSlide, accent: string): Elemento {
+  const pessoas = ctx.pessoas!;
+  const porLinha = pessoas.length <= 4 ? 2 : 3;
+  const d = porLinha === 2 ? 300 : 220;
+  const tamNome = porLinha === 2 ? 34 : 28;
+  const celulas = pessoas.map((p) => el('div', {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: d,
+  }, [
+    img(p.dataUri, {
+      width: d, height: d, borderRadius: 999, objectFit: 'cover',
+      border: `3px solid ${accent}`, backgroundColor: 'rgba(255,255,255,0.06)',
+    }),
+    el('div', {
+      fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: tamNome, color: cores.branco,
+      display: 'flex', textAlign: 'center',
+    }, p.nome),
+  ]));
+
+  return el('div', {
+    width: LADO, height: LADO, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+    padding: 80, color: cores.branco, fontFamily: FONTE_CORPO, backgroundColor: cores.tintaFundo,
+    ...fundoTexturizado(`linear-gradient(160deg, ${cores.tinta} 0%, ${cores.tintaFundo} 100%)`),
+  }, [
+    el('div', { display: 'flex', flexDirection: 'column', gap: 18 }, [
+      marca(cores.branco, 44, accent),
+      el('div', { width: 96, height: 10, borderRadius: 999, backgroundColor: accent, display: 'flex', marginTop: 8 }),
+      el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 64, lineHeight: 1.05, display: 'flex' }, slide.titulo),
+    ]),
+    el('div', {
+      display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start',
+      gap: 40, width: LADO - 160,
+    }, celulas),
+    rodape('rgba(255,255,255,0.82)', slide.tipo === 'capa' ? 'Conect2AI' : numeroPagina(ctx)),
   ]);
 }
 

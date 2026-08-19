@@ -5,8 +5,8 @@ import { usuarios, vinculos } from '../src/core/db/schema/acesso';
 import { geradorFake } from '../src/modulos/conteudo/gerador/fake';
 import { slides } from '../src/modulos/conteudo/db/schema/conteudo';
 import {
-  apagarCarrossel, criarCarrossel, definirFotoDoSlide, editarSlide, imagemDoSlide,
-  listarCarrosseis, mudarEstiloDoCarrossel, obterCarrossel, regenerarSlide,
+  apagarCarrossel, criarCarrossel, definirFotoDoSlide, definirPessoasDoSlide, editarSlide,
+  imagemDoSlide, listarCarrosseis, mudarEstiloDoCarrossel, obterCarrossel, regenerarSlide,
 } from '../src/modulos/conteudo/servico';
 import { semearDemonstracao } from '../src/seed/demonstracao';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -209,6 +209,31 @@ describe('servico de conteudo', () => {
     const caio = await autor('supervisor@conect2ai.com');
     const resp = await criar(ana);
     expect(await mudarEstiloDoCarrossel(resp.id, caio.id, 'bold')).toBeNull();
+  }, 30_000);
+
+  it('define e depois limpa a grade de pessoas de um slide (dono)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const resp = await criar(ana, 'Aprovados', 4, 'editorial');
+    const alvo = resp.slides[1]!;
+    const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const comGrade = await definirPessoasDoSlide(alvo.id, ana.id, [
+      { dataUri: foto, nome: 'Ana Sousa' }, { dataUri: foto, nome: 'Caio Lima' },
+    ]);
+    expect(comGrade?.id).toBe(alvo.id);
+    expect((await imagemDoSlide(alvo.id, ana.id))?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+
+    const vazio = await definirPessoasDoSlide(alvo.id, ana.id, []);
+    expect(vazio?.id).toBe(alvo.id);
+    expect((await imagemDoSlide(alvo.id, ana.id))?.bytes.subarray(0, 4).equals(ASSINATURA_PNG)).toBe(true);
+  }, 30_000);
+
+  it('nao define pessoas em slide de outro autor (null)', async () => {
+    await semearDemonstracao();
+    const ana = await autor('aluno@conect2ai.com');
+    const caio = await autor('supervisor@conect2ai.com');
+    const resp = await criar(ana);
+    expect(await definirPessoasDoSlide(resp.slides[0]!.id, caio.id, [])).toBeNull();
   }, 30_000);
 
   it('apaga o proprio carrossel e some com os slides (cascade)', async () => {
