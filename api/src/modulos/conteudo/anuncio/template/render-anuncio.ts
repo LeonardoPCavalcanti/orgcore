@@ -75,21 +75,20 @@ function badgeEvento(logo: string): Elemento {
  * empilhados à direita — o formato do "07 / DE AGOSTO / Às 9:00 horas / …" das
  * referências. Cada campo é opcional; só renderiza o que existe.
  */
+/**
+ * Bloco de agenda no TOPO-ESQUERDA (defesa): "07" enorme (Anton), o mês abaixo e os
+ * detalhes (horário/local/online) empilhados — exatamente o formato das referências.
+ */
 function blocoAgenda(a: Agenda): Elemento {
-  const linhasDir = [a.hora, a.local, a.online].filter(Boolean) as string[];
-  const filhos: Elemento[] = [];
-  if (a.dia || a.mes) {
-    filhos.push(el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center' }, [
-      ...(a.dia ? [el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 72, lineHeight: 1, color: cores.branco, display: 'flex' }, a.dia)] : []),
-      ...(a.mes ? [el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 22, letterSpacing: 2, color: cores.ciano, display: 'flex' }, a.mes.toUpperCase())] : []),
-    ]));
-  }
-  if (linhasDir.length) {
-    filhos.push(el('div', { width: 3, alignSelf: 'stretch', backgroundColor: cores.cianoProfundo, display: 'flex' }));
-    filhos.push(el('div', { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 },
-      linhasDir.map((t) => el('div', { fontFamily: FONTE_CORPO, fontWeight: 600, fontSize: 24, color: cores.neutroClaro, display: 'flex' }, t))));
-  }
-  return el('div', { display: 'flex', alignItems: 'center', gap: 20 }, filhos);
+  const detalhes = [a.hora, a.local, a.online].filter(Boolean) as string[];
+  return el('div', { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }, [
+    ...(a.dia ? [el('div', { fontFamily: FONTE_DISPLAY, fontSize: 78, lineHeight: 0.92, color: cores.branco, display: 'flex' }, a.dia)] : []),
+    ...(a.mes ? [el('div', { fontFamily: FONTE_TITULO, fontWeight: 700, fontSize: 22, letterSpacing: 2, color: cores.branco, display: 'flex' }, a.mes.toUpperCase())] : []),
+    ...(detalhes.length
+      ? [el('div', { display: 'flex', flexDirection: 'column', gap: 3, marginTop: 10 },
+          detalhes.map((t) => el('div', { fontFamily: FONTE_CORPO, fontWeight: 600, fontSize: 22, color: cores.neutroClaro, display: 'flex' }, t)))]
+      : []),
+  ]);
 }
 
 /**
@@ -99,12 +98,13 @@ function blocoAgenda(a: Agenda): Elemento {
  *  - foto sem remoção de fundo: headshot dentro da moldura circular com anel ciano;
  *  - sem foto: as iniciais em ciano sobre tinta, dentro da moldura circular.
  */
-function retrato(nome: string, foto: FotoPessoa | null, diametro: number): Elemento {
+function retrato(nome: string, foto: FotoPessoa | null, diametro: number, cutW: number, cutH: number): Elemento {
   if (foto?.recortado) {
+    // Silhueta GRANDE, ancorada na base — como as pessoas dominando o meio do card
+    // nas referências. objectFit contain preserva a proporção; alinha embaixo.
     return el('div', {
-      width: diametro + 20, height: diametro + 40, display: 'flex',
-      alignItems: 'flex-end', justifyContent: 'center',
-    }, [img(foto.dataUri, { width: diametro + 20, height: diametro + 40, objectFit: 'contain' })]);
+      width: cutW, height: cutH, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }, [img(foto.dataUri, { width: cutW, height: cutH, objectFit: 'contain', objectPosition: 'bottom' })]);
   }
   const moldura: Estilo = {
     width: diametro, height: diametro, borderRadius: 999, display: 'flex',
@@ -124,12 +124,15 @@ function retrato(nome: string, foto: FotoPessoa | null, diametro: number): Eleme
  * Retrato + o CARGO em cima (Space Grotesk, negrito) e o NOME embaixo (Inter) — a
  * ordem das referências ("Orientadora" / "Patrícia Endo"). Sem papel, mostra só o nome.
  */
-function celulaPessoa(nome: string, papel: string, foto: FotoPessoa | null, diametro: number): Elemento {
+function celulaPessoa(
+  nome: string, papel: string, foto: FotoPessoa | null, diametro: number, cutW: number, cutH: number,
+): Elemento {
   const nomeFonte = diametro >= 180 ? 26 : 22;
+  const largura = foto?.recortado ? cutW : diametro + 32;
   return el('div', {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: diametro + 32,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: largura,
   }, [
-    retrato(nome, foto, diametro),
+    retrato(nome, foto, diametro, cutW, cutH),
     el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }, [
       ...(papel
         ? [el('div', {
@@ -154,12 +157,19 @@ function fileiras<T>(itens: T[]): T[][] {
 
 function gradePessoas(plano: PlanoAnuncio, fotos: (FotoPessoa | null)[]): Elemento {
   const total = plano.pessoas.length;
-  const diametro = total <= 2 ? 220 : total <= 4 ? 180 : 150;
-  const linhas = fileiras(plano.pessoas.map((p, i) => celulaPessoa(p.nome, p.papel, fotos[i] ?? null, diametro)));
+  // Fotos recortadas ficam GRANDES (dominam o meio, como as refs); círculo/iniciais
+  // acompanham. Quanto mais pessoas, menores. `gapLinha` aperta as silhuetas p/ ficarem
+  // lado a lado (quase encostando), como na defesa de mestrado.
+  const algumaRecortada = fotos.some((f) => f?.recortado);
+  const diametro = total <= 2 ? 300 : total <= 4 ? 210 : 165;
+  const cutW = total <= 2 ? 400 : total <= 4 ? 280 : 215;
+  const cutH = total <= 2 ? 540 : total <= 4 ? 380 : 300;
+  const gapLinha = algumaRecortada ? (total <= 2 ? 8 : 16) : 28;
+  const linhas = fileiras(plano.pessoas.map((p, i) => celulaPessoa(p.nome, p.papel, fotos[i] ?? null, diametro, cutW, cutH)));
   return el('div', {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, flexGrow: 1, justifyContent: 'center',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, flexGrow: 1, justifyContent: 'center',
   }, linhas.map((linha) => el('div', {
-    display: 'flex', flexDirection: 'row', gap: 28, justifyContent: 'center', flexWrap: 'wrap',
+    display: 'flex', flexDirection: 'row', gap: gapLinha, justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'wrap',
   }, linha)));
 }
 
@@ -262,6 +272,7 @@ function raiz(
   plano: PlanoAnuncio, fotos: (FotoPessoa | null)[], grupos: GrupoTabela[], logos: string[],
   logosPosicao: 'topo' | 'rodape', extras: ExtrasAnuncio,
 ): Elemento {
+  const temAgenda = agendaTemConteudo(extras.agenda);
   const rodapeBlocos: Elemento[] = [
     headline(plano.headline.prefixo, plano.headline.destaque),
     el('div', {
@@ -269,20 +280,26 @@ function raiz(
       lineHeight: 1.28, display: 'flex',
     }, plano.titulo),
   ];
-  // Agenda rica (dia/mês/hora/local/online) tem prioridade sobre o selo simples legado.
-  if (agendaTemConteudo(extras.agenda)) rodapeBlocos.push(blocoAgenda(extras.agenda));
-  else if (plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
+  if (!temAgenda && plano.dataRotulo) rodapeBlocos.push(seloData(plano.dataRotulo, plano.localRotulo));
   if (logos.length > 0 && logosPosicao === 'rodape') rodapeBlocos.push(faixaLogos(logos));
 
-  const topo: Elemento[] = [marca()];
-  // Logo do evento (imagem) tem prioridade sobre a pílula de texto do veículo.
-  if (extras.eventoLogo) topo.push(badgeEvento(extras.eventoLogo));
-  else if (plano.veiculo) topo.push(seloVeiculo(plano.veiculo));
-  if (logos.length > 0 && logosPosicao === 'topo') topo.push(faixaLogos(logos));
+  const badge: Elemento[] = extras.eventoLogo
+    ? [badgeEvento(extras.eventoLogo)]
+    : (plano.veiculo ? [seloVeiculo(plano.veiculo)] : []);
+  const logosTopo: Elemento[] = logos.length > 0 && logosPosicao === 'topo' ? [faixaLogos(logos)] : [];
+
+  // Top-band igual às refs: com AGENDA, ela vai à esquerda e marca+logos à direita;
+  // sem agenda, tudo centralizado (marca, badge do evento, faixa de logos).
+  const topBand = temAgenda
+    ? el('div', { display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }, [
+        blocoAgenda(extras.agenda!),
+        el('div', { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 16 }, [marca(), ...logosTopo, ...badge]),
+      ])
+    : el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }, [marca(), ...badge, ...logosTopo]);
 
   return el('div', {
     width: RETRATO.largura, height: RETRATO.altura, display: 'flex', flexDirection: 'column',
-    padding: 80, gap: 30,
+    padding: 80, gap: 24,
     // Fundo VIVO (equivalente do vermelho texturizado das refs, na paleta Conect2AI):
     // glow ciano forte no topo, acento teal atrás das pessoas, aprofundamento no rodapé
     // e base teal→quase-preto. Dá profundidade/energia em vez do dark chapado.
@@ -294,7 +311,7 @@ function raiz(
       `linear-gradient(158deg, #123640 0%, #0b1c23 52%, #06090c 100%)`,
     ].join(', '),
   }, [
-    el('div', { display: 'flex', flexDirection: 'column', gap: 24 }, topo),
+    topBand,
     // Variante tabela (candidatos) mostra os grupos; caso contrário, a grade de pessoas.
     grupos.length > 0 ? tabelas(grupos) : gradePessoas(plano, fotos),
     el('div', { display: 'flex', flexDirection: 'column', gap: 22 }, rodapeBlocos),
