@@ -1,24 +1,24 @@
 import { z } from 'zod';
 
 export const cargoDisponivel = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   nome: z.string(),
   nivel: z.number().int(),
 });
 
 export const pessoaNaUnidade = z.object({
-  vinculoId: z.string().uuid(),
-  usuarioId: z.string().uuid(),
+  vinculoId: z.guid(),
+  usuarioId: z.guid(),
   nome: z.string(),
   email: z.string(),
   unidadeId: z.number().int(),
-  cargoId: z.string().uuid(),
+  cargoId: z.guid(),
   cargoNome: z.string(),
   principal: z.boolean(),
 });
 
 export const entradaAlterarCargo = z.object({
-  cargoId: z.string().uuid(),
+  cargoId: z.guid(),
 });
 
 export type CargoDisponivel = z.infer<typeof cargoDisponivel>;

@@ -16,7 +16,7 @@ import { definirRestricao, listarRestricoes, provedoresPermitidosParaUsuario } f
 // Anexos (imagens e documentos) chegam como base64 no JSON; ~20MB cobre PDFs/docs + imagens.
 const LIMITE_CORPO = 20 * 1024 * 1024;
 
-const idDeUuid = z.string().uuid();
+const idDeUuid = z.guid();
 const idDaRota = (req: { params: unknown }) => idDeUuid.parse((req.params as { id?: string }).id);
 
 export const rotasAssistente: DefinicaoRota[] = [

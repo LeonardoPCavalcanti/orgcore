@@ -2,7 +2,7 @@ import { entradaAlterarCargo } from '@4med/contracts';
 import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { registrarAuditoria } from '../auditoria/registro';
-import { db } from '../db/client';
+import { db, erroDoBanco } from '../db/client';
 import { unidades } from '../db/schema/organograma';
 import { ErroHttp, naoEncontrado, semPermissao } from '../erros';
 import type { DefinicaoRota } from '../modulos/tipos';
@@ -30,7 +30,7 @@ const idDeUnidade = z.coerce.number().int().positive();
 
 // `:id` do vínculo é uma coluna `uuid`; malformado vira 404 (o que não pode ser
 // servido), não um cast cru virando 500.
-const idDeVinculo = z.string().uuid();
+const idDeVinculo = z.guid();
 
 export const rotasOrganograma: DefinicaoRota[] = [
   {
@@ -126,7 +126,8 @@ export const rotasOrganograma: DefinicaoRota[] = [
       try {
         movida = await moverUnidade(id.data, paiId);
       } catch (erro) {
-        const mensagem = erro instanceof Error ? erro.message : '';
+        const original = erroDoBanco(erro);
+        const mensagem = original instanceof Error ? original.message : '';
         // O ciclo e a existência do pai são garantidos por gatilho no banco
         // (migration 0001), que lança em português; `moverUnidade` lança a mesma
         // mensagem quando a própria unidade não existe. Traduzimos para respostas

@@ -58,7 +58,7 @@ const origemDe = (req: { ip: string; headers: Record<string, unknown> }) => ({
 // `:id` vem da URL e é interpolado numa coluna `uuid`: um valor malformado faria o
 // Postgres recusar o cast com erro cru, que o setErrorHandler traduziria em 500.
 // Sessão que não é do usuário e sessão que não existe têm a mesma resposta, 404.
-const idDeSessao = z.string().uuid();
+const idDeSessao = z.guid();
 
 export const rotasAuth: DefinicaoRota[] = [
   {

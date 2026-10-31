@@ -65,7 +65,7 @@ export type SlidePlanejado = PlanoCarrossel['slides'][number];
  * dedicada (`imagemUrl`), nunca embutida no JSON — `bytea` não é serializado.
  */
 export const slideResposta = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   ordem: z.number().int(),
   tipo: tipoSlide,
   titulo: z.string(),
@@ -125,7 +125,7 @@ export type PessoasNoSlide = z.infer<typeof pessoasNoSlide>;
 
 /** Resumo para a listagem: só metadados, sem o array de slides nem imagens. */
 export const carrosselResumo = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   tema: z.string(),
   estilo: estiloCarrossel.default('editorial'),
   criadoEm: z.string(),

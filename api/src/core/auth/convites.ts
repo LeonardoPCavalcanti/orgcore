@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
-import { db } from '../db/client';
+import { db, erroDoBanco } from '../db/client';
 import { dataDeHoje } from '../db/fuso';
 import { usuarios, vinculos } from '../db/schema/acesso';
 import { convites } from '../db/schema/auth';
@@ -23,8 +23,9 @@ const hashToken = (token: string): string =>
  * licença para importar (só `core/db/client.ts` pode importar `pg`).
  */
 function ehViolacaoDeRestricaoUnica(erro: unknown): boolean {
-  if (typeof erro !== 'object' || erro === null) return false;
-  return Reflect.get(erro, 'code') === CODIGO_PG_VIOLACAO_UNICA;
+  const original = erroDoBanco(erro);
+  if (typeof original !== 'object' || original === null) return false;
+  return Reflect.get(original, 'code') === CODIGO_PG_VIOLACAO_UNICA;
 }
 
 export async function criarConvite(entrada: {

@@ -27,7 +27,7 @@ const LIMITE_CORPO = 12 * 1024 * 1024;
 
 // `:id` chega como texto; um valor que não seja UUID não pode apontar para nenhum
 // registro, então vira 404 (regra do projeto) — nunca um erro cru de cast do Postgres.
-const idDeUuid = z.string().uuid();
+const idDeUuid = z.guid();
 
 export const rotasConteudo: DefinicaoRota[] = [
   {
