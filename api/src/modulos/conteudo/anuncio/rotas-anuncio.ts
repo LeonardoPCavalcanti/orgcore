@@ -27,7 +27,7 @@ const realcarFoto = (): typeof melhoradorPassthrough =>
 // ~12MB cobre até 10 fotos com folga (o serviço ainda limita cada foto por tamanho).
 const LIMITE_CORPO = 12 * 1024 * 1024;
 
-const idDeUuid = z.string().uuid();
+const idDeUuid = z.guid();
 
 export const rotasAnuncio: DefinicaoRota[] = [
   {

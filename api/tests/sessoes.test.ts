@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { erroDoBanco } from '../src/core/db/client';
 import { eq } from 'drizzle-orm';
 import argon2 from 'argon2';
 import { limparBanco, prepararBanco } from './ajuda/banco';
@@ -223,7 +224,9 @@ describe('sessoes', () => {
       mfaPendente: true,
     });
 
-    await expect(inserirSegunda).rejects.toThrow(/idx_sessoes_pendente_unica/);
+    // O drizzle embrulha o erro do Postgres; o nome do indice esta no erro original.
+    await expect(inserirSegunda).rejects.toSatisfy((e: unknown) =>
+      /idx_sessoes_pendente_unica/.test(String((erroDoBanco(e) as Error).message)));
 
     // Sessao NAO pendente da mesma conta continua livre: o indice e parcial.
     await expect(criarSessao(c.analista.id, origem)).resolves.toBeDefined();

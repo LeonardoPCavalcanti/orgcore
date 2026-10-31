@@ -9,7 +9,7 @@ export const papelChat = z.enum(['user', 'assistant']);
 export type PapelChat = z.infer<typeof papelChat>;
 
 export const mensagemChat = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   papel: papelChat,
   conteudo: z.string(),
   imagens: z.array(z.string()),
@@ -22,7 +22,7 @@ export const mensagemChat = z.object({
 export type MensagemChat = z.infer<typeof mensagemChat>;
 
 export const conversaResumo = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   titulo: z.string(),
   atualizadoEm: z.string(),
 });

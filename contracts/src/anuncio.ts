@@ -124,8 +124,8 @@ export type FeedbackAnuncio = z.infer<typeof feedbackAnuncio>;
 
 /** Um evento de avaliação já registrado (devolvido pelo PATCH de feedback). */
 export const avaliacaoResposta = z.object({
-  id: z.string().uuid(),
-  anuncioId: z.string().uuid(),
+  id: z.guid(),
+  anuncioId: z.guid(),
   avaliacao: avaliacaoAnuncio,
   nota: z.number().int().nullable(),
   comentario: z.string().nullable(),
@@ -138,7 +138,7 @@ export type AvaliacaoResposta = z.infer<typeof avaliacaoResposta>;
  * por rota binária dedicada (`fotoUrl`), nunca embutida no JSON.
  */
 export const pessoaResposta = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   ordem: z.number().int(),
   nome: z.string(),
   papel: z.string(),
@@ -148,7 +148,7 @@ export type PessoaResposta = z.infer<typeof pessoaResposta>;
 
 /** Resumo para a listagem: só metadados, sem pessoas nem imagem. */
 export const anuncioResumo = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   tipo: tipoAnuncio,
   titulo: z.string(),
   criadoEm: z.string(),

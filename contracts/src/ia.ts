@@ -18,7 +18,7 @@ export type ProvedorStatus = z.infer<typeof provedorStatus>;
 
 /** Uma linha do ranking "quem consome mais IA". */
 export const consumoUsuario = z.object({
-  usuarioId: z.string().uuid(),
+  usuarioId: z.guid(),
   nome: z.string(),
   email: z.string(),
   requisicoes: z.number(),
@@ -37,7 +37,7 @@ export type ProvedorCatalogo = z.infer<typeof provedorCatalogo>;
 export const restricoesIa = z.object({
   provedores: z.array(provedorCatalogo),
   porCargo: z.array(z.object({
-    cargoId: z.string().uuid(),
+    cargoId: z.guid(),
     provedores: z.array(z.string()),
   })),
 });

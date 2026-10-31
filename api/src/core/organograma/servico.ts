@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, isNull, like, lte, or, sql } from 'drizzle-orm';
-import { db } from '../db/client';
+import { db, erroDoBanco } from '../db/client';
 import { cargos, usuarios, vinculos } from '../db/schema/acesso';
 import { dataDeHoje } from '../db/fuso';
 import { unidades, type TipoUnidade, type Unidade } from '../db/schema/organograma';
@@ -13,10 +13,17 @@ export async function criarUnidade(entrada: {
 }
 
 export async function moverUnidade(id: number, novoPaiId: number | null): Promise<Unidade> {
-  const [movida] = await db.update(unidades)
-    .set({ paiId: novoPaiId })
-    .where(eq(unidades.id, id))
-    .returning();
+  let movida: Unidade | undefined;
+  try {
+    [movida] = await db.update(unidades)
+      .set({ paiId: novoPaiId })
+      .where(eq(unidades.id, id))
+      .returning();
+  } catch (erro) {
+    // O gatilho do banco (ciclo, pai inexistente) fala em portugues; quem chama
+    // recebe a mensagem dele, nao o embrulho "Failed query" do drizzle.
+    throw erroDoBanco(erro);
+  }
   if (!movida) throw new Error('unidade nao encontrada');
   return movida;
 }

@@ -24,7 +24,7 @@ export const entradaConvite = z.object({
   email: z.string().email(),
   nome: z.string().min(2),
   unidadeId: z.number().int().positive(),
-  cargoId: z.string().uuid(),
+  cargoId: z.guid(),
 });
 
 export const entradaAceitarConvite = z.object({
@@ -39,7 +39,7 @@ export const itemMenu = z.object({
 });
 
 export const respostaEu = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   nome: z.string(),
   email: z.string(),
   permissoes: z.record(z.string(), alcance),
