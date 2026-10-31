@@ -9,7 +9,7 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [desafioMfa, setDesafioMfa] = useState(false);
-  const telaRef = useRef<HTMLDivElement>(null);
+  const telaRef = useRef<HTMLElement>(null);
 
   // Foco de luz que segue o cursor: atualiza duas variáveis CSS direto no nó (sem
   // re-render), e o brilho renderizado ATRÁS do cartão acende também o vidro por onde
@@ -53,7 +53,7 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
   }
 
   return (
-    <div className="login-tela" ref={telaRef}>
+    <main className="login-tela" ref={telaRef}>
       <div className="card login-card">
         <div className="card-corpo">
           <div className="login-marca"><Logo size={40} /></div>
@@ -81,6 +81,6 @@ export function PaginaLogin({ aoEntrar }: { aoEntrar: () => void }) {
           </form>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -56,7 +56,7 @@ export function Layout({ children }: { children: ReactNode }) {
             Demonstração visual — dados de exemplo, sem backend. As ações não são salvas.
           </div>
         )}
-        <div className="pagina">{children}</div>
+        <main className="pagina">{children}</main>
       </div>
     </div>
   );
